@@ -1,0 +1,4 @@
+*.log
+coverage.out
+coverage_badge_report.out
+coverage.html

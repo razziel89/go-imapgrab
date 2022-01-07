@@ -1,0 +1,43 @@
+linters-settings:
+  funlen:
+    lines: 60
+    statements: 40
+
+  goheader:
+    template-path: .goheader.template
+
+  lll:
+    line-length: 100
+    tab-width: 4
+
+linters:
+  disable-all: true
+  enable:
+    - deadcode
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - structcheck
+    - typecheck
+    - unused
+    - varcheck
+    - exhaustive
+    - funlen
+    - goconst
+    - goheader
+    - goimports
+    - gomnd
+    - gosec
+    - importas
+    - lll
+    - misspell
+    - nestif
+    - prealloc
+    - tagliatelle
+    - revive
+    - dupl
+    - makezero
+    - stylecheck
+  fast: false
