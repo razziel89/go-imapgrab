@@ -83,7 +83,7 @@ func getNthMessage(
 	if index <= 0 {
 		return nil, fmt.Errorf("message index must be positive")
 	}
-	emailIdx := int(mbox.Messages) - index
+	emailIdx := int(mbox.Messages) - index + 1
 	if emailIdx < 0 {
 		err := fmt.Errorf("cannot access %d-th recent email, have only %d", index, mbox.Messages)
 		return nil, err
@@ -92,11 +92,26 @@ func getNthMessage(
 	// Emails will be retrieved via a SeqSet, which can contain a sequential set of messages. Here,
 	// we retrieve only one.
 	seqset := new(imap.SeqSet)
-	seqset.AddRange(uint32(emailIdx), uint32(emailIdx+1))
+	seqset.AddRange(uint32(emailIdx), uint32(emailIdx))
 
 	messages := make(chan *imap.Message, 1)
 	go func() {
-		err = imapClient.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope}, messages)
+		err = imapClient.Fetch(
+			seqset,
+			[]imap.FetchItem{
+				imap.FetchBody,
+				imap.FetchBodyStructure,
+				imap.FetchEnvelope,
+				imap.FetchFlags,
+				imap.FetchInternalDate,
+				imap.FetchRFC822,
+				imap.FetchRFC822Header,
+				imap.FetchRFC822Size,
+				imap.FetchRFC822Text,
+				imap.FetchUid,
+			},
+			messages,
+		)
 	}()
 	for m := range messages {
 		if message == nil {

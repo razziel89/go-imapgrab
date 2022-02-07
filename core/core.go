@@ -20,6 +20,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/emersion/go-imap"
 )
@@ -74,6 +75,35 @@ func envelopeToEmail(env *imap.Envelope) EmailContent {
 	}
 }
 
+// func bodystructureToString(structure *imap.BodyStructure) string {
+// 	if structure == nil {
+// 		logInfo("cannot convert nil body structure to string")
+// 		return ""
+// 	}
+// 	fields := structure.Format()
+// 	strFields := make([]string, 0, len(fields))
+// 	for _, field := range fields {
+// 		if field != nil {
+// 			strFields = append(strFields, fmt.Sprint(field))
+// 		}
+// 	}
+// 	return strings.Join(strFields, ", ")
+// }
+//
+// func literalToString(lit imap.Literal) string {
+// 	content, _ := io.ReadAll(lit)
+// 	return string(content)
+// }
+//
+// func bodyToString(body map[*imap.BodySectionName]imap.Literal) string {
+// 	strFields := make([]string, 0, len(body))
+// 	logInfo(fmt.Sprintf("converting %d body fields", len(body)))
+// 	for _, lit := range body {
+// 		strFields = append(strFields, literalToString(lit))
+// 	}
+// 	return strings.Join(strFields, ", ")
+// }
+
 // GetAllFolders retrieves a list of all monitors in a mailbox.
 func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 	imapClient, err := authenticateClient(cfg)
@@ -116,5 +146,17 @@ func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err e
 		return
 	}
 
-	return fmt.Sprintf("%v", envelopeToEmail(msg.Envelope)), nil
+	// body := bodystructureToString(msg.BodyStructure)
+	// if len(body) == 0 {
+	// 	body = bodyToString(msg.Body)
+	// }
+
+	fields := msg.Format()
+	strFields := make([]string, 0, len(fields))
+	for _, field := range fields {
+		strFields = append(strFields, fmt.Sprint(field))
+	}
+	body := strings.Join(strFields, "\n\n=====================\n\n")
+
+	return fmt.Sprintf("%+v\n%s", envelopeToEmail(msg.Envelope), body), nil
 }
