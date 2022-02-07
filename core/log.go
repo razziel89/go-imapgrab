@@ -23,7 +23,8 @@ import (
 
 var verbose = false
 
-// SetLogLevel sets the log level for core functionality.
+// SetVerboseLogs sets the log level for core functionality to verbose if passed true and to less
+// verbose if passed false.
 func SetVerboseLogs(verb bool) {
 	verbose = verb
 }
