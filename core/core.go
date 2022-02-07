@@ -18,6 +18,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Package core provides central functionality for backing up IMAP mailboxes.
 package core
 
+import (
+	"fmt"
+
+	"github.com/emersion/go-imap"
+)
+
 const (
 	folderListBuffer = 10
 )
@@ -28,6 +34,44 @@ type IMAPConfig struct {
 	Port     int
 	User     string
 	Password string
+}
+
+// EmailContent contains the parsed contents of an email in an easily viewable format.
+type EmailContent struct {
+	Date      string
+	Subject   string
+	From      []string
+	Sender    []string
+	ReplyTo   []string
+	To        []string
+	Cc        []string
+	Bcc       []string
+	InReplyTo string
+	MessageID string
+}
+
+func addsToStrings(adds []*imap.Address) []string {
+	result := make([]string, 0, len(adds))
+	for _, address := range adds {
+		converted := address.MailboxName + "@" + address.HostName
+		result = append(result, converted)
+	}
+	return result
+}
+
+func envelopeToEmail(env *imap.Envelope) EmailContent {
+	return EmailContent{
+		Date:      env.Date.String(),
+		Subject:   env.Subject,
+		From:      addsToStrings(env.From),
+		Sender:    addsToStrings(env.Sender),
+		ReplyTo:   addsToStrings(env.ReplyTo),
+		To:        addsToStrings(env.To),
+		Cc:        addsToStrings(env.Cc),
+		Bcc:       addsToStrings(env.Bcc),
+		InReplyTo: env.InReplyTo,
+		MessageID: env.MessageId,
+	}
 }
 
 // GetAllFolders retrieves a list of all monitors in a mailbox.
@@ -45,4 +89,32 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 	}()
 
 	return getFolderList(imapClient)
+}
+
+// PrintEmail reads a single email with index `idx` (1 is most recent) from a single folder `folder`
+// and returns its content. This functionality will likely be removed later but it is useful for
+// development.
+func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err error) {
+	imapClient, err := authenticateClient(cfg)
+	if err != nil {
+		return
+	}
+	// Make sure to log out in the end if we logged in successfully.
+	defer func() {
+		// Don't overwrite the error if it has already been set.
+		if logoutErr := imapClient.Logout(); logoutErr != nil && err == nil {
+			err = logoutErr
+		}
+	}()
+
+	mbox, err := selectInbox(imapClient, folder)
+	if err != nil {
+		return
+	}
+	msg, err := getNthMessage(mbox, imapClient, index)
+	if err != nil {
+		return
+	}
+
+	return fmt.Sprintf("%v", envelopeToEmail(msg.Envelope)), nil
 }
