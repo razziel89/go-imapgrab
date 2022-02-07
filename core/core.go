@@ -18,13 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Package core provides central functionality for backing up IMAP mailboxes.
 package core
 
-import (
-	"fmt"
-
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/client"
-)
-
 const (
 	folderListBuffer = 10
 )
@@ -39,28 +32,10 @@ type IMAPConfig struct {
 
 // GetAllFolders retrieves a list of all monitors in a mailbox.
 func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
-	if len(cfg.Password) == 0 {
-		logError("empty password detected")
-		err = fmt.Errorf("password not set")
+	imapClient, err := authenticateClient(cfg)
+	if err != nil {
 		return
 	}
-
-	logInfo(fmt.Sprintf("connecting to server %s", cfg.Server))
-	serverWithPort := fmt.Sprintf("%s:%d", cfg.Server, cfg.Port)
-	var imapClient *client.Client
-	if imapClient, err = client.DialTLS(serverWithPort, nil); err != nil {
-		logError("cannot connect")
-		return
-	}
-	logInfo("connected")
-
-	logInfo(fmt.Sprintf("logging in as %s with provided password", cfg.User))
-	if err = imapClient.Login(cfg.User, cfg.Password); err != nil {
-		logError("cannot log in")
-		return
-	}
-	logInfo("logged in")
-
 	// Make sure to log out in the end if we logged in successfully.
 	defer func() {
 		// Don't overwrite the error if it has already been set.
@@ -69,14 +44,5 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 		}
 	}()
 
-	logInfo("retrieving folders")
-	mailboxes := make(chan *imap.MailboxInfo, folderListBuffer)
-	go func() {
-		err = imapClient.List("", "*", mailboxes)
-	}()
-	for m := range mailboxes {
-		folders = append(folders, m.Name)
-	}
-	logInfo("retrieved folders")
-	return
+	return getFolderList(imapClient)
 }

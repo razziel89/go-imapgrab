@@ -19,12 +19,10 @@ package main
 
 import (
 	"log"
-
-	"github.com/razziel89/go-imapgrab/cli/cmd"
 )
 
 func main() {
-	if err := cmd.Execute(); err != nil {
+	if err := Execute(); err != nil {
 		log.Fatal(err.Error())
 	}
 }

@@ -15,7 +15,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package cmd
+package main
 
 import (
 	"fmt"
@@ -32,7 +32,7 @@ func init() {
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Print all folders in your inbox.",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		core.SetVerboseLogs(verbose)
 		cfg := core.IMAPConfig{
 			Server:   rootConf.server,
@@ -41,12 +41,15 @@ var listCmd = &cobra.Command{
 			Password: rootConf.password,
 		}
 		folders, err := core.GetAllFolders(cfg)
-		cobra.CheckErr(err)
+		if err != nil {
+			return err
+		}
 
 		sort.Strings(folders)
 
 		for _, folder := range folders {
 			fmt.Println(folder)
 		}
+		return nil
 	},
 }

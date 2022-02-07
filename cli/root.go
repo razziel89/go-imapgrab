@@ -15,14 +15,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package cmd
+package main
 
 import (
 	"log"
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -31,7 +30,6 @@ const (
 
 var (
 	verbose  bool
-	cfgFile  string
 	rootConf generalConfigT
 )
 
@@ -42,58 +40,37 @@ type generalConfigT struct {
 	password string
 }
 
+func logDebug(v ...interface{}) {
+	if verbose {
+		log.Println(v...)
+	}
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "imapgrab",
 	Short: "Backup your IMAP-based email accounts with ease.",
-	Run: func(cmd *cobra.Command, args []string) {
-		cobra.CheckErr(cmd.Help())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return cmd.Help()
 	},
 }
 
 // Execute executes the root command.
 func Execute() error {
+	initFlags()
 	return rootCmd.Execute()
 }
 
-func init() {
-	cobra.OnInitialize(initConfig)
+func initFlags() {
 	pflags := rootCmd.PersistentFlags()
 
-	pflags.StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/imapgrab.yaml)")
 	pflags.StringVarP(&rootConf.server, "server", "s", "", "address of imap server")
 	pflags.IntVarP(&rootConf.port, "port", "p", defaultPort, "login port for imap server")
 	pflags.StringVarP(&rootConf.username, "user", "u", "", "login user name")
 	pflags.BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
 	if password, found := os.LookupEnv("IGRAB_PASSWORD"); !found && verbose {
-		log.Println("warning: password not set via env var IGRAB_PASSWORD")
+		logDebug("warning: password not set via env var IGRAB_PASSWORD")
 	} else {
 		rootConf.password = password
-	}
-}
-
-func initConfig() {
-	if len(cfgFile) != 0 {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
-		// Search for default imapgrab config file.
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName("imapgrab")
-	}
-
-	if err := viper.ReadInConfig(); err == nil {
-		if verbose {
-			log.Println("using config file:", viper.ConfigFileUsed())
-		}
-	} else {
-		if verbose {
-			log.Println("not using config file")
-		}
 	}
 }
