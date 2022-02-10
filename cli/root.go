@@ -30,10 +30,10 @@ const (
 
 var (
 	verbose  bool
-	rootConf generalConfigT
+	rootConf rootConfigT
 )
 
-type generalConfigT struct {
+type rootConfigT struct {
 	server   string
 	port     int
 	username string
@@ -56,11 +56,14 @@ var rootCmd = &cobra.Command{
 
 // Execute executes the root command.
 func Execute() error {
-	initFlags()
 	return rootCmd.Execute()
 }
 
-func initFlags() {
+func init() {
+	initRootFlags()
+}
+
+func initRootFlags() {
 	pflags := rootCmd.PersistentFlags()
 
 	pflags.StringVarP(&rootConf.server, "server", "s", "", "address of imap server")

@@ -19,9 +19,15 @@ package core
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
+)
+
+const (
+	folderListBuffer       = 10
+	messageRetrievalBuffer = 20
 )
 
 func authenticateClient(config IMAPConfig) (imapClient *client.Client, err error) {
@@ -60,5 +66,84 @@ func getFolderList(imapClient *client.Client) (folders []string, err error) {
 	}
 	logInfo(fmt.Sprintf("retrieved %d folders", len(folders)))
 
-	return folders, nil
+	return folders, err
+}
+
+func selectFolder(imapClient *client.Client, folder string) (*imap.MailboxStatus, error) {
+	logInfo(fmt.Sprint("selecting folder:", folder))
+	// Access the folder in read-only mode.
+	mbox, err := imapClient.Select(folder, true)
+	if err != nil {
+		return nil, err
+	}
+	logInfo(fmt.Sprint("flags for selected folder are", mbox.Flags))
+	logInfo(fmt.Sprintf("selected folder contains %d emails", mbox.Messages))
+	return mbox, err
+}
+
+func getNthMessage(
+	mbox *imap.MailboxStatus, imapClient *client.Client, index int,
+) (message *imap.Message, err error) {
+	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
+	// index.
+	if index <= 0 {
+		return nil, fmt.Errorf("message index must be positive")
+	}
+	emailIdx := int(mbox.Messages) - index + 1
+	if emailIdx < 0 {
+		err := fmt.Errorf("cannot access %d-th recent email, have only %d", index, mbox.Messages)
+		return nil, err
+	}
+
+	// Emails will be retrieved via a SeqSet, which can contain a sequential set of messages. Here,
+	// we retrieve only one.
+	seqset := new(imap.SeqSet)
+	seqset.AddRange(uint32(emailIdx), uint32(emailIdx))
+
+	messages := make(chan *imap.Message, 1)
+	go func() {
+		err = imapClient.Fetch(
+			seqset,
+			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822},
+			messages,
+		)
+	}()
+	for m := range messages {
+		if message == nil {
+			message = m
+		} else {
+			// Error out if we have somehow retrieved more than one email.
+			return nil, fmt.Errorf("internal error, retrieved more than one message")
+		}
+	}
+	return message, err
+}
+
+func getAllMessageUUIDsAndTimestamps(
+	mbox *imap.MailboxStatus, imapClient *client.Client,
+) (uids []int, times []time.Time, err error) {
+
+	uids = make([]int, 0, mbox.Messages)
+	times = make([]time.Time, 0, mbox.Messages)
+
+	// Retrieve information about all emails.
+	seqset := new(imap.SeqSet)
+	seqset.AddRange(1, mbox.Messages)
+
+	messageChannel := make(chan *imap.Message, messageRetrievalBuffer)
+	go func() {
+		err = imapClient.Fetch(
+			seqset,
+			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate},
+			messageChannel,
+		)
+	}()
+	for m := range messageChannel {
+		if m != nil {
+			uids = append(uids, int(m.Uid))
+			times = append(times, m.InternalDate)
+		}
+	}
+
+	return uids, times, err
 }

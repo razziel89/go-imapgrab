@@ -18,8 +18,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Package core provides central functionality for backing up IMAP mailboxes.
 package core
 
+import (
+	"fmt"
+	"time"
+)
+
 const (
-	folderListBuffer = 10
+	rfc822ExpectedNumFields = 6
 )
 
 // IMAPConfig is a configuration needed to access an IMAP server.
@@ -45,4 +50,72 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 	}()
 
 	return getFolderList(imapClient)
+}
+
+// PrintEmail reads a single email with index `idx` (1 is most recent) from a single folder `folder`
+// and returns its content. This functionality will likely be removed later but it is useful for
+// development.
+func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err error) {
+	imapClient, err := authenticateClient(cfg)
+	if err != nil {
+		return
+	}
+	// Make sure to log out in the end if we logged in successfully.
+	defer func() {
+		// Don't overwrite the error if it has already been set.
+		if logoutErr := imapClient.Logout(); logoutErr != nil && err == nil {
+			err = logoutErr
+		}
+	}()
+
+	mbox, err := selectFolder(imapClient, folder)
+	if err != nil {
+		return
+	}
+	msg, err := getNthMessage(mbox, imapClient, index)
+	if err != nil {
+		return
+	}
+
+	fields := msg.Format()
+	if len(fields) != rfc822ExpectedNumFields {
+		return "", fmt.Errorf("cannot extract required RFC822 fields from email")
+	}
+
+	email := Email{}
+	for _, field := range fields {
+		if err := email.set(field); err != nil {
+			return "", fmt.Errorf("cannot extract email data: %s", err.Error())
+		}
+	}
+	if !email.validate() {
+		return "", fmt.Errorf("cannot extract full email from reply")
+	}
+
+	return fmt.Sprint(email), nil
+}
+
+// GetAllUIDsAndTimestamps obtains all UIDs of all emails in a mailbox and their timestamps. UIDs
+// are not checked for uniqueness. The time at any one index corresponds to the UID at the same
+// index. This functionality will likely be removed later but it is useful for development.
+func GetAllUIDsAndTimestamps(
+	cfg IMAPConfig, folder string,
+) (uids []int, times []time.Time, err error) {
+	imapClient, err := authenticateClient(cfg)
+	if err != nil {
+		return
+	}
+	// Make sure to log out in the end if we logged in successfully.
+	defer func() {
+		// Don't overwrite the error if it has already been set.
+		if logoutErr := imapClient.Logout(); logoutErr != nil && err == nil {
+			err = logoutErr
+		}
+	}()
+
+	mbox, err := selectFolder(imapClient, folder)
+	if err != nil {
+		return
+	}
+	return getAllMessageUUIDsAndTimestamps(mbox, imapClient)
 }
