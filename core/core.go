@@ -20,13 +20,11 @@ package core
 
 import (
 	"fmt"
-	"strings"
-
-	"github.com/emersion/go-imap"
+	"time"
 )
 
 const (
-	folderListBuffer = 10
+	rfc822ExpectedNumFields = 6
 )
 
 // IMAPConfig is a configuration needed to access an IMAP server.
@@ -36,73 +34,6 @@ type IMAPConfig struct {
 	User     string
 	Password string
 }
-
-// EmailContent contains the parsed contents of an email in an easily viewable format.
-type EmailContent struct {
-	Date      string
-	Subject   string
-	From      []string
-	Sender    []string
-	ReplyTo   []string
-	To        []string
-	Cc        []string
-	Bcc       []string
-	InReplyTo string
-	MessageID string
-}
-
-func addsToStrings(adds []*imap.Address) []string {
-	result := make([]string, 0, len(adds))
-	for _, address := range adds {
-		converted := address.MailboxName + "@" + address.HostName
-		result = append(result, converted)
-	}
-	return result
-}
-
-func envelopeToEmail(env *imap.Envelope) EmailContent {
-	return EmailContent{
-		Date:      env.Date.String(),
-		Subject:   env.Subject,
-		From:      addsToStrings(env.From),
-		Sender:    addsToStrings(env.Sender),
-		ReplyTo:   addsToStrings(env.ReplyTo),
-		To:        addsToStrings(env.To),
-		Cc:        addsToStrings(env.Cc),
-		Bcc:       addsToStrings(env.Bcc),
-		InReplyTo: env.InReplyTo,
-		MessageID: env.MessageId,
-	}
-}
-
-// func bodystructureToString(structure *imap.BodyStructure) string {
-// 	if structure == nil {
-// 		logInfo("cannot convert nil body structure to string")
-// 		return ""
-// 	}
-// 	fields := structure.Format()
-// 	strFields := make([]string, 0, len(fields))
-// 	for _, field := range fields {
-// 		if field != nil {
-// 			strFields = append(strFields, fmt.Sprint(field))
-// 		}
-// 	}
-// 	return strings.Join(strFields, ", ")
-// }
-//
-// func literalToString(lit imap.Literal) string {
-// 	content, _ := io.ReadAll(lit)
-// 	return string(content)
-// }
-//
-// func bodyToString(body map[*imap.BodySectionName]imap.Literal) string {
-// 	strFields := make([]string, 0, len(body))
-// 	logInfo(fmt.Sprintf("converting %d body fields", len(body)))
-// 	for _, lit := range body {
-// 		strFields = append(strFields, literalToString(lit))
-// 	}
-// 	return strings.Join(strFields, ", ")
-// }
 
 // GetAllFolders retrieves a list of all monitors in a mailbox.
 func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
@@ -146,23 +77,30 @@ func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err e
 		return
 	}
 
-	// body := bodystructureToString(msg.BodyStructure)
-	// if len(body) == 0 {
-	// 	body = bodyToString(msg.Body)
-	// }
-
 	fields := msg.Format()
-	strFields := make([]string, 0, len(fields))
-	for _, field := range fields {
-		strFields = append(strFields, fmt.Sprint(field))
+	if len(fields) != rfc822ExpectedNumFields {
+		return "", fmt.Errorf("cannot extract required RFC822 fields from email")
 	}
-	body := strings.Join(strFields, "\n\n=====================\n\n")
 
-	return fmt.Sprintf("%+v\n%s", envelopeToEmail(msg.Envelope), body), nil
+	email := Email{}
+	for _, field := range fields {
+		if err := email.set(field); err != nil {
+			return "", fmt.Errorf("cannot extract email data: %s", err.Error())
+		}
+	}
+	if !email.validate() {
+		return "", fmt.Errorf("cannot extract full email from reply")
+	}
+
+	return fmt.Sprint(email), nil
 }
 
-// GetAllUIDs obtains all UIDs of all emails in a mailbox.
-func GetAllUIDs(cfg IMAPConfig, folder string) (uids []int, err error) {
+// GetAllUIDsAndTimestampts obtains all UIDs of all emails in a mailbox and their timestamps. UIDs
+// are not checked for uniqueness. The time at any one index corresponds to the UID at the same
+// index. This functionality will likely be removed later but it is useful for development.
+func GetAllUIDsAndTimestampts(
+	cfg IMAPConfig, folder string,
+) (uids []int, times []time.Time, err error) {
 	imapClient, err := authenticateClient(cfg)
 	if err != nil {
 		return
@@ -179,5 +117,5 @@ func GetAllUIDs(cfg IMAPConfig, folder string) (uids []int, err error) {
 	if err != nil {
 		return
 	}
-	return getAllMessageUUIDs(mbox, imapClient)
+	return getAllMessageUUIDsAndTimestamps(mbox, imapClient)
 }

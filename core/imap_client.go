@@ -19,12 +19,14 @@ package core
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 )
 
 const (
+	folderListBuffer       = 10
 	messageRetrievalBuffer = 20
 )
 
@@ -102,18 +104,7 @@ func getNthMessage(
 	go func() {
 		err = imapClient.Fetch(
 			seqset,
-			[]imap.FetchItem{
-				imap.FetchBody,
-				imap.FetchBodyStructure,
-				imap.FetchEnvelope,
-				imap.FetchFlags,
-				imap.FetchInternalDate,
-				imap.FetchRFC822,
-				imap.FetchRFC822Header,
-				imap.FetchRFC822Size,
-				imap.FetchRFC822Text,
-				imap.FetchUid,
-			},
+			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822},
 			messages,
 		)
 	}()
@@ -128,11 +119,12 @@ func getNthMessage(
 	return message, err
 }
 
-func getAllMessageUUIDs(
+func getAllMessageUUIDsAndTimestamps(
 	mbox *imap.MailboxStatus, imapClient *client.Client,
-) (uids []int, err error) {
+) (uids []int, times []time.Time, err error) {
 
 	uids = make([]int, 0, mbox.Messages)
+	times = make([]time.Time, 0, mbox.Messages)
 
 	// Retrieve information about all emails.
 	seqset := new(imap.SeqSet)
@@ -140,13 +132,18 @@ func getAllMessageUUIDs(
 
 	messageChannel := make(chan *imap.Message, messageRetrievalBuffer)
 	go func() {
-		err = imapClient.Fetch(seqset, []imap.FetchItem{imap.FetchUid}, messageChannel)
+		err = imapClient.Fetch(
+			seqset,
+			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate},
+			messageChannel,
+		)
 	}()
 	for m := range messageChannel {
 		if m != nil {
 			uids = append(uids, int(m.Uid))
+			times = append(times, m.InternalDate)
 		}
 	}
 
-	return uids, err
+	return uids, times, err
 }
