@@ -95,10 +95,10 @@ func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err e
 	return fmt.Sprint(email), nil
 }
 
-// GetAllUIDsAndTimestampts obtains all UIDs of all emails in a mailbox and their timestamps. UIDs
+// GetAllUIDsAndTimestamps obtains all UIDs of all emails in a mailbox and their timestamps. UIDs
 // are not checked for uniqueness. The time at any one index corresponds to the UID at the same
 // index. This functionality will likely be removed later but it is useful for development.
-func GetAllUIDsAndTimestampts(
+func GetAllUIDsAndTimestamps(
 	cfg IMAPConfig, folder string,
 ) (uids []int, times []time.Time, err error) {
 	imapClient, err := authenticateClient(cfg)
