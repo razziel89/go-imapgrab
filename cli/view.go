@@ -37,7 +37,7 @@ func init() {
 
 var viewCmd = &cobra.Command{
 	Use:   "view",
-	Short: "View a single email on your screen.",
+	Short: "View a single email on your screen. Shows RFC822-compliant content.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		core.SetVerboseLogs(verbose)
 		cfg := core.IMAPConfig{

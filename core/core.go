@@ -137,7 +137,7 @@ func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err e
 		}
 	}()
 
-	mbox, err := selectInbox(imapClient, folder)
+	mbox, err := selectFolder(imapClient, folder)
 	if err != nil {
 		return
 	}
@@ -159,4 +159,25 @@ func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err e
 	body := strings.Join(strFields, "\n\n=====================\n\n")
 
 	return fmt.Sprintf("%+v\n%s", envelopeToEmail(msg.Envelope), body), nil
+}
+
+// GetAllUIDs obtains all UIDs of all emails in a mailbox.
+func GetAllUIDs(cfg IMAPConfig, folder string) (uids []int, err error) {
+	imapClient, err := authenticateClient(cfg)
+	if err != nil {
+		return
+	}
+	// Make sure to log out in the end if we logged in successfully.
+	defer func() {
+		// Don't overwrite the error if it has already been set.
+		if logoutErr := imapClient.Logout(); logoutErr != nil && err == nil {
+			err = logoutErr
+		}
+	}()
+
+	mbox, err := selectFolder(imapClient, folder)
+	if err != nil {
+		return
+	}
+	return getAllMessageUUIDs(mbox, imapClient)
 }

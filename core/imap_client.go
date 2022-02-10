@@ -24,6 +24,10 @@ import (
 	"github.com/emersion/go-imap/client"
 )
 
+const (
+	messageRetrievalBuffer = 20
+)
+
 func authenticateClient(config IMAPConfig) (imapClient *client.Client, err error) {
 	if len(config.Password) == 0 {
 		logError("empty password detected")
@@ -63,7 +67,7 @@ func getFolderList(imapClient *client.Client) (folders []string, err error) {
 	return folders, err
 }
 
-func selectInbox(imapClient *client.Client, folder string) (*imap.MailboxStatus, error) {
+func selectFolder(imapClient *client.Client, folder string) (*imap.MailboxStatus, error) {
 	logInfo(fmt.Sprint("selecting folder:", folder))
 	// Access the folder in read-only mode.
 	mbox, err := imapClient.Select(folder, true)
@@ -122,4 +126,27 @@ func getNthMessage(
 		}
 	}
 	return message, err
+}
+
+func getAllMessageUUIDs(
+	mbox *imap.MailboxStatus, imapClient *client.Client,
+) (uids []int, err error) {
+
+	uids = make([]int, 0, mbox.Messages)
+
+	// Retrieve information about all emails.
+	seqset := new(imap.SeqSet)
+	seqset.AddRange(1, mbox.Messages)
+
+	messageChannel := make(chan *imap.Message, messageRetrievalBuffer)
+	go func() {
+		err = imapClient.Fetch(seqset, []imap.FetchItem{imap.FetchUid}, messageChannel)
+	}()
+	for m := range messageChannel {
+		if m != nil {
+			uids = append(uids, int(m.Uid))
+		}
+	}
+
+	return uids, err
 }
