@@ -49,41 +49,17 @@ func isDir(path string) bool {
 	return stat.IsDir()
 }
 
-func oldmailName(cfg IMAPConfig, folder string) string {
-	return fmt.Sprintf("oldmail-%s-%d-%s-%s", cfg.Server, cfg.Port, cfg.User, folder)
-}
-
 // Function isMaildir checks whether a path is a path to a maildir. A maildir is a directory that
-// contains the directories "cur", "new", and "tmp". It also needs to have an oldmail file in its
-// parent folder. See readOldmail for a description of what that file looks like and its content.
+// contains the directories "cur", "new", and "tmp".
 func isMaildir(cfg IMAPConfig, path string) bool {
-	// Check for oldmail file.
-	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", path))
+	// Check for sub-directories.
 	for _, dir := range []string{newMaildir, curMaildir, tmpMaildir} {
 		fullPath := filepath.Join(path, dir)
 		if !isDir(fullPath) {
-			logInfo(fmt.Sprintf("cannot find required directory %s", fullPath))
 			return false
 		}
 	}
-	logInfo(fmt.Sprintf("checking for oldmail file of possible maildir %s", path))
-
-	// Check for oldmail file.
-	parent := filepath.Dir(path)
-	base := filepath.Base(path)
-	oldmail := filepath.Join(parent, oldmailName(cfg, base))
-	logInfo(fmt.Sprintf("expected oldmail file is %s", oldmail))
-
-	return isFile(oldmail)
-}
-
-// Read the oldmail information for a specific config. The oldmail config is found in the parent
-// directory of a maildir. It might not be present. The oldmail file is called
-// "oldmail-<SERVER_URL>-<PORT>-<USERNAME>-<INBOX>". It stores information about emails that have
-// been processed during earlier runs and is used to determine which are new emails that need to be
-// fetched.
-func readOldmail(cfg IMAPConfig, path string) error {
-	return nil
+	return true
 }
 
 // ReadMaildir reads a maildir in and prints some information about it. This is usefiul for
@@ -95,13 +71,30 @@ func ReadMaildir(cfg IMAPConfig, path string) error {
 	// Ensure the path has no trailing slashes and is generally as short as possible. This is often
 	// called canonicalisation.
 	path = filepath.Clean(path)
+
+	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", path))
 	if !isMaildir(cfg, path) {
 		return fmt.Errorf("given directory %s does not point to a maildir", path)
 	}
-	err := readOldmail(cfg, path)
+	logInfo("all sub-directories found")
+
+	// Extract expected path of oldmail file.
+	parent := filepath.Dir(path)
+	base := filepath.Base(path)
+	oldmailPath := filepath.Join(parent, oldmailName(cfg, base))
+
+	logInfo(fmt.Sprintf("checking for and reading oldmail file of possible maildir %s", path))
+	oldmails, err := readOldmail(oldmailPath, path)
 	if err != nil {
 		return err
 	}
+	logInfo("found and read oldmail file")
+
+	logInfo("writing oldmail file")
+	if err := writeOldmail(oldmails, oldmailPath+".new"); err != nil {
+		return err
+	}
+	logInfo("wrote new oldmail file")
 
 	return nil
 }
