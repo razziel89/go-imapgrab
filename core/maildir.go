@@ -18,17 +18,74 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 const (
 	curMaildir = "new"
 	newMaildir = "new"
 	tmpMaildir = "new"
+	// The number of bits used for a random hex number to prevent name clashes.
+	randomHexSize = 8
 )
+
+// A global delivery counter for this process used to determine a unique file name. A value of -1
+// means no delivery has yet occurred.
+var deliveryCount = -1
+
+// Get a unique name for an email that will be delivered. Follow the process described here
+// https://cr.yp.to/proto/maildir.html and implemented by getmail6 here
+// https://github.com/getmail6/getmail6/blob/master/getmailcore/utilities.py#L274
+//
+// This function does not attempt to resolve conflicts. The chances for a naming conflict to occur
+// are very, very small. For that to happen, two processes on two different machines that have the
+// same hostname need to start a delivery at the very same time. Furthermore, they must have had
+// delivered the exact same number of emails since launch and a 8-bit cryptographic random number
+// must be identical. It is not clear how that should ever happen.
+func newUniqueName() (string, error) {
+	now := time.Now()
+	timeInSecs := now.Unix()
+	//nolint:gomnd
+	microSecsOfTime := now.Nanosecond() / 1000 // Convert nano seconds to micro seconds.
+
+	pid := os.Getpid()
+
+	// Increment the global delivery counter for this process.
+	deliveryCount++
+
+	// Extract an 8-bit random hex number.
+	randomBytes := make([]byte, randomHexSize)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", err
+	}
+	randomHex := hex.EncodeToString(randomBytes)
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "", err
+	}
+	// Handle broken hostnames as per the above-linked description.
+	hostname = strings.ReplaceAll(hostname, "/", "\\057")
+	hostname = strings.ReplaceAll(hostname, ":", "\\072")
+
+	filename := fmt.Sprintf(
+		"%d.M%dP%dQ%dR%s.%s", timeInSecs, microSecsOfTime, pid, deliveryCount, randomHex, hostname,
+	)
+
+	// Sanity check against spaces in the file name.
+	if strings.ContainsRune(filename, ' ') {
+		return "", fmt.Errorf("whitespace detected in unique file name %s", filename)
+	}
+
+	return filename, nil
+}
 
 func isFile(path string) bool {
 	stat, err := os.Stat(path)
@@ -95,6 +152,14 @@ func ReadMaildir(cfg IMAPConfig, path string) error {
 		return err
 	}
 	logInfo("wrote new oldmail file")
+
+	for i := 0; i < 5; i++ {
+		filename, err := newUniqueName()
+		if err != nil {
+			return err
+		}
+		logInfo(filename)
+	}
 
 	return nil
 }
