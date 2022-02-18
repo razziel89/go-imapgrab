@@ -29,12 +29,25 @@ import (
 )
 
 const (
-	curMaildir = "new"
+	curMaildir = "cur"
 	newMaildir = "new"
-	tmpMaildir = "new"
+	tmpMaildir = "tmp"
 	// The number of bits used for a random hex number to prevent name clashes.
 	randomHexSize = 8
 )
+
+// TODO:
+// deliver email: An email will be delivered to the "tmp" sub-directory first with a unique file
+// name obtained via newUniqueName.
+//
+// store email: Only once that email has successfully been written to disk will it be moved (not
+// copied) to the "new" sub-directory with the exact same name. Use "os.Rename" to do so as the call
+// is atomic enough not to cause problems.
+//
+// Remember the information needed to generate oldmail entries for the emails thus delivered (or
+// generate that content directly). It might make most sense to append a line to the oldmail file
+// for each email that has been delivered as it is being delivered. It would be easier to implement,
+// though, to remember all that information and write all out at once in the very end.
 
 // A global delivery counter for this process used to determine a unique file name. A value of -1
 // means no delivery has yet occurred.
