@@ -143,23 +143,23 @@ func getMessageRange(
 	return messages, err
 }
 
-// Uid describes a unique identifier for a message. It consists of the unique identifier of the
+// UID describes a unique identifier for a message. It consists of the unique identifier of the
 // mailbox the message belongs to and a unique identifier for a message within that mailbox.
-type Uid struct {
+type UID struct {
 	Mbox    int
 	Message int
 }
 
 // String provides a string representation for a message's unique identifier.
-func (u Uid) String() string {
+func (u UID) String() string {
 	return fmt.Sprintf("%d/%d", u.Mbox, u.Message)
 }
 
 func getAllMessageUUIDsAndTimestamps(
 	mbox *imap.MailboxStatus, imapClient *client.Client,
-) (uids []Uid, times []time.Time, err error) {
+) (uids []UID, times []time.Time, err error) {
 
-	uids = make([]Uid, 0, mbox.Messages)
+	uids = make([]UID, 0, mbox.Messages)
 	times = make([]time.Time, 0, mbox.Messages)
 
 	// Retrieve information about all emails.
@@ -176,7 +176,7 @@ func getAllMessageUUIDsAndTimestamps(
 	}()
 	for m := range messageChannel {
 		if m != nil {
-			uid := Uid{
+			uid := UID{
 				Mbox:    int(mbox.UidValidity),
 				Message: int(m.Uid),
 			}

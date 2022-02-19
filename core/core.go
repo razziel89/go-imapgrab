@@ -52,8 +52,8 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 	return getFolderList(imapClient)
 }
 
-// PrintEmail reads a single email with index `idx` (1 is most recent) from a single folder `folder`
-// and returns its content. This functionality will likely be removed later but it is useful for
+// PrintEmail reads a single email with index `idx` (1 is oldest) from a single folder `folder` and
+// returns its content. This functionality will likely be removed later but it is useful for
 // development.
 func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err error) {
 	imapClient, err := authenticateClient(cfg)
@@ -72,10 +72,15 @@ func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err e
 	if err != nil {
 		return
 	}
-	msg, err := getNthMessage(mbox, imapClient, index)
+	msgs, err := getMessageRange(mbox, imapClient, Range{index, index + 1})
 	if err != nil {
 		return
 	}
+	if len(msgs) != 1 {
+		err = fmt.Errorf("did not retrieve exactly one message")
+		return
+	}
+	msg := msgs[0]
 
 	fields := msg.Format()
 	if len(fields) != rfc822ExpectedNumFields {
@@ -100,7 +105,7 @@ func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err e
 // index. This functionality will likely be removed later but it is useful for development.
 func GetAllUIDsAndTimestamps(
 	cfg IMAPConfig, folder string,
-) (uids []int, times []time.Time, err error) {
+) (uids []UID, times []time.Time, err error) {
 	imapClient, err := authenticateClient(cfg)
 	if err != nil {
 		return
