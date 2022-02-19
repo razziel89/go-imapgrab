@@ -81,49 +81,85 @@ func selectFolder(imapClient *client.Client, folder string) (*imap.MailboxStatus
 	return mbox, err
 }
 
-func getNthMessage(
-	mbox *imap.MailboxStatus, imapClient *client.Client, index int,
-) (message *imap.Message, err error) {
+// Range describes a range of integer values. Usually, the range includes Start but excludes End.
+type Range struct {
+	Start int
+	End   int
+}
+
+func canonicalizeRange(r Range, start, end int) (Range, error) {
+	// Convert negative indices to count backwards from end.
+	if r.Start < 0 {
+		r.Start = end - r.Start
+	}
+	if r.End < 0 {
+		r.End = end - r.End
+	}
+	// Make sure the range's end is larger than its start.
+	if !(r.End > r.Start) {
+		return r, fmt.Errorf("range end must be larger than range start")
+	}
+	// Make sure the range's values do not exceed the available range.
+	if r.Start < start {
+		return r, fmt.Errorf("range start cannot be smaller than %d", start)
+	}
+	if r.End > end {
+		return r, fmt.Errorf("range end cannot be larger than %d", end)
+	}
+	return r, nil
+}
+
+// Obtain messages whose ids/indices lie in a certain range. Negative indices are automatically
+// converted to count from the last message. That is, -1 refers to the most recent message while 1
+// refers to the second oldest email.
+func getMessageRange(
+	mbox *imap.MailboxStatus, imapClient *client.Client, indices Range,
+) (messages []*imap.Message, err error) {
 	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
 	// index.
-	if index <= 0 {
-		return nil, fmt.Errorf("message index must be positive")
-	}
-	emailIdx := int(mbox.Messages) - index + 1
-	if emailIdx < 0 {
-		err := fmt.Errorf("cannot access %d-th recent email, have only %d", index, mbox.Messages)
+	indices, err = canonicalizeRange(indices, 1, int(mbox.Messages)+1)
+	if err != nil {
 		return nil, err
 	}
+
+	messages = make([]*imap.Message, 0, indices.End-indices.Start)
 
 	// Emails will be retrieved via a SeqSet, which can contain a sequential set of messages. Here,
 	// we retrieve only one.
 	seqset := new(imap.SeqSet)
-	seqset.AddRange(uint32(emailIdx), uint32(emailIdx))
+	seqset.AddRange(uint32(indices.Start), uint32(indices.End-1))
 
-	messages := make(chan *imap.Message, 1)
+	messageChan := make(chan *imap.Message, messageRetrievalBuffer)
 	go func() {
 		err = imapClient.Fetch(
 			seqset,
 			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822},
-			messages,
+			messageChan,
 		)
 	}()
-	for m := range messages {
-		if message == nil {
-			message = m
-		} else {
-			// Error out if we have somehow retrieved more than one email.
-			return nil, fmt.Errorf("internal error, retrieved more than one message")
-		}
+	for m := range messageChan {
+		messages = append(messages, m)
 	}
-	return message, err
+	return messages, err
+}
+
+// Uid describes a unique identifier for a message. It consists of the unique identifier of the
+// mailbox the message belongs to and a unique identifier for a message within that mailbox.
+type Uid struct {
+	Mbox    int
+	Message int
+}
+
+// String provides a string representation for a message's unique identifier.
+func (u Uid) String() string {
+	return fmt.Sprintf("%d/%d", u.Mbox, u.Message)
 }
 
 func getAllMessageUUIDsAndTimestamps(
 	mbox *imap.MailboxStatus, imapClient *client.Client,
-) (uids []int, times []time.Time, err error) {
+) (uids []Uid, times []time.Time, err error) {
 
-	uids = make([]int, 0, mbox.Messages)
+	uids = make([]Uid, 0, mbox.Messages)
 	times = make([]time.Time, 0, mbox.Messages)
 
 	// Retrieve information about all emails.
@@ -140,7 +176,11 @@ func getAllMessageUUIDsAndTimestamps(
 	}()
 	for m := range messageChannel {
 		if m != nil {
-			uids = append(uids, int(m.Uid))
+			uid := Uid{
+				Mbox:    int(mbox.UidValidity),
+				Message: int(m.Uid),
+			}
+			uids = append(uids, uid)
 			times = append(times, m.InternalDate)
 		}
 	}
