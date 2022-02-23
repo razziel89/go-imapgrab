@@ -49,9 +49,9 @@ const (
 // for each email that has been delivered as it is being delivered. It would be easier to implement,
 // though, to remember all that information and write all out at once in the very end.
 
-// A global delivery counter for this process used to determine a unique file name. A value of -1
+// A global delivery counter for this process used to determine a unique file name. A value of 0
 // means no delivery has yet occurred.
-var deliveryCount = -1
+var deliveryCount = 0
 
 // Get a unique name for an email that will be delivered. Follow the process described here
 // https://cr.yp.to/proto/maildir.html and implemented by getmail6 here
@@ -70,8 +70,12 @@ func newUniqueName() (string, error) {
 
 	pid := os.Getpid()
 
-	// Increment the global delivery counter for this process.
-	deliveryCount++
+	defer func() {
+		// Increment the global delivery counter for this process. Increment even in an error case
+		// since this counter is supposed to be unique for every message that this process has
+		// processed.
+		deliveryCount++
+	}()
 
 	// Extract an 8-bit random hex number.
 	randomBytes := make([]byte, randomHexSize)
