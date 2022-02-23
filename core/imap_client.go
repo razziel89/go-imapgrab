@@ -90,10 +90,16 @@ type Range struct {
 func canonicalizeRange(r Range, start, end int) (Range, error) {
 	// Convert negative indices to count backwards from end.
 	if r.Start < 0 {
-		r.Start = end - r.Start
+		r.Start = end + r.Start
+		// Handle special case in which the range -n,0 has been given, with n being a positive
+		// integer. In this case, the end has to be interpreted as the last message. All other cases
+		// require no special handling.
+		if r.End == 0 {
+			r.End = end
+		}
 	}
 	if r.End < 0 {
-		r.End = end - r.End
+		r.End = end + r.End
 	}
 	// Make sure the range's end is larger than its start.
 	if !(r.End > r.Start) {
