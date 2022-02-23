@@ -40,7 +40,7 @@ type oldmail struct {
 	timestamp   int
 }
 
-func oldmailName(cfg IMAPConfig, folder string) string {
+func oldmailFileName(cfg IMAPConfig, folder string) string {
 	return fmt.Sprintf("oldmail-%s-%d-%s-%s", cfg.Server, cfg.Port, cfg.User, folder)
 }
 

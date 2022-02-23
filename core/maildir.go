@@ -151,7 +151,7 @@ func ReadMaildir(cfg IMAPConfig, path string) error {
 	// Extract expected path of oldmail file.
 	parent := filepath.Dir(path)
 	base := filepath.Base(path)
-	oldmailPath := filepath.Join(parent, oldmailName(cfg, base))
+	oldmailPath := filepath.Join(parent, oldmailFileName(cfg, base))
 
 	logInfo(fmt.Sprintf("checking for and reading oldmail file of possible maildir %s", path))
 	oldmails, err := readOldmail(oldmailPath, path)
