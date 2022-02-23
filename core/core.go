@@ -82,19 +82,9 @@ func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err e
 	}
 	msg := msgs[0]
 
-	fields := msg.Format()
-	if len(fields) != rfc822ExpectedNumFields {
-		return "", fmt.Errorf("cannot extract required RFC822 fields from email")
-	}
-
-	email := Email{}
-	for _, field := range fields {
-		if err := email.set(field); err != nil {
-			return "", fmt.Errorf("cannot extract email data: %s", err.Error())
-		}
-	}
-	if !email.validate() {
-		return "", fmt.Errorf("cannot extract full email from reply")
+	email, _, err := rfc822FromEmail(msg, int(mbox.UidValidity))
+	if err != nil {
+		return
 	}
 
 	return fmt.Sprint(email), nil

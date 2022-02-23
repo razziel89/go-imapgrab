@@ -44,7 +44,7 @@ var downloadCmd = &cobra.Command{
 			User:     rootConf.username,
 			Password: rootConf.password,
 		}
-		email, err := core.DownloadFolder(cfg, downloadConf.folder, downloadConf.path)
+		err := core.DownloadFolder(cfg, downloadConf.folder, downloadConf.path)
 		if err != nil {
 			return err
 		}
@@ -60,5 +60,5 @@ func initDownloadFlags() {
 	pflags := downloadCmd.PersistentFlags()
 
 	pflags.StringVarP(&downloadConf.folder, "folder", "f", "", "the folder to download")
-	pflags.StringVar(&maildirConf.path, "path", "", "the local path to your maildir")
+	pflags.StringVar(&downloadConf.path, "path", "", "the local path to your maildir")
 }

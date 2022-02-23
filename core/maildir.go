@@ -136,33 +136,52 @@ func isMaildir(cfg IMAPConfig, path string) bool {
 	return true
 }
 
-// ReadMaildir reads a maildir in and prints some information about it. This is usefiul for
-// development and will probably not remain afterwards.
-func ReadMaildir(cfg IMAPConfig, path string) error {
-	if len(path) == 0 {
-		return fmt.Errorf("path to maildir cannot be empty")
+// Check whether a given path points to a maildir. This function checks for the existence of any
+// required sub-directories and fails if they cannot be found. Furthermore, it checks for the
+// existence of an oldmail file, parses it, and returns the information stored within it. It also
+// returns the path to that oldmail file.
+func initExistingMaildir(
+	cfg IMAPConfig, maildirPath string,
+) (oldmails []oldmail, oldmailFilePath string, err error) {
+	if len(maildirPath) == 0 {
+		err = fmt.Errorf("path to maildir cannot be empty")
+		return
 	}
-	// Ensure the path has no trailing slashes and is generally as short as possible. This is often
-	// called canonicalisation.
-	path = filepath.Clean(path)
+	// Ensure the maildirPath has no trailing slashes and is generally as short as possible. This is
+	// often called canonicalisation.
+	maildirPath = filepath.Clean(maildirPath)
 
-	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", path))
-	if !isMaildir(cfg, path) {
-		return fmt.Errorf("given directory %s does not point to a maildir", path)
+	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", maildirPath))
+	if !isMaildir(cfg, maildirPath) {
+		err = fmt.Errorf("given directory %s does not point to a maildir", maildirPath)
+		return
 	}
 	logInfo("all sub-directories found")
 
-	// Extract expected path of oldmail file.
-	parent := filepath.Dir(path)
-	base := filepath.Base(path)
+	// Extract expected maildirPath of oldmail file.
+	parent := filepath.Dir(maildirPath)
+	base := filepath.Base(maildirPath)
 	oldmailPath := filepath.Join(parent, oldmailFileName(cfg, base))
 
-	logInfo(fmt.Sprintf("checking for and reading oldmail file of possible maildir %s", path))
-	oldmails, err := readOldmail(oldmailPath, path)
+	logInfo(
+		fmt.Sprintf("checking for and reading oldmail file of possible maildir %s", maildirPath),
+	)
+	oldmails, err = readOldmail(oldmailPath, maildirPath)
+	if err != nil {
+		return
+	}
+	logInfo("found and read oldmail file")
+
+	return oldmails, oldmailPath, err
+}
+
+// ReadMaildir reads a maildir in and prints some information about it. This is usefiul for
+// development and will probably not remain afterwards.
+func ReadMaildir(cfg IMAPConfig, path string) error {
+	oldmails, oldmailPath, err := initExistingMaildir(cfg, path)
 	if err != nil {
 		return err
 	}
-	logInfo("found and read oldmail file")
 
 	logInfo("writing oldmail file")
 	if err := writeOldmail(oldmails, oldmailPath+".new"); err != nil {
