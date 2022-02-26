@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"time"
 )
 
 const (
@@ -38,6 +39,12 @@ type oldmail struct {
 	uidValidity int
 	uid         int
 	timestamp   int
+}
+
+// Provide a string representation for oldmail information.
+func (om oldmail) String() string {
+	timeStr := time.Unix(int64(om.timestamp), 0).String()
+	return fmt.Sprintf("%d/%d -> %s", om.uidValidity, om.uid, timeStr)
 }
 
 func oldmailFileName(cfg IMAPConfig, folder string) string {

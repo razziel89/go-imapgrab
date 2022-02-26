@@ -19,12 +19,16 @@ package core
 
 import (
 	"fmt"
-	"sort"
+	"os"
+	"path/filepath"
 
 	"github.com/emersion/go-imap"
 )
 
-func determineMissingUIDs(oldmails []oldmail, uids []UID) (ranges []Range, err error) {
+// Determine the indices of emails that have not yet been downloaded. The download process
+// indentifies emails by their indices and not by their UIDs. Thus, we need to take the server-side
+// information as is and not sort it in any way.
+func determineMissingIDs(oldmails []oldmail, uids []UID) (ranges []Range, err error) {
 	// Check special cases such as an empty mailbox or uidvalidities that do not agree.
 	if len(uids) == 0 {
 		return []Range{}, nil
@@ -43,15 +47,6 @@ func determineMissingUIDs(oldmails []oldmail, uids []UID) (ranges []Range, err e
 		}
 	}
 
-	// Sort the server-side information with respect to UIDs. That can be prohibitive for very large
-	// mailboxes but it is the easiest way to find out which emails are present in both lists
-	// without quadratic runtime (assuming that the sorting algorithm scales better than
-	// quadratically). Most likely, the inputs will already be sorted in this manner.
-	uidLess := func(i, j int) bool {
-		return uids[i].Message < uids[j].Message
-	}
-	sort.Slice(uids, uidLess)
-
 	// Add the UIDs of the oldmail data (the data stored on disk) to a map to simplify determining
 	// whether we've already downloaded some message.
 	oldmailUIDs := make(map[int]struct{}, len(oldmails))
@@ -60,22 +55,22 @@ func determineMissingUIDs(oldmails []oldmail, uids []UID) (ranges []Range, err e
 	}
 
 	// Determine which UIDs are missing on disk. The resulting structure will already be sorted.
-	missingUIDs := []int{}
-	for _, msg := range uids {
+	missingIDs := []int{}
+	for msgIdx, msg := range uids {
 		if _, found := oldmailUIDs[msg.Message]; !found {
-			missingUIDs = append(missingUIDs, msg.Message)
+			missingIDs = append(missingIDs, msgIdx+1) // Emails are identified starting at 1.
 		}
 	}
-	if len(missingUIDs) == 0 {
+	if len(missingIDs) == 0 {
 		// All's well, everything is already on disk.
 		return
 	}
 
 	// Extract consecutive ranges of UIDs from the missing UIDs, which speeds up downloading. That
 	// way, we avoid retrieving messages one at a time.
-	start := missingUIDs[0]
+	start := missingIDs[0]
 	last := start
-	for _, mis := range missingUIDs {
+	for _, mis := range missingIDs {
 		if mis-last > 1 {
 			ranges = append(ranges, Range{Start: start, End: last + 1})
 			start = mis
@@ -118,6 +113,7 @@ func rfc822FromEmail(msg *imap.Message, uidvalidity int) (string, oldmail, error
 // already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
 // the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
 // sub-directory.
+///nolint:funlen
 func DownloadFolder(cfg IMAPConfig, folder, maildirPath string) error {
 	// Retrieve information about emails that have already been downloaded.
 	oldmails, oldmailPath, err := initExistingMaildir(cfg, maildirPath)
@@ -141,6 +137,8 @@ func DownloadFolder(cfg IMAPConfig, folder, maildirPath string) error {
 	if err != nil {
 		return err
 	}
+	uidvalidity := int(mbox.UidValidity)
+	_ = uidvalidity
 
 	// Retrieve information about which emails are present on the remote system and check which ones
 	// are missing when comparing against those on disk.
@@ -148,24 +146,57 @@ func DownloadFolder(cfg IMAPConfig, folder, maildirPath string) error {
 	if err != nil {
 		return err
 	}
-	missingUIDRanges, err := determineMissingUIDs(oldmails, uids)
+	logInfo(fmt.Sprintf("received information for %d emails", len(uids)))
+	fmt.Println(uids)
+	missingIDRanges, err := determineMissingIDs(oldmails, uids)
 	if err != nil {
 		return err
 	}
+	logInfo(fmt.Sprintf("will download %d new emails", len(missingIDRanges)))
+	fmt.Println(missingIDRanges)
 
 	// Download missing emails and store them on disk.
-	for _, missingRange := range missingUIDRanges {
+	for _, missingRange := range missingIDRanges {
 		msgs, err := getMessageRange(mbox, imapClient, missingRange)
 		if err != nil {
 			return err
 		}
 		// Deliver each email to the `tmp` directory and move them to the `new` directory.
-		_ = msgs
+		for _, msg := range msgs {
+			text, oldmail, err := rfc822FromEmail(msg, uidvalidity)
+			if err != nil {
+				return err
+			}
+			logInfo(fmt.Sprintf("downloaded email %s", oldmail))
+			fileName, err := newUniqueName()
+			if err != nil {
+				return err
+			}
+			tmpPath := filepath.Join(maildirPath, tmpMaildir, fileName)
+			newPath := filepath.Join(maildirPath, newMaildir, fileName)
+			if isFile(tmpPath) {
+				return fmt.Errorf("unique file name '%s' is not unique", tmpPath)
+			}
+			logInfo(fmt.Sprintf("writing new email to file %s", tmpPath))
+			err = os.WriteFile(tmpPath, []byte(text), 0644) //nolint:gosec,gomnd
+			if err != nil {
+				return err
+			}
+			oldmails = append(oldmails, oldmail)
+			logInfo(fmt.Sprintf("moving email to permanent storage location %s", newPath))
+			if isFile(newPath) {
+				return fmt.Errorf("permanent storate '%s' already exists", newPath)
+			}
+			err = os.Rename(tmpPath, newPath)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	// Write out information about newly retrieved emails.
-	logInfo("writing oldmail file")
-	if err := writeOldmail(oldmails, oldmailPath+".new"); err != nil {
+	logInfo(fmt.Sprintf("writing oldmail file %s", oldmailPath))
+	if err := writeOldmail(oldmails, oldmailPath); err != nil {
 		return err
 	}
 	logInfo("wrote new oldmail file")
