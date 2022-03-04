@@ -20,7 +20,6 @@ package core
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,6 +37,7 @@ const (
 
 // A global delivery counter for this process used to determine a unique file name. A value of 0
 // means no delivery has yet occurred.
+// TODO: use a mutex to enable multi-threaded downloads.
 var deliveryCount = 0
 
 // Get a unique name for an email that will be delivered. Follow the process described here
@@ -91,25 +91,6 @@ func newUniqueName() (string, error) {
 	return filename, nil
 }
 
-func isFile(path string) bool {
-	stat, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return false
-	}
-	// We consider anything that exists and is no directory to be a file. This could be symlinks or
-	// pipes or something similar. For the purpose of this tool, that distinction is likely not
-	// relevant.
-	return !stat.IsDir()
-}
-
-func isDir(path string) bool {
-	stat, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return false
-	}
-	return stat.IsDir()
-}
-
 // Function isMaildir checks whether a path is a path to a maildir. A maildir is a directory that
 // contains the directories "cur", "new", and "tmp".
 func isMaildir(cfg IMAPConfig, path string) bool {
@@ -160,29 +141,4 @@ func initExistingMaildir(
 	logInfo("found and read oldmail file")
 
 	return oldmails, oldmailPath, err
-}
-
-// ReadMaildir reads a maildir in and prints some information about it. This is usefiul for
-// development and will probably not remain afterwards.
-func ReadMaildir(cfg IMAPConfig, path string) error {
-	oldmails, oldmailPath, err := initExistingMaildir(cfg, path)
-	if err != nil {
-		return err
-	}
-
-	logInfo("writing oldmail file")
-	if err := writeOldmail(oldmails, oldmailPath+".new"); err != nil {
-		return err
-	}
-	logInfo("wrote new oldmail file")
-
-	for i := 0; i < 5; i++ {
-		filename, err := newUniqueName()
-		if err != nil {
-			return err
-		}
-		logInfo(filename)
-	}
-
-	return nil
 }
