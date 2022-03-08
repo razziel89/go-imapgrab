@@ -53,3 +53,13 @@ func canonicalizeRange(r rangeT, start, end int) (rangeT, error) {
 	}
 	return r, nil
 }
+
+func accumulateRanges(ranges []rangeT) int {
+	total := 0
+
+	for _, r := range ranges {
+		total += r.end - r.start
+	}
+
+	return total
+}

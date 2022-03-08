@@ -67,8 +67,10 @@ func (e *email) set(value interface{}) error {
 		// Ignore the first entry in this category. It will be the header specification for this
 		// RFC. Only throw an error if the string representation of that does not contain rfc822.
 		if !e.seenHeader {
-			if !strings.Contains(fmt.Sprint(concrete), "rfc822") {
-				return fmt.Errorf("rfc822 header not found or with unexpected content")
+			if !strings.Contains(strings.ToLower(fmt.Sprint(concrete)), "rfc822") {
+				return fmt.Errorf(
+					"rfc822 header not found or with unexpected content: %s", concrete,
+				)
 			}
 			e.seenHeader = true
 			return nil

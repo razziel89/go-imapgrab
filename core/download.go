@@ -83,17 +83,9 @@ func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err e
 func downloadMissingEmailsToFolder(
 	imapClient *client.Client, folder, maildirPath, oldmailName string,
 ) error {
-	var oldmails []oldmail
-	var oldmailPath string
-	var err error
-
-	if isDir(maildirPath) {
-		oldmails, oldmailPath, err = initExistingMaildir(oldmailName, maildirPath)
-		if err != nil {
-			return err
-		}
-	} else {
-		return fmt.Errorf("creation of new maildir not yet implemented")
+	oldmails, oldmailPath, err := initExistingMaildir(oldmailName, maildirPath)
+	if err != nil {
+		return err
 	}
 
 	mbox, err := selectFolder(imapClient, folder)
@@ -113,7 +105,12 @@ func downloadMissingEmailsToFolder(
 	if err != nil {
 		return err
 	}
-	logInfo(fmt.Sprintf("will download %d new emails", len(missingIDRanges)))
+	total := accumulateRanges(missingIDRanges)
+	if total == 0 {
+		logInfo("no new emails, nothing to be done")
+		return nil
+	}
+	logInfo(fmt.Sprintf("will download %d new emails", total))
 
 	// Download missing emails and store them on disk.
 	for _, missingRange := range missingIDRanges {
