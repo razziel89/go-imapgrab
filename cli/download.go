@@ -18,26 +18,24 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"fmt"
-
 	"github.com/razziel89/go-imapgrab/core"
 	"github.com/spf13/cobra"
 )
 
-var viewConf viewConfigT
+var downloadConf downloadConfigT
 
-type viewConfigT struct {
-	index  int
+type downloadConfigT struct {
 	folder string
+	path   string
 }
 
 func init() {
-	rootCmd.AddCommand(viewCmd)
+	rootCmd.AddCommand(downloadCmd)
 }
 
-var viewCmd = &cobra.Command{
-	Use:   "view",
-	Short: "View a single email on your screen. Shows RFC822-compliant content.",
+var downloadCmd = &cobra.Command{
+	Use:   "download",
+	Short: "Download all not yet downloaded emails from a folder to a maildir.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		core.SetVerboseLogs(verbose)
 		cfg := core.IMAPConfig{
@@ -46,22 +44,21 @@ var viewCmd = &cobra.Command{
 			User:     rootConf.username,
 			Password: rootConf.password,
 		}
-		email, err := core.PrintEmail(cfg, viewConf.folder, viewConf.index)
+		err := core.DownloadFolder(cfg, downloadConf.folder, downloadConf.path)
 		if err != nil {
 			return err
 		}
-		fmt.Println(email)
 		return nil
 	},
 }
 
 func init() {
-	initViewFlags()
+	initDownloadFlags()
 }
 
-func initViewFlags() {
-	pflags := viewCmd.PersistentFlags()
+func initDownloadFlags() {
+	pflags := downloadCmd.PersistentFlags()
 
-	pflags.StringVarP(&viewConf.folder, "folder", "f", "", "the folder to get an email from")
-	pflags.IntVarP(&viewConf.index, "index", "i", 1, "index for email with 1 being most recent")
+	pflags.StringVarP(&downloadConf.folder, "folder", "f", "", "the folder to download")
+	pflags.StringVar(&downloadConf.path, "path", "", "the local path to your maildir")
 }

@@ -20,7 +20,6 @@ package core
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,21 +35,9 @@ const (
 	randomHexSize = 8
 )
 
-// TODO:
-// deliver email: An email will be delivered to the "tmp" sub-directory first with a unique file
-// name obtained via newUniqueName.
-//
-// store email: Only once that email has successfully been written to disk will it be moved (not
-// copied) to the "new" sub-directory with the exact same name. Use "os.Rename" to do so as the call
-// is atomic enough not to cause problems.
-//
-// Remember the information needed to generate oldmail entries for the emails thus delivered (or
-// generate that content directly). It might make most sense to append a line to the oldmail file
-// for each email that has been delivered as it is being delivered. It would be easier to implement,
-// though, to remember all that information and write all out at once in the very end.
-
 // A global delivery counter for this process used to determine a unique file name. A value of 0
 // means no delivery has yet occurred.
+// TODO: use a mutex to enable multi-threaded downloads.
 var deliveryCount = 0
 
 // Get a unique name for an email that will be delivered. Follow the process described here
@@ -104,28 +91,9 @@ func newUniqueName() (string, error) {
 	return filename, nil
 }
 
-func isFile(path string) bool {
-	stat, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return false
-	}
-	// We consider anything that exists and is no directory to be a file. This could be symlinks or
-	// pipes or something similar. For the purpose of this tool, that distinction is likely not
-	// relevant.
-	return !stat.IsDir()
-}
-
-func isDir(path string) bool {
-	stat, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return false
-	}
-	return stat.IsDir()
-}
-
 // Function isMaildir checks whether a path is a path to a maildir. A maildir is a directory that
 // contains the directories "cur", "new", and "tmp".
-func isMaildir(cfg IMAPConfig, path string) bool {
+func isMaildir(path string) bool {
 	// Check for sub-directories.
 	for _, dir := range []string{newMaildir, curMaildir, tmpMaildir} {
 		fullPath := filepath.Join(path, dir)
@@ -136,47 +104,69 @@ func isMaildir(cfg IMAPConfig, path string) bool {
 	return true
 }
 
-// ReadMaildir reads a maildir in and prints some information about it. This is usefiul for
-// development and will probably not remain afterwards.
-func ReadMaildir(cfg IMAPConfig, path string) error {
-	if len(path) == 0 {
-		return fmt.Errorf("path to maildir cannot be empty")
+// Check whether a given path points to a maildir. This function checks for the existence of any
+// required sub-directories and fails if they cannot be found. Furthermore, it checks for the
+// existence of an oldmail file, parses it, and returns the information stored within it. It also
+// returns the path to that oldmail file.
+func initExistingMaildir(
+	oldmailName, maildirPath string,
+) (oldmails []oldmail, oldmailFilePath string, err error) {
+	logInfo("retrieving information about emails stored on disk")
+	if len(maildirPath) == 0 {
+		err = fmt.Errorf("path to maildir cannot be empty")
+		return
 	}
-	// Ensure the path has no trailing slashes and is generally as short as possible. This is often
-	// called canonicalisation.
-	path = filepath.Clean(path)
+	// Ensure the maildirPath has no trailing slashes and is generally as short as possible. This is
+	// often called canonicalisation.
+	maildirPath = filepath.Clean(maildirPath)
 
-	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", path))
-	if !isMaildir(cfg, path) {
-		return fmt.Errorf("given directory %s does not point to a maildir", path)
+	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", maildirPath))
+	if !isMaildir(maildirPath) {
+		err = fmt.Errorf("given directory %s does not point to a maildir", maildirPath)
+		return
 	}
 	logInfo("all sub-directories found")
 
-	// Extract expected path of oldmail file.
-	parent := filepath.Dir(path)
-	base := filepath.Base(path)
-	oldmailPath := filepath.Join(parent, oldmailFileName(cfg, base))
+	// Extract expected maildirPath of oldmail file.
+	parent := filepath.Dir(maildirPath)
+	oldmailPath := filepath.Join(parent, oldmailName)
 
-	logInfo(fmt.Sprintf("checking for and reading oldmail file of possible maildir %s", path))
-	oldmails, err := readOldmail(oldmailPath, path)
+	logInfo(
+		fmt.Sprintf("checking for and reading oldmail file of possible maildir %s", maildirPath),
+	)
+	oldmails, err = readOldmail(oldmailPath)
 	if err != nil {
-		return err
+		return
 	}
 	logInfo("found and read oldmail file")
 
-	logInfo("writing oldmail file")
-	if err := writeOldmail(oldmails, oldmailPath+".new"); err != nil {
+	return oldmails, oldmailPath, err
+}
+
+// Write an email to the tmp sub-directory of a maildir with an appropriate, unique name and then
+// move it to new sub-directory as mandated by the maildir specs.
+func deliverMessage(rfc822 string, basePath string) error {
+	fileName, err := newUniqueName()
+	if err != nil {
 		return err
 	}
-	logInfo("wrote new oldmail file")
-
-	for i := 0; i < 5; i++ {
-		filename, err := newUniqueName()
-		if err != nil {
-			return err
-		}
-		logInfo(filename)
+	tmpPath := filepath.Join(basePath, tmpMaildir, fileName)
+	newPath := filepath.Join(basePath, newMaildir, fileName)
+	if isFile(tmpPath) {
+		return fmt.Errorf("unique file name '%s' is not unique", tmpPath)
 	}
-
+	logInfo(fmt.Sprintf("writing new email to file %s", tmpPath))
+	err = os.WriteFile(tmpPath, []byte(rfc822), 0644) //nolint:gosec,gomnd
+	if err != nil {
+		return err
+	}
+	logInfo(fmt.Sprintf("moving email to permanent storage location %s", newPath))
+	if isFile(newPath) {
+		return fmt.Errorf("permanent storage '%s' already exists", newPath)
+	}
+	err = os.Rename(tmpPath, newPath)
+	if err != nil {
+		return err
+	}
 	return nil
 }

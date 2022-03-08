@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"time"
 )
 
 const (
@@ -40,6 +41,12 @@ type oldmail struct {
 	timestamp   int
 }
 
+// Provide a string representation for oldmail information.
+func (om oldmail) String() string {
+	timeStr := time.Unix(int64(om.timestamp), 0).String()
+	return fmt.Sprintf("%d/%d -> %s", om.uidValidity, om.uid, timeStr)
+}
+
 func oldmailFileName(cfg IMAPConfig, folder string) string {
 	return fmt.Sprintf("oldmail-%s-%d-%s-%s", cfg.Server, cfg.Port, cfg.User, folder)
 }
@@ -53,7 +60,8 @@ func oldmailFileName(cfg IMAPConfig, folder string) string {
 // The format of each line of an oldmail file is <UIDVALIDITY>/<UID>\0<TIMESTAMP>. Here UIDVALIDITY
 // is a unique identifier for a mailbox, UID is the unique identifier for an email within that
 // mailbox, and TIMESTAMP is the unix timestamp when the message had been received by the server.
-func readOldmail(oldmailPath string, path string) (oldmails []oldmail, err error) {
+func readOldmail(oldmailPath string) (oldmails []oldmail, err error) {
+	logInfo(fmt.Sprintf("reading oldmail file %s", oldmailPath))
 	// Check for oldmail file.
 	if !isFile(oldmailPath) {
 		err = fmt.Errorf("oldmail file %s not found", oldmailPath)
@@ -96,12 +104,14 @@ func readOldmail(oldmailPath string, path string) (oldmails []oldmail, err error
 	if err = scanner.Err(); err != nil {
 		return
 	}
+	logInfo("read oldmail file")
 
 	return oldmails, nil
 }
 
 // Write oldmail information to a path. See readOldmail for an explanation of the file format.
 func writeOldmail(oldmails []oldmail, oldmailPath string) (err error) {
+	logInfo(fmt.Sprintf("writing oldmail file %s", oldmailPath))
 	// Check for oldmail file.
 	if isFile(oldmailPath) {
 		logInfo(fmt.Sprintf("oldmail file %s already present, overwriting", oldmailPath))
@@ -126,6 +136,7 @@ func writeOldmail(oldmails []oldmail, oldmailPath string) (err error) {
 			return
 		}
 	}
+	logInfo("wrote new oldmail file")
 
 	return nil
 }

@@ -18,15 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Package core provides central functionality for backing up IMAP mailboxes.
 package core
 
-import (
-	"fmt"
-	"time"
-)
-
-const (
-	rfc822ExpectedNumFields = 6
-)
-
 // IMAPConfig is a configuration needed to access an IMAP server.
 type IMAPConfig struct {
 	Server   string
@@ -35,7 +26,7 @@ type IMAPConfig struct {
 	Password string
 }
 
-// GetAllFolders retrieves a list of all monitors in a mailbox.
+// GetAllFolders retrieves a list of all folders in a mailbox.
 func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 	imapClient, err := authenticateClient(cfg)
 	if err != nil {
@@ -52,13 +43,16 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 	return getFolderList(imapClient)
 }
 
-// PrintEmail reads a single email with index `idx` (1 is oldest) from a single folder `folder` and
-// returns its content. This functionality will likely be removed later but it is useful for
-// development.
-func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err error) {
+// DownloadFolder downloads all not yet downloaded email from a folder in a mailbox to a maildir.
+// The oldmail file in the parent directory of the maildir is used to determine which emails have
+// already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
+// the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
+// sub-directory.
+func DownloadFolder(cfg IMAPConfig, folder, maildirPath string) error {
+	// Authenticate against the remote server.
 	imapClient, err := authenticateClient(cfg)
 	if err != nil {
-		return
+		return err
 	}
 	// Make sure to log out in the end if we logged in successfully.
 	defer func() {
@@ -68,59 +62,7 @@ func PrintEmail(cfg IMAPConfig, folder string, index int) (content string, err e
 		}
 	}()
 
-	mbox, err := selectFolder(imapClient, folder)
-	if err != nil {
-		return
-	}
-	msgs, err := getMessageRange(mbox, imapClient, Range{index, index + 1})
-	if err != nil {
-		return
-	}
-	if len(msgs) != 1 {
-		err = fmt.Errorf("did not retrieve exactly one message")
-		return
-	}
-	msg := msgs[0]
+	oldmailFilePath := oldmailFileName(cfg, folder)
 
-	fields := msg.Format()
-	if len(fields) != rfc822ExpectedNumFields {
-		return "", fmt.Errorf("cannot extract required RFC822 fields from email")
-	}
-
-	email := Email{}
-	for _, field := range fields {
-		if err := email.set(field); err != nil {
-			return "", fmt.Errorf("cannot extract email data: %s", err.Error())
-		}
-	}
-	if !email.validate() {
-		return "", fmt.Errorf("cannot extract full email from reply")
-	}
-
-	return fmt.Sprint(email), nil
-}
-
-// GetAllUIDsAndTimestamps obtains all UIDs of all emails in a mailbox and their timestamps. UIDs
-// are not checked for uniqueness. The time at any one index corresponds to the UID at the same
-// index. This functionality will likely be removed later but it is useful for development.
-func GetAllUIDsAndTimestamps(
-	cfg IMAPConfig, folder string,
-) (uids []UID, times []time.Time, err error) {
-	imapClient, err := authenticateClient(cfg)
-	if err != nil {
-		return
-	}
-	// Make sure to log out in the end if we logged in successfully.
-	defer func() {
-		// Don't overwrite the error if it has already been set.
-		if logoutErr := imapClient.Logout(); logoutErr != nil && err == nil {
-			err = logoutErr
-		}
-	}()
-
-	mbox, err := selectFolder(imapClient, folder)
-	if err != nil {
-		return
-	}
-	return getAllMessageUUIDsAndTimestamps(mbox, imapClient)
+	return downloadMissingEmailsToFolder(imapClient, folder, maildirPath, oldmailFilePath)
 }
