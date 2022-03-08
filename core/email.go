@@ -119,6 +119,7 @@ func rfc822FromEmail(msg *imap.Message, uidvalidity int) (string, oldmail, error
 		uidValidity: uidvalidity,
 		timestamp:   int(email.timestamp.Unix()),
 	}
+	logInfo(fmt.Sprintf("downloaded email %s", oldmailInfo))
 
 	return text, oldmailInfo, nil
 }

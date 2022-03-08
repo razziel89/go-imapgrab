@@ -130,6 +130,7 @@ func getAllMessageUUIDs(
 	mbox *imap.MailboxStatus, imapClient *client.Client,
 ) (uids []uid, err error) {
 
+	logInfo("retrieving information about emails stored on server")
 	uids = make([]uid, 0, mbox.Messages)
 
 	// Retrieve information about all emails.
@@ -153,6 +154,7 @@ func getAllMessageUUIDs(
 			uids = append(uids, appUID)
 		}
 	}
+	logInfo(fmt.Sprintf("received information for %d emails", len(uids)))
 
 	return uids, err
 }

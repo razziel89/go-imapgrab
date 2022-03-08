@@ -93,7 +93,7 @@ func newUniqueName() (string, error) {
 
 // Function isMaildir checks whether a path is a path to a maildir. A maildir is a directory that
 // contains the directories "cur", "new", and "tmp".
-func isMaildir(cfg IMAPConfig, path string) bool {
+func isMaildir(path string) bool {
 	// Check for sub-directories.
 	for _, dir := range []string{newMaildir, curMaildir, tmpMaildir} {
 		fullPath := filepath.Join(path, dir)
@@ -109,8 +109,9 @@ func isMaildir(cfg IMAPConfig, path string) bool {
 // existence of an oldmail file, parses it, and returns the information stored within it. It also
 // returns the path to that oldmail file.
 func initExistingMaildir(
-	cfg IMAPConfig, maildirPath string,
+	oldmailName, maildirPath string,
 ) (oldmails []oldmail, oldmailFilePath string, err error) {
+	logInfo("retrieving information about emails stored on disk")
 	if len(maildirPath) == 0 {
 		err = fmt.Errorf("path to maildir cannot be empty")
 		return
@@ -120,7 +121,7 @@ func initExistingMaildir(
 	maildirPath = filepath.Clean(maildirPath)
 
 	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", maildirPath))
-	if !isMaildir(cfg, maildirPath) {
+	if !isMaildir(maildirPath) {
 		err = fmt.Errorf("given directory %s does not point to a maildir", maildirPath)
 		return
 	}
@@ -128,17 +129,44 @@ func initExistingMaildir(
 
 	// Extract expected maildirPath of oldmail file.
 	parent := filepath.Dir(maildirPath)
-	base := filepath.Base(maildirPath)
-	oldmailPath := filepath.Join(parent, oldmailFileName(cfg, base))
+	oldmailPath := filepath.Join(parent, oldmailName)
 
 	logInfo(
 		fmt.Sprintf("checking for and reading oldmail file of possible maildir %s", maildirPath),
 	)
-	oldmails, err = readOldmail(oldmailPath, maildirPath)
+	oldmails, err = readOldmail(oldmailPath)
 	if err != nil {
 		return
 	}
 	logInfo("found and read oldmail file")
 
 	return oldmails, oldmailPath, err
+}
+
+// Write an email to the tmp sub-directory of a maildir with an appropriate, unique name and then
+// move it to new sub-directory as mandated by the maildir specs.
+func deliverMessage(rfc822 string, basePath string) error {
+	fileName, err := newUniqueName()
+	if err != nil {
+		return err
+	}
+	tmpPath := filepath.Join(basePath, tmpMaildir, fileName)
+	newPath := filepath.Join(basePath, newMaildir, fileName)
+	if isFile(tmpPath) {
+		return fmt.Errorf("unique file name '%s' is not unique", tmpPath)
+	}
+	logInfo(fmt.Sprintf("writing new email to file %s", tmpPath))
+	err = os.WriteFile(tmpPath, []byte(rfc822), 0644) //nolint:gosec,gomnd
+	if err != nil {
+		return err
+	}
+	logInfo(fmt.Sprintf("moving email to permanent storage location %s", newPath))
+	if isFile(newPath) {
+		return fmt.Errorf("permanent storage '%s' already exists", newPath)
+	}
+	err = os.Rename(tmpPath, newPath)
+	if err != nil {
+		return err
+	}
+	return nil
 }

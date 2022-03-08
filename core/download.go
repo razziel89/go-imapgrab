@@ -19,6 +19,8 @@ package core
 
 import (
 	"fmt"
+
+	"github.com/emersion/go-imap/client"
 )
 
 // Determine the indices of emails that have not yet been downloaded. The download process
@@ -76,4 +78,67 @@ func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err e
 	ranges = append(ranges, rangeT{start: start, end: last + 1})
 
 	return ranges, nil
+}
+
+func downloadMissingEmailsToFolder(
+	imapClient *client.Client, folder, maildirPath, oldmailName string,
+) error {
+	var oldmails []oldmail
+	var oldmailPath string
+	var err error
+
+	if isDir(maildirPath) {
+		oldmails, oldmailPath, err = initExistingMaildir(oldmailName, maildirPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("creation of new maildir not yet implemented")
+	}
+
+	mbox, err := selectFolder(imapClient, folder)
+	if err != nil {
+		return err
+	}
+	uidvalidity := int(mbox.UidValidity)
+
+	// Retrieve information about which emails are present on the remote system and check which ones
+	// are missing when comparing against those on disk.
+	uids, err := getAllMessageUUIDs(mbox, imapClient)
+	if err != nil {
+		return err
+	}
+
+	missingIDRanges, err := determineMissingIDs(oldmails, uids)
+	if err != nil {
+		return err
+	}
+	logInfo(fmt.Sprintf("will download %d new emails", len(missingIDRanges)))
+
+	// Download missing emails and store them on disk.
+	for _, missingRange := range missingIDRanges {
+		msgs, err := getMessageRange(mbox, imapClient, missingRange)
+		if err != nil {
+			return err
+		}
+		// Deliver each email to the `tmp` directory and move them to the `new` directory.
+		for _, msg := range msgs {
+			text, oldmail, err := rfc822FromEmail(msg, uidvalidity)
+			if err != nil {
+				return err
+			}
+			err = deliverMessage(text, maildirPath)
+			if err != nil {
+				return err
+			}
+			oldmails = append(oldmails, oldmail)
+		}
+	}
+
+	// Write out information about newly retrieved emails.
+	if err := writeOldmail(oldmails, oldmailPath); err != nil {
+		return err
+	}
+
+	return nil
 }
