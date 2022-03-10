@@ -108,7 +108,7 @@ func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err e
 func downloadMissingEmailsToFolder(
 	imapClient *client.Client, folder, maildirPath, oldmailName string,
 ) error {
-	oldmails, oldmailPath, err := initExistingMaildir(oldmailName, maildirPath)
+	oldmails, oldmailPath, err := initMaildir(oldmailName, maildirPath)
 	if err != nil {
 		return err
 	}

@@ -33,6 +33,9 @@ const (
 	tmpMaildir = "tmp"
 	// The number of bits used for a random hex number to prevent name clashes.
 	randomHexSize = 8
+	// Default permissions for the creation of new stuff.
+	dirPerm  = 0700
+	filePerm = 0600
 )
 
 // A global delivery counter for this process used to determine a unique file name. A value of 0
@@ -143,6 +146,30 @@ func initExistingMaildir(
 	return oldmails, oldmailPath, err
 }
 
+// Initialize a maildir. If the given path already exists, only check whether the path is a maildir.
+// If not, create the path first including all the required sub-directories and an empty oldmail
+// file.
+func initMaildir(oldmailName, maildirPath string) ([]oldmail, string, error) {
+	if !isDir(maildirPath) {
+		logInfo(fmt.Sprintf("creating path to maildir %s and subdirectories", maildirPath))
+		err := os.MkdirAll(maildirPath, dirPerm)
+		for _, dir := range []string{newMaildir, curMaildir, tmpMaildir} {
+			joined := filepath.Join(maildirPath, dir)
+			if err == nil {
+				err = os.MkdirAll(joined, dirPerm)
+			}
+		}
+		if err == nil {
+			parent := filepath.Dir(maildirPath)
+			err = touch(filepath.Join(parent, oldmailName), filePerm)
+		}
+		if err != nil {
+			return []oldmail{}, "", err
+		}
+	}
+	return initExistingMaildir(oldmailName, maildirPath)
+}
+
 // Write an email to the tmp sub-directory of a maildir with an appropriate, unique name and then
 // move it to new sub-directory as mandated by the maildir specs.
 func deliverMessage(rfc822 string, basePath string) error {
@@ -156,7 +183,7 @@ func deliverMessage(rfc822 string, basePath string) error {
 		return fmt.Errorf("unique file name '%s' is not unique", tmpPath)
 	}
 	logInfo(fmt.Sprintf("writing new email to file %s", tmpPath))
-	err = os.WriteFile(tmpPath, []byte(rfc822), 0644) //nolint:gosec,gomnd
+	err = os.WriteFile(tmpPath, []byte(rfc822), filePerm) //nolint:gosec
 	if err != nil {
 		return err
 	}

@@ -40,3 +40,7 @@ func isDir(path string) bool {
 	}
 	return stat.IsDir()
 }
+
+func touch(path string, perm int) error {
+	return os.WriteFile(path, []byte{}, filePerm)
+}
