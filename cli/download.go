@@ -25,8 +25,8 @@ import (
 var downloadConf downloadConfigT
 
 type downloadConfigT struct {
-	folder string
-	path   string
+	folders []string
+	path    string
 }
 
 func init() {
@@ -44,7 +44,7 @@ var downloadCmd = &cobra.Command{
 			User:     rootConf.username,
 			Password: rootConf.password,
 		}
-		err := core.DownloadFolder(cfg, downloadConf.folder, downloadConf.path)
+		err := core.DownloadFolder(cfg, downloadConf.folders, downloadConf.path)
 		if err != nil {
 			return err
 		}
@@ -59,6 +59,15 @@ func init() {
 func initDownloadFlags() {
 	pflags := downloadCmd.PersistentFlags()
 
-	pflags.StringVarP(&downloadConf.folder, "folder", "f", "", "the folder to download")
-	pflags.StringVar(&downloadConf.path, "path", "", "the local path to your maildir")
+	pflags.StringSliceVarP(
+		&downloadConf.folders,
+		"folder",
+		"f",
+		[]string{},
+		"a folder spec specifying something to download (can be a folder name,\n"+
+			"_ALL_ selects all folders, _Gmail_ selects Gmail folders, specify this\n"+
+			"flag multiple times for multiple specs, prepend a minus '-' to any\n"+
+			"spec to deselect instead, specs are interpreted in order)\n",
+	)
+	pflags.StringVar(&downloadConf.path, "path", "", "the local path to your maildir's parent dir")
 }

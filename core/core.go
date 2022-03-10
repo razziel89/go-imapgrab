@@ -48,7 +48,7 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 // already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
 // the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
 // sub-directory.
-func DownloadFolder(cfg IMAPConfig, folder, maildirPath string) error {
+func DownloadFolder(cfg IMAPConfig, folders []string, maildirPath string) error {
 	// Authenticate against the remote server.
 	imapClient, err := authenticateClient(cfg)
 	if err != nil {
@@ -62,7 +62,21 @@ func DownloadFolder(cfg IMAPConfig, folder, maildirPath string) error {
 		}
 	}()
 
-	oldmailFilePath := oldmailFileName(cfg, folder)
+	availableFolders, err := getFolderList(imapClient)
+	if err != nil {
+		return err
+	}
 
-	return downloadMissingEmailsToFolder(imapClient, folder, maildirPath, oldmailFilePath)
+	folders = expandFolders(folders, availableFolders)
+
+	for _, folder := range folders {
+		oldmailFilePath := oldmailFileName(cfg, folder)
+
+		err = downloadMissingEmailsToFolder(imapClient, folder, maildirPath, oldmailFilePath)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

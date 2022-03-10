@@ -21,6 +21,8 @@ import (
 	"log"
 )
 
+const logSliceJoiner = ", "
+
 var verbose = false
 
 // SetVerboseLogs sets the log level for core functionality to verbose if passed true and to less
@@ -33,6 +35,11 @@ func logInfo(msg string) {
 	if verbose {
 		log.Println("INFO", msg)
 	}
+}
+
+func logWarning(msg string) {
+	// Always log warning.
+	log.Println("WARNING", msg)
 }
 
 func logError(msg string) {
