@@ -150,6 +150,7 @@ func initExistingMaildir(
 // If not, create the path first including all the required sub-directories and an empty oldmail
 // file.
 func initMaildir(oldmailName, maildirPath string) ([]oldmail, string, error) {
+	logInfo(fmt.Sprintf("initializing maildir %s", maildirPath))
 	if !isDir(maildirPath) {
 		logInfo(fmt.Sprintf("creating path to maildir %s and subdirectories", maildirPath))
 		err := os.MkdirAll(maildirPath, dirPerm)

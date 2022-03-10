@@ -105,7 +105,6 @@ func readOldmail(oldmailPath string) (oldmails []oldmail, err error) {
 	if err = scanner.Err(); err != nil {
 		return
 	}
-	logInfo("read oldmail file")
 
 	return oldmails, nil
 }

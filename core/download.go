@@ -35,22 +35,14 @@ const (
 	messageDeliveryBuffer = 10
 )
 
-// All gmail-specific folders.
-var gmailList = []string{
-	"[Gmail]",
-	"[Gmail]/All Mail",
-	"[Gmail]/Drafts",
-	"[Gmail]/Sent Mail",
-	"[Gmail]/Spam",
-	"[Gmail]/Starred",
-	"[Gmail]/Trash",
-	"[Google Mail]",
-	"[Google Mail]/All Mail",
-	"[Google Mail]/Drafts",
-	"[Google Mail]/Sent Mail",
-	"[Google Mail]/Spam",
-	"[Google Mail]/Starred",
-	"[Google Mail]/Trash",
+// All gmail-specific folders, identified via prefixes..
+const (
+	gmailPrefix1 = "[Gmail]"
+	gmailPrefix2 = "[Google Mail]"
+)
+
+func isGmailDir(dirName string) bool {
+	return strings.HasPrefix(dirName, gmailPrefix1) || strings.HasPrefix(dirName, gmailPrefix2)
 }
 
 // Determine the indices of emails that have not yet been downloaded. The download process
@@ -220,21 +212,22 @@ func expandFolders(folderSpecs, availableFolders []string) []string {
 
 	for _, folderSpec := range folderSpecs {
 		if strings.HasPrefix(folderSpec, removalSelector) {
+			folderSpec = strings.TrimPrefix(folderSpec, removalSelector)
 			// Remove the specified directory.
 			switch folderSpec {
 			case allSelector:
-				// Remove all available directories, if any have been added yet.
 				for _, removeMe := range availableFolders {
 					foldersSet.remove(removeMe)
 				}
 			case gmailSelector:
-				// Remove only the gmail-specific stuff.
-				for _, removeMe := range gmailList {
-					foldersSet.remove(removeMe)
+				for _, removeMeCheck := range availableFolders {
+					if isGmailDir(removeMeCheck) {
+						foldersSet.remove(removeMeCheck)
+					}
 				}
 			default:
 				// Remove the specified folder, if it is known, log error otherwise.
-				if !availableFoldersSet.has(strings.TrimPrefix(folderSpec, removalSelector)) {
+				if !availableFoldersSet.has(folderSpec) {
 					logError(fmt.Sprintf("ignoring attempted removal via spec %s", folderSpec))
 				}
 				foldersSet.remove(strings.TrimPrefix(folderSpec, removalSelector))
@@ -243,14 +236,14 @@ func expandFolders(folderSpecs, availableFolders []string) []string {
 			// Add the specified directory.
 			switch folderSpec {
 			case allSelector:
-				// Add all available directories.
 				for _, addMe := range availableFolders {
 					foldersSet.add(addMe)
 				}
 			case gmailSelector:
-				// Add only the gmail-specific stuff.
-				for _, addMe := range gmailList {
-					foldersSet.add(addMe)
+				for _, addMeCheck := range availableFolders {
+					if isGmailDir(addMeCheck) {
+						foldersSet.add(addMeCheck)
+					}
 				}
 			default:
 				foldersSet.add(folderSpec)
@@ -263,7 +256,6 @@ func expandFolders(folderSpecs, availableFolders []string) []string {
 	if len(removed) > 0 {
 		logWarning(warning)
 	}
-
 	folders := foldersSet.orderedEntries()
 	logInfo(fmt.Sprintf("expanded to folders '%s'", strings.Join(folders, logJoiner)))
 	return folders
