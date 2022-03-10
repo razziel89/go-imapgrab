@@ -26,32 +26,36 @@ type rangeT struct {
 	end   int
 }
 
-func canonicalizeRange(r rangeT, start, end int) (rangeT, error) {
-	// Convert negative indices to count backwards from end.
-	if r.start < 0 {
-		r.start = end + r.start
-		// Handle special case in which the range -n,0 has been given, with n being a positive
-		// integer. In this case, the end has to be interpreted as the last message. All other cases
-		// require no special handling.
-		if r.end == 0 {
-			r.end = end
+func canonicalizeRanges(ranges []rangeT, start, end int) ([]rangeT, error) {
+	canonicalized := make([]rangeT, 0, len(ranges))
+	for _, r := range ranges {
+		// Convert negative indices to count backwards from end.
+		if r.start < 0 {
+			r.start = end + r.start
+			// Handle special case in which the range -n,0 has been given, with n being a positive
+			// integer. In this case, the end has to be interpreted as the last message. All other
+			// cases require no special handling.
+			if r.end == 0 {
+				r.end = end
+			}
 		}
+		if r.end < 0 {
+			r.end = end + r.end
+		}
+		// Make sure the range's end is larger than its start.
+		if !(r.end > r.start) {
+			return []rangeT{}, fmt.Errorf("range end must be larger than range start")
+		}
+		// Make sure the range's values do not exceed the available range.
+		if r.start < start {
+			return []rangeT{}, fmt.Errorf("range start cannot be smaller than %d", start)
+		}
+		if r.end > end {
+			return []rangeT{}, fmt.Errorf("range end cannot be larger than %d", end)
+		}
+		canonicalized = append(canonicalized, r)
 	}
-	if r.end < 0 {
-		r.end = end + r.end
-	}
-	// Make sure the range's end is larger than its start.
-	if !(r.end > r.start) {
-		return r, fmt.Errorf("range end must be larger than range start")
-	}
-	// Make sure the range's values do not exceed the available range.
-	if r.start < start {
-		return r, fmt.Errorf("range start cannot be smaller than %d", start)
-	}
-	if r.end > end {
-		return r, fmt.Errorf("range end cannot be larger than %d", end)
-	}
-	return r, nil
+	return canonicalized, nil
 }
 
 func accumulateRanges(ranges []rangeT) int {

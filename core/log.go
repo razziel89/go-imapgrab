@@ -21,7 +21,7 @@ import (
 	"log"
 )
 
-const logSliceJoiner = ", "
+const logJoiner = ", "
 
 var verbose = false
 

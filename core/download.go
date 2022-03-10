@@ -20,14 +20,19 @@ package core
 import (
 	"fmt"
 	"strings"
+	"sync"
 
+	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 )
 
 const (
+	// Constants used to expand folder name specs.
 	allSelector     = "_ALL_"
 	gmailSelector   = "_Gmail_"
 	removalSelector = "-"
+	// Buffer for email delivery on disk.
+	messageDeliveryBuffer = 10
 )
 
 // All gmail-specific folders.
@@ -105,6 +110,35 @@ func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err e
 	return ranges, nil
 }
 
+func streamingDelivery(
+	messageChan <-chan *imap.Message, maildirPath string, uidvalidity int, wg *sync.WaitGroup,
+) (returnedChan <-chan oldmail, errCountPtr *int) {
+	var errCount int
+
+	deliveredChan := make(chan oldmail, messageDeliveryBuffer)
+
+	wg.Add(1)
+	go func() {
+		for msg := range messageChan {
+			// Deliver each email to the `tmp` directory and move them to the `new` directory.
+			text, oldmail, err := rfc822FromEmail(msg, uidvalidity)
+			if err == nil {
+				err = deliverMessage(text, maildirPath)
+			}
+			if err != nil {
+				logError(err.Error())
+				errCount++
+				continue
+			}
+			deliveredChan <- oldmail
+		}
+		wg.Done()
+		close(deliveredChan)
+	}()
+
+	return deliveredChan, &errCount
+}
+
 func downloadMissingEmailsToFolder(
 	imapClient *client.Client, folder, maildirPath, oldmailName string,
 ) error {
@@ -137,29 +171,32 @@ func downloadMissingEmailsToFolder(
 	}
 	logInfo(fmt.Sprintf("will download %d new emails", total))
 
-	// Download missing emails and store them on disk.
-	for _, missingRange := range missingIDRanges {
-		msgs, err := getMessageRange(mbox, imapClient, missingRange)
-		if err != nil {
-			return err
-		}
-		// Deliver each email to the `tmp` directory and move them to the `new` directory.
-		for _, msg := range msgs {
-			text, oldmail, err := rfc822FromEmail(msg, uidvalidity)
-			if err != nil {
-				return err
-			}
-			err = deliverMessage(text, maildirPath)
-			if err != nil {
-				return err
-			}
-			oldmails = append(oldmails, oldmail)
-		}
+	var wg sync.WaitGroup
+	messageChan, fetchErrCount, err := streamingRetrieval(mbox, imapClient, missingIDRanges, &wg)
+	if err != nil {
+		return err
 	}
 
-	// Write out information about newly retrieved emails.
+	// Download missing emails and store them on disk.
+	deliveredChan, deliverErrCount := streamingDelivery(messageChan, maildirPath, uidvalidity, &wg)
+	if err != nil {
+		return err
+	}
+
+	// Retrieve and write out information about all emails.
+	for delivered := range deliveredChan {
+		oldmails = append(oldmails, delivered)
+	}
 	if err := writeOldmail(oldmails, oldmailPath); err != nil {
 		return err
+	}
+
+	wg.Wait()
+	if *fetchErrCount > 0 || *deliverErrCount > 0 {
+		return fmt.Errorf(
+			"there have been %d and %d errors while retrieving and delivering emails, respectively",
+			*fetchErrCount, *deliverErrCount,
+		)
 	}
 
 	return nil
@@ -169,10 +206,10 @@ func downloadMissingEmailsToFolder(
 // folders to be selected.
 func expandFolders(folderSpecs, availableFolders []string) []string {
 	logInfo(
-		fmt.Sprintf("expanding folder spec '%s'", strings.Join(folderSpecs, logSliceJoiner)),
+		fmt.Sprintf("expanding folder spec '%s'", strings.Join(folderSpecs, logJoiner)),
 	)
 	logInfo(
-		fmt.Sprintf("available folders are '%s'", strings.Join(availableFolders, logSliceJoiner)),
+		fmt.Sprintf("available folders are '%s'", strings.Join(availableFolders, logJoiner)),
 	)
 
 	// Convert to set to simplify manipulation.
@@ -220,11 +257,12 @@ func expandFolders(folderSpecs, availableFolders []string) []string {
 	}
 
 	removed := foldersSet.keepUnion(availableFoldersSet)
-	logWarning(
-		fmt.Sprintf("unselecting non-existing folders '%s'", strings.Join(removed, logSliceJoiner)),
-	)
+	warning := fmt.Sprintf("unselecting nonexisting folders '%s'", strings.Join(removed, logJoiner))
+	if len(removed) > 0 {
+		logWarning(warning)
+	}
 
 	folders := foldersSet.orderedEntries()
-	logInfo(fmt.Sprintf("expanded to folders '%s'", strings.Join(folders, logSliceJoiner)))
+	logInfo(fmt.Sprintf("expanded to folders '%s'", strings.Join(folders, logJoiner)))
 	return folders
 }
