@@ -18,6 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Package core provides central functionality for backing up IMAP mailboxes.
 package core
 
+import "path/filepath"
+
 // IMAPConfig is a configuration needed to access an IMAP server.
 type IMAPConfig struct {
 	Server   string
@@ -48,7 +50,7 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 // already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
 // the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
 // sub-directory.
-func DownloadFolder(cfg IMAPConfig, folders []string, maildirPath string) error {
+func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string) error {
 	// Authenticate against the remote server.
 	imapClient, err := authenticateClient(cfg)
 	if err != nil {
@@ -71,6 +73,7 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirPath string) error 
 
 	for _, folder := range folders {
 		oldmailFilePath := oldmailFileName(cfg, folder)
+		maildirPath := filepath.Join(maildirBase, folder)
 
 		err = downloadMissingEmailsToFolder(imapClient, folder, maildirPath, oldmailFilePath)
 		if err != nil {
