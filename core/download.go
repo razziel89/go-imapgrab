@@ -19,9 +19,34 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/emersion/go-imap/client"
 )
+
+const (
+	allSelector     = "_ALL_"
+	gmailSelector   = "_Gmail_"
+	removalSelector = "-"
+)
+
+// All gmail-specific folders.
+var gmailList = []string{
+	"[Gmail]",
+	"[Gmail]/All Mail",
+	"[Gmail]/Drafts",
+	"[Gmail]/Sent Mail",
+	"[Gmail]/Spam",
+	"[Gmail]/Starred",
+	"[Gmail]/Trash",
+	"[Google Mail]",
+	"[Google Mail]/All Mail",
+	"[Google Mail]/Drafts",
+	"[Google Mail]/Sent Mail",
+	"[Google Mail]/Spam",
+	"[Google Mail]/Starred",
+	"[Google Mail]/Trash",
+}
 
 // Determine the indices of emails that have not yet been downloaded. The download process
 // indentifies emails by their indices and not by their UIDs. Thus, we need to take the server-side
@@ -138,4 +163,68 @@ func downloadMissingEmailsToFolder(
 	}
 
 	return nil
+}
+
+// Perform fancy name replacements on folder names. For example, specifying _ALL_ causes all
+// folders to be selected.
+func expandFolders(folderSpecs, availableFolders []string) []string {
+	logInfo(
+		fmt.Sprintf("expanding folder spec '%s'", strings.Join(folderSpecs, logSliceJoiner)),
+	)
+	logInfo(
+		fmt.Sprintf("available folders are '%s'", strings.Join(availableFolders, logSliceJoiner)),
+	)
+
+	// Convert to set to simplify manipulation.
+	availableFoldersSet := setFromSlice(availableFolders)
+	foldersSet := newOrderedSet(len(availableFolders))
+
+	for _, folderSpec := range folderSpecs {
+		if strings.HasPrefix(folderSpec, removalSelector) {
+			// Remove the specified directory.
+			switch folderSpec {
+			case allSelector:
+				// Remove all available directories, if any have been added yet.
+				for _, removeMe := range availableFolders {
+					foldersSet.remove(removeMe)
+				}
+			case gmailSelector:
+				// Remove only the gmail-specific stuff.
+				for _, removeMe := range gmailList {
+					foldersSet.remove(removeMe)
+				}
+			default:
+				// Remove the specified folder, if it is known, log error otherwise.
+				if !availableFoldersSet.has(strings.TrimPrefix(folderSpec, removalSelector)) {
+					logError(fmt.Sprintf("ignoring attempted removal via spec %s", folderSpec))
+				}
+				foldersSet.remove(strings.TrimPrefix(folderSpec, removalSelector))
+			}
+		} else {
+			// Add the specified directory.
+			switch folderSpec {
+			case allSelector:
+				// Add all available directories.
+				for _, addMe := range availableFolders {
+					foldersSet.add(addMe)
+				}
+			case gmailSelector:
+				// Add only the gmail-specific stuff.
+				for _, addMe := range gmailList {
+					foldersSet.add(addMe)
+				}
+			default:
+				foldersSet.add(folderSpec)
+			}
+		}
+	}
+
+	removed := foldersSet.keepUnion(availableFoldersSet)
+	logWarning(
+		fmt.Sprintf("unselecting non-existing folders '%s'", strings.Join(removed, logSliceJoiner)),
+	)
+
+	folders := foldersSet.orderedEntries()
+	logInfo(fmt.Sprintf("expanded to folders '%s'", strings.Join(folders, logSliceJoiner)))
+	return folders
 }
