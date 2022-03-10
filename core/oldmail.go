@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -110,33 +111,42 @@ func readOldmail(oldmailPath string) (oldmails []oldmail, err error) {
 }
 
 // Write oldmail information to a path. See readOldmail for an explanation of the file format.
-func writeOldmail(oldmails []oldmail, oldmailPath string) (err error) {
-	logInfo(fmt.Sprintf("writing oldmail file %s", oldmailPath))
-	// Check for oldmail file.
-	if isFile(oldmailPath) {
-		logInfo(fmt.Sprintf("oldmail file %s already present, overwriting", oldmailPath))
+func streamingOldmailWriteout(
+	oldmailChan <-chan oldmail, oldmailPath string, wg, stwg *sync.WaitGroup,
+) (errCountPtr *int, err error) {
+	logInfo(fmt.Sprintf("appending to oldmail file %s", oldmailPath))
+
+	handle, err := os.OpenFile( // nolint:gosec
+		oldmailPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filePerm,
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	handle, err := os.Create(oldmailPath) // nolint:gosec
-	if err != nil {
-		return
-	}
-	defer func() {
-		if closeErr := handle.Close(); err == nil && closeErr != nil {
-			err = closeErr
+	var errCount int
+	wg.Add(1)
+	go func() {
+		// Do not start before the entire pipeline has been set up.
+		stwg.Wait()
+		for om := range oldmailChan {
+			line := fmt.Sprintf(oldmailFormat, om.uidValidity, om.uid, om.timestamp)
+			// Undo the replacement done when reading the file. See readOldmail for details.
+			lineAsBytes := bytes.ReplaceAll([]byte(line), oldmailSepReplace, oldmailFormatSep)
+			byteCount, err := handle.Write(lineAsBytes)
+			if err != nil {
+				logError(err.Error())
+				errCount++
+			}
+			logInfo(fmt.Sprintf("wrote %d bytes to oldmail file", byteCount))
 		}
+
+		err = handle.Close()
+		if err != nil {
+			logError(err.Error())
+			errCount++
+		}
+		wg.Done()
 	}()
 
-	for _, om := range oldmails {
-		line := fmt.Sprintf(oldmailFormat, om.uidValidity, om.uid, om.timestamp)
-		// Undo the replacement done when reading the file. See readOldmail for details.
-		lineAsBytes := bytes.ReplaceAll([]byte(line), oldmailSepReplace, oldmailFormatSep)
-		_, err = handle.Write(lineAsBytes)
-		if err != nil {
-			return
-		}
-	}
-	logInfo("wrote new oldmail file")
-
-	return nil
+	return &errCount, nil
 }

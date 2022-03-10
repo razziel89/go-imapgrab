@@ -111,7 +111,7 @@ func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err e
 }
 
 func streamingDelivery(
-	messageChan <-chan *imap.Message, maildirPath string, uidvalidity int, wg *sync.WaitGroup,
+	messageChan <-chan *imap.Message, maildirPath string, uidvalidity int, wg, stwg *sync.WaitGroup,
 ) (returnedChan <-chan oldmail, errCountPtr *int) {
 	var errCount int
 
@@ -119,6 +119,8 @@ func streamingDelivery(
 
 	wg.Add(1)
 	go func() {
+		// Do not start before the entire pipeline has been set up.
+		stwg.Wait()
 		for msg := range messageChan {
 			// Deliver each email to the `tmp` directory and move them to the `new` directory.
 			text, oldmail, err := rfc822FromEmail(msg, uidvalidity)
@@ -146,20 +148,17 @@ func downloadMissingEmailsToFolder(
 	if err != nil {
 		return err
 	}
-
 	mbox, err := selectFolder(imapClient, folder)
 	if err != nil {
 		return err
 	}
 	uidvalidity := int(mbox.UidValidity)
-
 	// Retrieve information about which emails are present on the remote system and check which ones
 	// are missing when comparing against those on disk.
 	uids, err := getAllMessageUUIDs(mbox, imapClient)
 	if err != nil {
 		return err
 	}
-
 	missingIDRanges, err := determineMissingIDs(oldmails, uids)
 	if err != nil {
 		return err
@@ -171,31 +170,34 @@ func downloadMissingEmailsToFolder(
 	}
 	logInfo(fmt.Sprintf("will download %d new emails", total))
 
-	var wg sync.WaitGroup
-	messageChan, fetchErrCount, err := streamingRetrieval(mbox, imapClient, missingIDRanges, &wg)
+	var wg, startWg sync.WaitGroup
+	startWg.Add(1) // startWg is used to defer operations until the pipeline is set up.
+	// Retrieve email information. This does not download the emails themselves yet.
+	messageChan, fetchErrCount, err := streamingRetrieval(
+		mbox, imapClient, missingIDRanges, &wg, &startWg,
+	)
 	if err != nil {
 		return err
 	}
-
 	// Download missing emails and store them on disk.
-	deliveredChan, deliverErrCount := streamingDelivery(messageChan, maildirPath, uidvalidity, &wg)
+	deliveredChan, deliverErrCount := streamingDelivery(
+		messageChan, maildirPath, uidvalidity, &wg, &startWg,
+	)
 	if err != nil {
 		return err
 	}
-
 	// Retrieve and write out information about all emails.
-	for delivered := range deliveredChan {
-		oldmails = append(oldmails, delivered)
-	}
-	if err := writeOldmail(oldmails, oldmailPath); err != nil {
+	oldmailErrCount, err := streamingOldmailWriteout(deliveredChan, oldmailPath, &wg, &startWg)
+	if err != nil {
 		return err
 	}
-
+	// Wait until all has been processed and report on errors.
+	startWg.Done()
 	wg.Wait()
-	if *fetchErrCount > 0 || *deliverErrCount > 0 {
+	if *fetchErrCount > 0 || *deliverErrCount > 0 || *oldmailErrCount > 0 {
 		return fmt.Errorf(
-			"there have been %d and %d errors while retrieving and delivering emails, respectively",
-			*fetchErrCount, *deliverErrCount,
+			"there were %d/%d/%d errors while: retrieving mail/delivering mail/writing to oldmail",
+			*fetchErrCount, *deliverErrCount, *oldmailErrCount,
 		)
 	}
 
