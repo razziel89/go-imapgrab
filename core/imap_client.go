@@ -19,6 +19,7 @@ package core
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
@@ -80,38 +81,44 @@ func selectFolder(imapClient *client.Client, folder string) (*imap.MailboxStatus
 	return mbox, err
 }
 
-// Obtain messages whose ids/indices lie in a certain range. Negative indices are automatically
+// Obtain messages whose ids/indices lie in certain ranges. Negative indices are automatically
 // converted to count from the last message. That is, -1 refers to the most recent message while 1
 // refers to the second oldest email.
-func getMessageRange(
-	mbox *imap.MailboxStatus, imapClient *client.Client, indices rangeT,
-) (messages []*imap.Message, err error) {
+func streamingRetrieval(
+	mbox *imap.MailboxStatus, imapClient *client.Client, indices []rangeT, wg, stwg *sync.WaitGroup,
+) (returnedChan <-chan *imap.Message, errCountPtr *int, err error) {
 	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
 	// index.
-	indices, err = canonicalizeRange(indices, 1, int(mbox.Messages)+1)
+	indices, err = canonicalizeRanges(indices, 1, int(mbox.Messages)+1)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	messages = make([]*imap.Message, 0, indices.end-indices.start)
-
-	// Emails will be retrieved via a SeqSet, which can contain a sequential set of messages. Here,
-	// we retrieve only one.
+	// Emails will be retrieved via a SeqSet, which can contain a set of messages.
 	seqset := new(imap.SeqSet)
-	seqset.AddRange(uint32(indices.start), uint32(indices.end-1))
+	for _, r := range indices {
+		seqset.AddRange(uint32(r.start), uint32(r.end-1))
+	}
 
+	wg.Add(1)
+	var errCount int
 	messageChan := make(chan *imap.Message, messageRetrievalBuffer)
 	go func() {
-		err = imapClient.Fetch(
+		// Do not start before the entire pipeline has been set up.
+		stwg.Wait()
+		err := imapClient.Fetch(
 			seqset,
 			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822},
 			messageChan,
 		)
+		if err != nil {
+			logError(err.Error())
+			errCount++
+		}
+		wg.Done()
 	}()
-	for m := range messageChan {
-		messages = append(messages, m)
-	}
-	return messages, err
+
+	return messageChan, &errCount, nil
 }
 
 // Type uid describes a unique identifier for a message. It consists of the unique identifier of the
