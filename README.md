@@ -69,12 +69,9 @@ Thank you!
 
 # How to use
 
-The repo does not yet have binary distributions (but they are planned).
-Thus, for now, the first step is to clone this repository and compile the CLI
-yourself.
+First, you need to download and install the binary.
 See [installation](#installation) below for details.
-
-Once you have the executable, run `./imapgrab --help` to see whether it works.
+Once you have the executable, run `go-imapgrab --help` to see whether it works.
 Please open an issue in this repository if you experience problems!
 
 Then, list the folders in your mailbox and download the ones you wish to backup.
@@ -85,7 +82,7 @@ Usually, the first step is to list the folders available in your mailbox.
 To do so, run:
 
 ```bash
-IGRAB_PASSWORD=${PASSWORD} ./imapgrab list -u ${USERNAME} -s ${SERVER} -p ${PORT}
+IGRAB_PASSWORD=${PASSWORD} go-imapgrab list -u ${USERNAME} -s ${SERVER} -p ${PORT}
 ```
 
 The specification of the port it optional, it defaults to 993.
@@ -113,7 +110,7 @@ proceed with the `download` command (see below).
 To see the full specification for the `list` command, run:
 
 ```bash
-./imapgrab list --help
+go-imapgrab list --help
 ```
 
 ## Download
@@ -123,7 +120,7 @@ For example, to download all folders apart from Gmail-specific ones and the
 `Drafts` directory, you can run:
 
 ```bash
-./imapgrab download -u ${USERNAME} -s ${SERVER} -p ${PORT} \
+go-imapgrab download -u ${USERNAME} -s ${SERVER} -p ${PORT} \
     -f _ALL_ -f -_Gmail_ -f -Drafts --path ${LOCALPATH}
 ```
 
@@ -160,23 +157,17 @@ In contrast, though, multiple folders are not separated by commas but the
 To see the full specification for the `download` command, run:
 
 ```bash
-./imapgrab download --help
+go-imapgrab download --help
 ```
 
 # Installation
 
-Currently, you need to build the binary yourself.
-First, install a [Golang toolchain](https://go.dev/doc/install).
-Then, run the following in a terminal:
-
-```bash
-git clone https://github.com/razziel89/go-imapgrab
-cd go-imapgrab/cli
-go mod download
-go build -o imapgrab .
-```
-
-Downloadable binary distributions will follow.
+Go to the project's [release page][release-page], select the correct
+distribution for your system, and download it.
+Extract the downloaded archive and move the extracted binary to a location that
+is in your `$PATH` such as `/usr/local/bin`.
+Moving it there will likely require `root` permissions, e.g. via `sudo`.
+From now on, you can simply type `go-imapgrab` in your terminal to use it!
 
 # How to contribute
 
@@ -200,3 +191,4 @@ I am very open to discussing this point.
 [maildir]: https://cr.yp.to/proto/maildir.html "maildir format"
 [getmail]: https://pyropus.ca./software/getmail/ "getmail website"
 [gmail-app-password]: https://support.google.com/accounts/answer/185833?hl=en "application-specific passwords"
+[release-page]: https://github.com/razziel89/go-imapgrab/releases/latest "latest release"
