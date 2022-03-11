@@ -4,9 +4,6 @@ on:
   push:
   pull_request:
     branches: main
-  schedule:
-    # Run at 5:21 am every Thursday morning.
-    - cron: '21 5 * * 4'
 
 jobs:
   ci:
