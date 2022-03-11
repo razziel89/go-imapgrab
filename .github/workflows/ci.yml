@@ -37,38 +37,15 @@ jobs:
       uses: golangci/golangci-lint-action@v2
       with:
         working-directory: core
-        # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
         version: latest
-        # Optional: if set to true then the action will use pre-installed Go.
         skip-go-installation: true
 
     - name: Lint project, cli part
       uses: golangci/golangci-lint-action@v2
       with:
         working-directory: cli
-        # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
         version: latest
-        # Optional: if set to true then the action will use pre-installed Go.
         skip-go-installation: true
-
-    # TODO: uncomment once tests have been added
-    # - name: Test project and generate test coverage
-    #   run: |
-    #    make test
-    #    make readme_test
-    #    make coverage_badge_report.out
-    #
-    # - name: Generate coverage badge
-    #   uses: tj-actions/coverage-badge-go@v1
-    #   with:
-    #     filename: coverage_badge_report.out
-    #
-    # - name: Push changes if on main branch
-    #   if: steps.readme_check.outputs.README_CHANGED == '1' && github.ref == 'refs/heads/main'
-    #   uses: ad-m/github-push-action@master
-    #   with:
-    #     github_token: ${{ github.token }}
-    #     branch: ${{ github.head_ref }}
 
     - name: Release binaries on tag
       uses: goreleaser/goreleaser-action@v2
@@ -78,3 +55,36 @@ jobs:
         workdir: ./cli
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # TODO: uncomment once tests have been added
+    # - name: Test project and generate test coverage
+    #   run: |
+    #    make test
+    #    make coverage_badge_report.out
+    #
+    # - name: Generate coverage badge
+    #   uses: tj-actions/coverage-badge-go@v1
+    #   with:
+    #     filename: coverage_badge_report.out
+    #
+    # - name: Check whether the README was actually updated and commit if it was
+    #   id: readme_check
+    #   run: |
+    #     set -x
+    #     git status
+    #     git diff-index HEAD
+    #     readme_changed=$(git diff-index --quiet HEAD -- README.md; echo $?) || :
+    #     echo "::set-output name=README_CHANGED::${readme_changed}"
+    #     if [[ $readme_changed -eq 1 ]]; then
+    #       git config --local user.email 'github-actions[bot]@users.noreply.github.com' &&
+    #       git config --local user.name 'github-actions[bot]' &&
+    #       git add README.md &&
+    #       git commit -m "Auto-update coverage badge"
+    #     fi
+    #
+    # - name: Push changes if on main branch
+    #   if: steps.readme_check.outputs.README_CHANGED == '1' && github.ref == 'refs/heads/main'
+    #   uses: ad-m/github-push-action@master
+    #   with:
+    #     github_token: ${{ github.token }}
+    #     branch: ${{ github.head_ref }}
