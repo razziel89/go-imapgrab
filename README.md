@@ -22,6 +22,8 @@ Contributions are very welcome (see below)!
 
 ## Currently absent features
 
+Contributions to these would be welcome.
+
 - output in other formats such as `mbox`
 - password specification via command line argument (use environment variable or
   keyring for now)
@@ -32,8 +34,9 @@ Contributions are very welcome (see below)!
   be runnable as `root` (use `sudo` instead to change the user for one
   invocation)
 - restoration of a local backup to a server
-- view downloaded emails (use `mutt -f ${PATH}/${FOLDER}` for that)
+- view downloaded emails (use `mutt -f ${LOCALPATH}/${FOLDER}` for that)
 - local removal of emails that have been removed remotely
+- a graphical user interface
 
 # Why a re-implementation
 
@@ -97,10 +100,10 @@ For Gmail, you can:
 
 The password needs to be specified only the first time via an environment
 variable.
-Ever call after the first one will use the system's keyring if you do not
-provide a password.
-To disable the keyring, for example if you experience problems, add the
-`--no-keyring` flag.
+Every call after the first one will use the system's keyring if you do not
+provide a password or disable the keyring.
+To disable the keyring, for example if you experience problems or don't have a
+keyring, add the `--no-keyring` flag.
 You will need to provide your password via the environment variable in that
 case.
 
@@ -121,19 +124,20 @@ For example, to download all folders apart from Gmail-specific ones and the
 
 ```bash
 ./imapgrab download -u ${USERNAME} -s ${SERVER} -p ${PORT} \
-    -f _ALL_ -f -_Gmail_ -f -Drafts --path ${PATH}
+    -f _ALL_ -f -_Gmail_ -f -Drafts --path ${LOCALPATH}
 ```
 
-For the first run for a mailbox, specify for `${PATH}` a non-existing or empty
+For the first run for a mailbox, specify for `${LOCALPATH}` a non-existing or
+empty
 directory.
 This is where you will download all folders for this mailbox to.
-A non-existing directory will be created first, including all parents.
+The directory will be created first if it doesn't exist, including all parents.
 
-The above command will result in one directory per folder in `${PATH}` in
+The above command will result in one directory per folder in `${LOCALPATH}` in
 addition to one meta data file per folder that must not be modified or updates
 won't work.
-For every run after the first, specify the very same `${PATH}` if you want to
-download only missing emails.
+For every run after the first, specify the very same `${LOCALPATH}` if you want
+to download only missing emails.
 
 As you can see in the above command, you can provide multiple folder
 specifications via the `-f` or `--folder` flag.
@@ -150,8 +154,8 @@ Thus, `-Drafts` in the above example deselects that folder, while `_ALL_`
 selects all folders first.
 
 These folder specification have been taken from [`imapgrab`][imapgrab].
-In contrast, though, folders are not separated by commas but the `--folder` flag
-is provides several times instead.
+In contrast, though, multiple folders are not separated by commas but the
+`--folder` flag can be provided several times instead.
 
 To see the full specification for the `download` command, run:
 
@@ -168,6 +172,7 @@ Then, run the following in a terminal:
 ```bash
 git clone https://github.com/razziel89/go-imapgrab
 cd go-imapgrab/cli
+go mod download
 go build -o imapgrab .
 ```
 
