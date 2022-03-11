@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -31,6 +32,8 @@ const (
 var (
 	verbose  bool
 	rootConf rootConfigT
+	// Whether to disable use of the system keyring.
+	noKeyring bool
 )
 
 type rootConfigT struct {
@@ -52,6 +55,9 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return initCredentials()
+	},
 }
 
 // Execute executes the root command.
@@ -63,6 +69,28 @@ func init() {
 	initRootFlags()
 }
 
+func initCredentials() error {
+	if password, found := os.LookupEnv("IGRAB_PASSWORD"); found {
+		logDebug("password taken from env var IGRAB_PASSWORD")
+		rootConf.password = password
+		if noKeyring {
+			return nil
+		}
+		logDebug("adding password to keyring")
+		return addToKeyring(rootConf, password)
+	}
+	if noKeyring {
+		return fmt.Errorf("password not set via env var IGRAB_PASSWORD and keyring disabled")
+	}
+	logDebug("password not set via env var IGRAB_PASSWORD, taking from keyring")
+	var err error
+	rootConf.password, err = retrieveFromKeyring(rootConf)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func initRootFlags() {
 	pflags := rootCmd.PersistentFlags()
 
@@ -70,10 +98,5 @@ func initRootFlags() {
 	pflags.IntVarP(&rootConf.port, "port", "p", defaultPort, "login port for imap server")
 	pflags.StringVarP(&rootConf.username, "user", "u", "", "login user name")
 	pflags.BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-
-	if password, found := os.LookupEnv("IGRAB_PASSWORD"); !found && verbose {
-		logDebug("warning: password not set via env var IGRAB_PASSWORD")
-	} else {
-		rootConf.password = password
-	}
+	pflags.BoolVarP(&noKeyring, "no-keyring", "k", false, "do not use the systen keyring")
 }
