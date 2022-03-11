@@ -17,7 +17,7 @@ Contributions are very welcome (see below)!
   [`maildir`][maildir] format
 - static binary without any additional dependencies
 - optional support for system keyring to store credentials securely
-- maildir output fully compatible to the original [`imapgrab`][impagrab] (please
+- maildir output fully compatible to the original [`imapgrab`][imapgrab] (please
   open an issue in this repository if you notice incompatibilities)
 
 ## Currently absent features
@@ -32,22 +32,22 @@ Contributions are very welcome (see below)!
   be runnable as `root` (use `sudo` instead to change the user for one
   invocation)
 - restoration of a local backup to a server
-- view downloaded emails (use `mutt -f <PATH>` for that)
+- view downloaded emails (use `mutt -f ${PATH}/${FOLDER}` for that)
 - local removal of emails that have been removed remotely
 
 # Why a re-implementation
 
 The main author had been using the original [`imapgrab`][imapgrab] successfully
 for quite a while to backup mailboxes.
-However, the original is now abandoned and implemented in the deprecated Python
-version 2.
+However, the original is implemented in the deprecated Python version 2 and has
+been abandoned.
 While there are re-implementations in Python 3, none of them appeared quite
 complete at the time this project started.
 
 In addition to the above, [`imapgrab`][imapgrab] uses the [`getmail`][getmail]
 executable to download emails.
 That executable is also written in Python 2 and lacked a complete
-re-implementation in Python 3at the time this project started.
+re-implementation in Python 3 at the time this project started.
 
 Furthermore, the author had started learning Golang not too long before this
 project started.
@@ -56,10 +56,12 @@ cross-compilation natively.
 One advantage of such a setup is that it is very easy to provide executables for
 systems that would run [`imapgrab`][imapgrab] or [`getmail`][getmail] only with
 difficulty.
+Thus, `go-imapgrab` seemed like a project that is useful while providing
+opportunities to learn.
 
 Still, this project would not have been possible without the amazing tools
 [`imapgrab`][imapgrab] and [`getmail`][getmail], which provided a very solid
-basis for `go-imapgrap`.
+basis for `go-imapgrab`.
 Thank you!
 
 # How to use
@@ -80,7 +82,7 @@ Usually, the first step is to list the folders available in your mailbox.
 To do so, run:
 
 ```bash
-IGRAB_PASSWORD=<PASSWORD> ./imapgrab list -u <USERNAME> -s <SERVER> -p <PORT>
+IGRAB_PASSWORD=${PASSWORD} ./imapgrab list -u ${USERNAME} -s ${SERVER} -p ${PORT}
 ```
 
 The specification of the port it optional, it defaults to 993.
@@ -88,9 +90,9 @@ Refer to the documentation of your email provider for the username, server, and
 port.
 For Gmail, you can:
 
-- use an [application-specific password][gmail-app-password] for `<PASSWORD>`
-- provide your email address as `<USERNAME>`
-- use `imap.gmail.com` as `<SERVER>`
+- use an [application-specific password][gmail-app-password] for `${PASSWORD}`
+- provide your email address as `${USERNAME}`
+- use `imap.gmail.com` as `${SERVER}`
 - leave out the port since Gmail uses the default one
 
 The password needs to be specified only the first time via an environment
@@ -118,19 +120,19 @@ For example, to download all folders apart from Gmail-specific ones and the
 `Drafts` directory, you can run:
 
 ```bash
-./imapgrab download -u <USERNAME> -s <SERVER> -p <PORT> \
-    -f _ALL_ -f -_Gmail_ -f -Drafts --path <PATH>
+./imapgrab download -u ${USERNAME} -s ${SERVER} -p ${PORT} \
+    -f _ALL_ -f -_Gmail_ -f -Drafts --path ${PATH}
 ```
 
-For the first run for a mailbox, specify for `<PATH>` a non-existing or empty
+For the first run for a mailbox, specify for `${PATH}` a non-existing or empty
 directory.
 This is where you will download all folders for this mailbox to.
 A non-existing directory will be created first, including all parents.
 
-The above command will result in one directory per folder in `<PATH>` in
+The above command will result in one directory per folder in `${PATH}` in
 addition to one meta data file per folder that must not be modified or updates
 won't work.
-For every run after the first, specify the very same `<PATH>` if you want to
+For every run after the first, specify the very same `${PATH}` if you want to
 download only missing emails.
 
 As you can see in the above command, you can provide multiple folder
