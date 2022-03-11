@@ -7,10 +7,10 @@ setup:
 	go mod download
 	go mod tidy
 
-build: imapgrab
+build: go-imapgrab
 
-imapgrab: *.go
-	go build -o imapgrab ./...
+go-imapgrab: *.go
+	go build -o go-imapgrab ./...
 
 .PHONY: lint
 lint:

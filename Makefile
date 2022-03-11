@@ -7,9 +7,9 @@ setup:
 	$(MAKE) -C ./cli setup && \
 	$(MAKE) -C ./core setup
 
-build: imapgrab
+build: go-imapgrab
 
-imapgrab: */*.go
+go-imapgrab: */*.go
 	$(MAKE) -C cli build
 
 .PHONY: lint
