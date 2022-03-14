@@ -151,6 +151,10 @@ func initExistingMaildir(
 // file.
 func initMaildir(oldmailName, maildirPath string) ([]oldmail, string, error) {
 	logInfo(fmt.Sprintf("initializing maildir %s", maildirPath))
+	// Replace each filesystem path separators by a dot. That way, we do not accidentally split
+	// paths where we do not want to, which would cause us not to find the oldmail file or the
+	// maildir.
+	oldmailName = strings.ReplaceAll(oldmailName, string(os.PathSeparator), ".")
 	if !isDir(maildirPath) {
 		logInfo(fmt.Sprintf("creating path to maildir %s and subdirectories", maildirPath))
 		err := os.MkdirAll(maildirPath, dirPerm)
