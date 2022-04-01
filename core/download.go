@@ -134,13 +134,13 @@ func streamingDelivery(
 }
 
 func downloadMissingEmailsToFolder(
-	imapClient *client.Client, folder, maildirPath, oldmailName string,
+	imapClient *client.Client, maildirPath maildirPathT, oldmailName string,
 ) error {
 	oldmails, oldmailPath, err := initMaildir(oldmailName, maildirPath)
 	if err != nil {
 		return err
 	}
-	mbox, err := selectFolder(imapClient, folder)
+	mbox, err := selectFolder(imapClient, maildirPath.folderName())
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func downloadMissingEmailsToFolder(
 	}
 	// Download missing emails and store them on disk.
 	deliveredChan, deliverErrCount := streamingDelivery(
-		messageChan, maildirPath, uidvalidity, &wg, &startWg,
+		messageChan, maildirPath.folderPath(), uidvalidity, &wg, &startWg,
 	)
 	if err != nil {
 		return err
