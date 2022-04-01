@@ -7,6 +7,7 @@ setup:
 	go mod download
 	go mod tidy
 
+.PHONY: build
 build: go-imapgrab
 
 go-imapgrab: *.go

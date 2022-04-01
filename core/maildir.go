@@ -112,30 +112,27 @@ func isMaildir(path string) bool {
 // existence of an oldmail file, parses it, and returns the information stored within it. It also
 // returns the path to that oldmail file.
 func initExistingMaildir(
-	oldmailName, maildirPath string,
+	oldmailName string, maildirPath maildirPathT,
 ) (oldmails []oldmail, oldmailFilePath string, err error) {
 	logInfo("retrieving information about emails stored on disk")
-	if len(maildirPath) == 0 {
+	folderPath := maildirPath.folderPath()
+	if len(folderPath) == 0 {
 		err = fmt.Errorf("path to maildir cannot be empty")
 		return
 	}
-	// Ensure the maildirPath has no trailing slashes and is generally as short as possible. This is
-	// often called canonicalisation.
-	maildirPath = filepath.Clean(maildirPath)
 
-	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", maildirPath))
-	if !isMaildir(maildirPath) {
-		err = fmt.Errorf("given directory %s does not point to a maildir", maildirPath)
+	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", folderPath))
+	if !isMaildir(folderPath) {
+		err = fmt.Errorf("given directory %s does not point to a maildir", folderPath)
 		return
 	}
 	logInfo("all sub-directories found")
 
 	// Extract expected maildirPath of oldmail file.
-	parent := filepath.Dir(maildirPath)
-	oldmailPath := filepath.Join(parent, oldmailName)
+	oldmailPath := filepath.Join(maildirPath.basePath(), oldmailName)
 
 	logInfo(
-		fmt.Sprintf("checking for and reading oldmail file of possible maildir %s", maildirPath),
+		fmt.Sprintf("checking for and reading oldmail file of possible maildir %s", folderPath),
 	)
 	oldmails, err = readOldmail(oldmailPath)
 	if err != nil {
@@ -149,20 +146,25 @@ func initExistingMaildir(
 // Initialize a maildir. If the given path already exists, only check whether the path is a maildir.
 // If not, create the path first including all the required sub-directories and an empty oldmail
 // file.
-func initMaildir(oldmailName, maildirPath string) ([]oldmail, string, error) {
+func initMaildir(oldmailName string, maildirPath maildirPathT) ([]oldmail, string, error) {
 	logInfo(fmt.Sprintf("initializing maildir %s", maildirPath))
-	if !isDir(maildirPath) {
-		logInfo(fmt.Sprintf("creating path to maildir %s and subdirectories", maildirPath))
-		err := os.MkdirAll(maildirPath, dirPerm)
+	basePath := maildirPath.basePath()
+	folderPath := maildirPath.folderPath()
+	// Replace each filesystem path separators by a dot. That way, we do not accidentally split
+	// paths where we do not want to, which would cause us not to find the oldmail file or the
+	// maildir.
+	oldmailName = strings.ReplaceAll(oldmailName, string(os.PathSeparator), ".")
+	if !isDir(folderPath) {
+		logInfo(fmt.Sprintf("creating path to maildir %s and subdirectories", folderPath))
+		err := os.MkdirAll(folderPath, dirPerm)
 		for _, dir := range []string{newMaildir, curMaildir, tmpMaildir} {
-			joined := filepath.Join(maildirPath, dir)
+			joined := filepath.Join(folderPath, dir)
 			if err == nil {
 				err = os.MkdirAll(joined, dirPerm)
 			}
 		}
 		if err == nil {
-			parent := filepath.Dir(maildirPath)
-			err = touch(filepath.Join(parent, oldmailName), filePerm)
+			err = touch(filepath.Join(basePath, oldmailName), filePerm)
 		}
 		if err != nil {
 			return []oldmail{}, "", err
