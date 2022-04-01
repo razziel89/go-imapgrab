@@ -7,6 +7,7 @@ setup:
 	$(MAKE) -C ./cli setup && \
 	$(MAKE) -C ./core setup
 
+.PHONY: build
 build: go-imapgrab
 
 go-imapgrab: */*.go
