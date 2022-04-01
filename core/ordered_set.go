@@ -42,8 +42,10 @@ func setFromSlice(sli []string) orderedSet {
 }
 
 func (s *orderedSet) add(key string) {
-	s.data[key] = s.orderCount
-	s.orderCount++
+	if !s.has(key) {
+		s.data[key] = s.orderCount
+		s.orderCount++
+	}
 }
 
 func (s *orderedSet) remove(key string) {
