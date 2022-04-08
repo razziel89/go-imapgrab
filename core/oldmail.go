@@ -44,7 +44,7 @@ type oldmail struct {
 
 // Provide a string representation for oldmail information.
 func (om oldmail) String() string {
-	timeStr := time.Unix(int64(om.timestamp), 0).String()
+	timeStr := time.Unix(int64(om.timestamp), 0).UTC().String()
 	return fmt.Sprintf("%d/%d -> %s", om.uidValidity, om.uid, timeStr)
 }
 
