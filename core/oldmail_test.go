@@ -24,7 +24,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -107,13 +106,13 @@ func TestOldmailRead(t *testing.T) {
 		{uidValidity: 123, uid: 15, timestamp: 898},
 		{uidValidity: 123, uid: 17, timestamp: 242},
 	}
-	oldmailContent := []byte(strings.Join([]string{
-		"123/21_747",
-		"123/42_447",
-		"123/11_321",
-		"123/15_898",
-		"123/17_242",
-	}, "\n"))
+	oldmailContent := []byte(
+		"123/21_747\n" +
+			"123/42_447\n" +
+			"123/11_321\n" +
+			"123/15_898\n" +
+			"123/17_242\n",
+	)
 	// Replace "_" by the null character to work around go strings ignoring the null byte.
 	oldmailContent = bytes.ReplaceAll(oldmailContent, []byte("_"), []byte{0})
 
