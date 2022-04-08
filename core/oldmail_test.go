@@ -20,6 +20,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -33,7 +34,8 @@ import (
 )
 
 type mockFile struct {
-	m *mock.Mock
+	m       *mock.Mock
+	content string
 }
 
 func (f *mockFile) Write(b []byte) (n int, err error) {
@@ -47,6 +49,10 @@ func (f *mockFile) Close() error {
 }
 
 func (f *mockFile) Read(p []byte) (n int, err error) {
+	if len(f.content) > len(p) {
+		panic("buffer too short")
+	}
+	copy(p, f.content)
 	args := f.m.Called(p)
 	return args.Int(0), args.Error(1)
 }
@@ -54,7 +60,7 @@ func (f *mockFile) Read(p []byte) (n int, err error) {
 func setUpMockOldmailFile() (mockFile, func()) {
 	orgOpenFile := openFile
 
-	fileMock := mockFile{&mock.Mock{}}
+	fileMock := mockFile{&mock.Mock{}, ""}
 
 	openFile = func(_ string, _ int, _ fs.FileMode) (fileOps, error) {
 		return &fileMock, nil
@@ -132,6 +138,59 @@ func TestOldmailReadFileNotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestOldmailReadCloseError(t *testing.T) {
+	f, cleanUp := setUpMockOldmailFile()
+	defer cleanUp()
+
+	tmpFile := filepath.Join(t.TempDir(), "tmpfile")
+	err := touch(tmpFile, 0444)
+	assert.NoError(t, err)
+
+	f.m.On("Close").Return(fmt.Errorf("some error"))
+	f.m.On("Read", mock.Anything).Return(0, io.EOF)
+
+	_, err = readOldmail(tmpFile)
+
+	assert.Error(t, err)
+	f.m.AssertExpectations(t)
+}
+
+func TestOldmailReadReadError(t *testing.T) {
+	f, cleanUp := setUpMockOldmailFile()
+	defer cleanUp()
+
+	tmpFile := filepath.Join(t.TempDir(), "tmpfile")
+	err := touch(tmpFile, 0444)
+	assert.NoError(t, err)
+
+	f.m.On("Close").Return(nil)
+	f.m.On("Read", mock.Anything).Return(0, fmt.Errorf("some error"))
+
+	_, err = readOldmail(tmpFile)
+
+	assert.Error(t, err)
+	f.m.AssertExpectations(t)
+}
+
+func TestOldmailReadParseError(t *testing.T) {
+	f, cleanUp := setUpMockOldmailFile()
+	defer cleanUp()
+
+	f.content = "too-few-fields"
+
+	tmpFile := filepath.Join(t.TempDir(), "tmpfile")
+	err := touch(tmpFile, 0444)
+	assert.NoError(t, err)
+
+	f.m.On("Close").Return(nil)
+	f.m.On("Read", mock.Anything).Return(len(f.content), io.EOF)
+
+	_, err = readOldmail(tmpFile)
+
+	assert.Error(t, err)
+	f.m.AssertExpectations(t)
+}
+
 func TestOldmailReadCannotRead(t *testing.T) {
 	tmp := t.TempDir()
 	tmpFile := filepath.Join(tmp, "tmpfile")
@@ -197,7 +256,7 @@ func TestOldmailWriteout(t *testing.T) {
 	assert.Zero(t, *errCountPtr)
 }
 
-func TestOldmailWriteoutFileNotFound(t *testing.T) {
+func TestOldmailWriteoutCannotWriteToFile(t *testing.T) {
 	tmp := t.TempDir()
 	tmpPath := filepath.Join(tmp, "tmpfile")
 
@@ -213,7 +272,7 @@ func TestOldmailWriteoutFileNotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestOldmailWriteoutWriteError(t *testing.T) {
+func TestOldmailWriteoutWriteAndCloseError(t *testing.T) {
 	f, cleanUp := setUpMockOldmailFile()
 	defer cleanUp()
 
@@ -235,4 +294,9 @@ func TestOldmailWriteoutWriteError(t *testing.T) {
 	wg.Wait()
 
 	assert.Equal(t, 3, *errCountPtr)
+	f.m.AssertExpectations(t)
+
+	// Ensure that was the last value in the channel.
+	_, ok := <-oldmailChan
+	assert.False(t, ok)
 }

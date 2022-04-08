@@ -135,8 +135,16 @@ func streamingOldmailWriteout(
 			if err != nil {
 				logError(err.Error())
 				errCount++
+				// TODO: Don't attempt to write anymore. We don't expect a failure to write to fix
+				// itself suddenly for the next writeout. However, right now, breaking here would
+				// mean the previous goroutines in the pipeline would hang. Since we wait for all of
+				// them to finish, that would mean one error to write results in a deadlock.
+				// Find a solution for this problem and break here on the first error.
+				// I don't expect many write-out errors in real life, though. Most failure cases
+				// will be caught when opening the file above. Still, a fix would be nice.
+			} else {
+				logInfo(fmt.Sprintf("wrote %d bytes to oldmail file", byteCount))
 			}
-			logInfo(fmt.Sprintf("wrote %d bytes to oldmail file", byteCount))
 		}
 
 		err = handle.Close()
