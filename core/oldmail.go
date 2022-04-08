@@ -71,7 +71,7 @@ func readOldmail(oldmailPath string) (oldmails []oldmail, err error) {
 
 	// Read the oldmail file in. This is required to determine which emails we have already
 	// downloaded.
-	handle, err := os.Open(oldmailPath) // nolint:gosec
+	handle, err := openFile(oldmailPath, os.O_RDONLY, filePerm) // nolint:gosec
 	if err != nil {
 		return
 	}
@@ -115,7 +115,7 @@ func streamingOldmailWriteout(
 ) (errCountPtr *int, err error) {
 	logInfo(fmt.Sprintf("appending to oldmail file %s", oldmailPath))
 
-	handle, err := os.OpenFile( // nolint:gosec
+	handle, err := openFile( // nolint:gosec
 		oldmailPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filePerm,
 	)
 	if err != nil {

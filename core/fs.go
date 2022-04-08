@@ -19,6 +19,7 @@ package core
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 )
 
@@ -43,4 +44,16 @@ func isDir(path string) bool {
 
 func touch(path string, perm int) error {
 	return os.WriteFile(path, []byte{}, filePerm)
+}
+
+type fileOps interface {
+	Write(b []byte) (n int, err error)
+	Close() error
+	Read(p []byte) (n int, err error)
+}
+
+var openFile = openFileImpl
+
+func openFileImpl(name string, flag int, perm fs.FileMode) (fileOps, error) {
+	return os.OpenFile(name, flag, perm) // nolint: gosec
 }

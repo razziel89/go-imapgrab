@@ -19,6 +19,8 @@ package core
 
 import (
 	"bytes"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +29,43 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
+
+type mockFile struct {
+	m *mock.Mock
+}
+
+func (f *mockFile) Write(b []byte) (n int, err error) {
+	args := f.m.Called(b)
+	return args.Int(0), args.Error(1)
+}
+
+func (f *mockFile) Close() error {
+	args := f.m.Called()
+	return args.Error(0)
+}
+
+func (f *mockFile) Read(p []byte) (n int, err error) {
+	args := f.m.Called(p)
+	return args.Int(0), args.Error(1)
+}
+
+func setUpMockOldmailFile() (mockFile, func()) {
+	orgOpenFile := openFile
+
+	fileMock := mockFile{&mock.Mock{}}
+
+	openFile = func(_ string, _ int, _ fs.FileMode) (fileOps, error) {
+		return &fileMock, nil
+	}
+
+	deferMe := func() {
+		openFile = orgOpenFile
+	}
+
+	return fileMock, deferMe
+}
 
 func TestOldmailToString(t *testing.T) {
 	om := oldmail{
@@ -117,14 +155,13 @@ func TestOldmailWriteout(t *testing.T) {
 		{uidValidity: 123, uid: 15, timestamp: 898},
 		{uidValidity: 123, uid: 17, timestamp: 242},
 	}
-	expectedOldmailContent := []byte(strings.Join([]string{
-		"123/21_747",
-		"123/42_447",
-		"123/11_321",
-		"123/15_898",
-		"123/17_242",
-		"", // Files need to end with a newline character.
-	}, "\n"))
+	expectedOldmailContent := []byte(
+		"123/21_747\n" +
+			"123/42_447\n" +
+			"123/11_321\n" +
+			"123/15_898\n" +
+			"123/17_242\n",
+	)
 	// Replace "_" by the null character to work around go strings ignoring the null byte.
 	expectedOldmailContent = bytes.ReplaceAll(expectedOldmailContent, []byte("_"), []byte{0})
 
@@ -174,4 +211,28 @@ func TestOldmailWriteoutFileNotFound(t *testing.T) {
 
 	_, err = streamingOldmailWriteout(oldmailChan, tmpPath, &wg, &stwg)
 	assert.Error(t, err)
+}
+
+func TestOldmailWriteoutWriteError(t *testing.T) {
+	f, cleanUp := setUpMockOldmailFile()
+	defer cleanUp()
+
+	f.m.On("Write", mock.Anything).Return(0, fmt.Errorf("some write error"))
+	f.m.On("Close").Return(fmt.Errorf("some close error"))
+
+	var wg, stwg sync.WaitGroup
+
+	oldmailChan := make(chan oldmail)
+	go func() {
+		oldmailChan <- oldmail{}
+		oldmailChan <- oldmail{}
+		close(oldmailChan)
+	}()
+
+	errCountPtr, err := streamingOldmailWriteout(oldmailChan, "not-needed", &wg, &stwg)
+	assert.NoError(t, err)
+
+	wg.Wait()
+
+	assert.Equal(t, 3, *errCountPtr)
 }
