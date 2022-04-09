@@ -44,7 +44,7 @@ type oldmail struct {
 
 // Provide a string representation for oldmail information.
 func (om oldmail) String() string {
-	timeStr := time.Unix(int64(om.timestamp), 0).String()
+	timeStr := time.Unix(int64(om.timestamp), 0).UTC().String()
 	return fmt.Sprintf("%d/%d -> %s", om.uidValidity, om.uid, timeStr)
 }
 
@@ -71,7 +71,7 @@ func readOldmail(oldmailPath string) (oldmails []oldmail, err error) {
 
 	// Read the oldmail file in. This is required to determine which emails we have already
 	// downloaded.
-	handle, err := os.Open(oldmailPath) // nolint:gosec
+	handle, err := openFile(oldmailPath, os.O_RDONLY, filePerm) // nolint:gosec
 	if err != nil {
 		return
 	}
@@ -115,7 +115,7 @@ func streamingOldmailWriteout(
 ) (errCountPtr *int, err error) {
 	logInfo(fmt.Sprintf("appending to oldmail file %s", oldmailPath))
 
-	handle, err := os.OpenFile( // nolint:gosec
+	handle, err := openFile( // nolint:gosec
 		oldmailPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filePerm,
 	)
 	if err != nil {
@@ -135,8 +135,16 @@ func streamingOldmailWriteout(
 			if err != nil {
 				logError(err.Error())
 				errCount++
+				// TODO: Don't attempt to write anymore. We don't expect a failure to write to fix
+				// itself suddenly for the next writeout. However, right now, breaking here would
+				// mean the previous goroutines in the pipeline would hang. Since we wait for all of
+				// them to finish, that would mean one error to write results in a deadlock.
+				// Find a solution for this problem and break here on the first error.
+				// I don't expect many write-out errors in real life, though. Most failure cases
+				// will be caught when opening the file above. Still, a fix would be nice.
+			} else {
+				logInfo(fmt.Sprintf("wrote %d bytes to oldmail file", byteCount))
 			}
-			logInfo(fmt.Sprintf("wrote %d bytes to oldmail file", byteCount))
 		}
 
 		err = handle.Close()

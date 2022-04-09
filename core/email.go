@@ -29,6 +29,10 @@ const (
 	rfc822ExpectedNumFields = 6
 )
 
+type emailOps interface {
+	Format() []interface{}
+}
+
 // Type email contains the relevant information about an email.
 type email struct {
 	uid       int
@@ -99,7 +103,7 @@ func (e email) String() string {
 
 // Convert an imap.Message into its content according to rfc822. That content can then be stored in
 // a maildir as is.
-func rfc822FromEmail(msg *imap.Message, uidvalidity int) (string, oldmail, error) {
+func rfc822FromEmail(msg emailOps, uidvalidity int) (string, oldmail, error) {
 	fields := msg.Format()
 	if len(fields) != rfc822ExpectedNumFields {
 		return "", oldmail{}, fmt.Errorf("cannot extract required rfc822 fields from email")
