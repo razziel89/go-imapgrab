@@ -79,9 +79,9 @@ func TestOldmailToString(t *testing.T) {
 		timestamp:   12345,
 	}
 	// Unix 12345 is equal to: Thu  1 Jan 03:25:45 UTC 1970
-	expectedTimeFormat := "100/42 -> 1970-01-01 03:25:45 +0000 UTC"
+	expectedOldmailFormat := "100/42 -> 1970-01-01 03:25:45 +0000 UTC"
 
-	assert.Equal(t, expectedTimeFormat, om.String())
+	assert.Equal(t, expectedOldmailFormat, om.String())
 }
 
 func TestOldmailFileName(t *testing.T) {
