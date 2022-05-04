@@ -75,15 +75,50 @@ See [installation](#installation) below for details.
 Once you have the executable, run `go-imapgrab --help` to see whether it works.
 Please open an issue in this repository if you experience problems!
 
-Then, list the folders in your mailbox and download the ones you wish to backup.
+Then, store the password in your keyring (optional), list the folders in your
+mailbox, and download the ones you wish to backup.
+
+## Store password in keyring
+
+You can store your password in your system's keyring to avoid having to define
+an environment variable every time you invoke `go-imapgrab`.
+To do so, simply run the following command:
+
+```bash
+go-imapgrab login -u ${USERNAME} -s ${SERVER} -p ${PORT}
+```
+
+Then, enter your password at the prompt.
+Note that the password will not be echoed as you type.
+
+The password needs to be specified only once.
+Every subsequent call to `go-imapgrab list` or `go-imapgrab download` will use
+the system's keyring if you do not disable the keyring.
+
+Please see the section on [listing folders](#list-folders) for what each of the
+arguments mean.
+
+To see the full specification for the `login` command, run:
+
+```bash
+go-imapgrab login --help
+```
 
 ## List folders
 
-Usually, the first step is to list the folders available in your mailbox.
-To do so, run:
+Usually, the first step after storing the password in your keyring is to list
+the folders available in your mailbox.
+If you did not store the password in your system keyring, run the following
+before trying to list folders:
 
 ```bash
-IGRAB_PASSWORD=${PASSWORD} go-imapgrab list -u ${USERNAME} -s ${SERVER} -p ${PORT}
+export IGRAB_PASSWORD=${PASSWORD}
+```
+
+To list folders in your mailbox, run:
+
+```bash
+go-imapgrab list -u ${USERNAME} -s ${SERVER} -p ${PORT}
 ```
 
 The specification of the port it optional, it defaults to 993.
@@ -96,10 +131,6 @@ For Gmail, you can:
 - use `imap.gmail.com` as `${SERVER}`
 - leave out the port since Gmail uses the default one
 
-The password needs to be specified only the first time via an environment
-variable.
-Every call after the first one will use the system's keyring if you do not
-provide a password or disable the keyring.
 To disable the keyring, for example if you experience problems or don't have a
 keyring, add the `--no-keyring` flag.
 You will need to provide your password via the environment variable in that
@@ -116,7 +147,7 @@ go-imapgrab list --help
 
 ## Download
 
-The second step is to download the folders you want.
+The next step is to download the folders you want.
 For example, to download all folders apart from Gmail-specific ones and the
 `Drafts` directory, you can run:
 
