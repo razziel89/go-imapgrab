@@ -157,8 +157,7 @@ go-imapgrab download -u ${USERNAME} -s ${SERVER} -p ${PORT} \
 ```
 
 For the first run for a mailbox, specify for `${LOCALPATH}` a non-existing or
-empty
-directory.
+empty directory.
 This is where you will download all folders for this mailbox to.
 The directory will be created first if it doesn't exist, including all parents.
 
@@ -220,6 +219,9 @@ shell's configuration file:
     eval (go-imapgrab completion fish)
   end
   ```
+
+Using tab completion requires adding `go-imapgrab` to a directory in your
+`$PATH`.
 
 # How to contribute
 
