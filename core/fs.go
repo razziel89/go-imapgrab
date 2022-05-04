@@ -19,6 +19,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 )
@@ -56,4 +57,12 @@ var openFile = openFileImpl
 
 func openFileImpl(name string, flag int, perm fs.FileMode) (fileOps, error) {
 	return os.OpenFile(name, flag, perm) // nolint: gosec
+}
+
+func errorIfExists(path, message string) error {
+	_, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return fmt.Errorf(message)
 }

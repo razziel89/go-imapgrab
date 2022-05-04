@@ -86,7 +86,7 @@ func selectFolder(imapClient *client.Client, folder string) (*imap.MailboxStatus
 // refers to the second oldest email.
 func streamingRetrieval(
 	mbox *imap.MailboxStatus, imapClient *client.Client, indices []rangeT, wg, stwg *sync.WaitGroup,
-) (returnedChan <-chan *imap.Message, errCountPtr *int, err error) {
+) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
 	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
 	// index.
 	indices, err = canonicalizeRanges(indices, 1, int(mbox.Messages)+1)
@@ -102,14 +102,15 @@ func streamingRetrieval(
 
 	wg.Add(1)
 	var errCount int
-	messageChan := make(chan *imap.Message, messageRetrievalBuffer)
+	translatedMessageChan := make(chan emailOps, messageRetrievalBuffer)
+	orgMessageChan := make(chan *imap.Message, messageRetrievalBuffer)
 	go func() {
 		// Do not start before the entire pipeline has been set up.
 		stwg.Wait()
 		err := imapClient.Fetch(
 			seqset,
 			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822},
-			messageChan,
+			orgMessageChan,
 		)
 		if err != nil {
 			logError(err.Error())
@@ -118,7 +119,19 @@ func streamingRetrieval(
 		wg.Done()
 	}()
 
-	return messageChan, &errCount, nil
+	// Translate from *imap.Message to emailOps. Sadly, the compiler does not auto-generate the code
+	// to use a `chan emailOps` as a `chan *imap.Message`. Thus, we need a separate goroutine
+	// translating between the two.
+	go func() {
+		for msg := range orgMessageChan {
+			// Here, the compiler auto-generates the code to translate a `*imap.Message` into a
+			// `emailOps`.
+			translatedMessageChan <- msg
+		}
+		close(translatedMessageChan)
+	}()
+
+	return translatedMessageChan, &errCount, nil
 }
 
 // Type uid describes a unique identifier for a message. It consists of the unique identifier of the

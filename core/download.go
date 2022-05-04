@@ -19,36 +19,25 @@ package core
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
-	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 )
 
 const (
-	// Constants used to expand folder name specs.
-	allSelector     = "_ALL_"
-	gmailSelector   = "_Gmail_"
-	removalSelector = "-"
 	// Buffer for email delivery on disk.
 	messageDeliveryBuffer = 10
 )
 
-// All gmail-specific folders, identified via prefixes..
-const (
-	gmailPrefix1 = "[Gmail]"
-	gmailPrefix2 = "[Google Mail]"
-)
-
-func isGmailDir(dirName string) bool {
-	return strings.HasPrefix(dirName, gmailPrefix1) || strings.HasPrefix(dirName, gmailPrefix2)
-}
-
 // Determine the indices of emails that have not yet been downloaded. The download process
 // indentifies emails by their indices and not by their UIDs. Thus, we need to take the server-side
 // information as is and not sort it in any way.
+// This means there can be a race condition where go-imapgrab retrieves data about emails, then some
+// emails are removed remotely, and them go-imapgrab downloads emails. This would result in
+// doenloading emails that are already on disk. This race condition cannot be avoided due to the way
+// IMAP servers work (if it can, please tell me :) ).
 func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err error) {
+	ranges = []rangeT{}
 	// Check special cases such as an empty mailbox or uidvalidities that do not agree.
 	if len(uids) == 0 {
 		return []rangeT{}, nil
@@ -103,7 +92,7 @@ func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err e
 }
 
 func streamingDelivery(
-	messageChan <-chan *imap.Message, maildirPath string, uidvalidity int, wg, stwg *sync.WaitGroup,
+	messageChan <-chan emailOps, maildirPath string, uidvalidity int, wg, stwg *sync.WaitGroup,
 ) (returnedChan <-chan oldmail, errCountPtr *int) {
 	var errCount int
 
@@ -194,69 +183,4 @@ func downloadMissingEmailsToFolder(
 	}
 
 	return nil
-}
-
-// Perform fancy name replacements on folder names. For example, specifying _ALL_ causes all
-// folders to be selected.
-func expandFolders(folderSpecs, availableFolders []string) []string {
-	logInfo(
-		fmt.Sprintf("expanding folder spec '%s'", strings.Join(folderSpecs, logJoiner)),
-	)
-	logInfo(
-		fmt.Sprintf("available folders are '%s'", strings.Join(availableFolders, logJoiner)),
-	)
-
-	// Convert to set to simplify manipulation.
-	availableFoldersSet := setFromSlice(availableFolders)
-	foldersSet := newOrderedSet(len(availableFolders))
-
-	for _, folderSpec := range folderSpecs {
-		if strings.HasPrefix(folderSpec, removalSelector) {
-			folderSpec = strings.TrimPrefix(folderSpec, removalSelector)
-			// Remove the specified directory.
-			switch folderSpec {
-			case allSelector:
-				for _, removeMe := range availableFolders {
-					foldersSet.remove(removeMe)
-				}
-			case gmailSelector:
-				for _, removeMeCheck := range availableFolders {
-					if isGmailDir(removeMeCheck) {
-						foldersSet.remove(removeMeCheck)
-					}
-				}
-			default:
-				// Remove the specified folder, if it is known, log error otherwise.
-				if !availableFoldersSet.has(folderSpec) {
-					logError(fmt.Sprintf("ignoring attempted removal via spec %s", folderSpec))
-				}
-				foldersSet.remove(strings.TrimPrefix(folderSpec, removalSelector))
-			}
-		} else {
-			// Add the specified directory.
-			switch folderSpec {
-			case allSelector:
-				for _, addMe := range availableFolders {
-					foldersSet.add(addMe)
-				}
-			case gmailSelector:
-				for _, addMeCheck := range availableFolders {
-					if isGmailDir(addMeCheck) {
-						foldersSet.add(addMeCheck)
-					}
-				}
-			default:
-				foldersSet.add(folderSpec)
-			}
-		}
-	}
-
-	removed := foldersSet.exclusion(&availableFoldersSet).orderedEntries()
-	warning := fmt.Sprintf("unselecting nonexisting folders '%s'", strings.Join(removed, logJoiner))
-	if len(removed) > 0 {
-		logWarning(warning)
-	}
-	folders := foldersSet.union(&availableFoldersSet).orderedEntries()
-	logInfo(fmt.Sprintf("expanded to folders '%s'", strings.Join(folders, logJoiner)))
-	return folders
 }

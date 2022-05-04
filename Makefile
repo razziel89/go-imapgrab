@@ -22,6 +22,5 @@ test: .test.log
 
 .test.log: */go.* */*.go
 	$(MAKE) -C ./cli test && \
-	$(MAKE) -C ./core test && \
-	cat */test.log > test.log
+	$(MAKE) -C ./core test
 
