@@ -66,3 +66,24 @@ func TestOpenFile(t *testing.T) {
 	_, err := openFile(tmpFile, os.O_CREATE|os.O_WRONLY, 0666)
 	assert.NoError(t, err)
 }
+
+func TestErrorIfExistsSuccess(t *testing.T) {
+	tmp := t.TempDir()
+	tmpFile := filepath.Join(tmp, "file")
+
+	err := errorIfExists(tmpFile, "some message")
+
+	assert.NoError(t, err)
+}
+
+func TestErrorIfExistsFailure(t *testing.T) {
+	tmp := t.TempDir()
+	tmpFile := filepath.Join(tmp, "file")
+	err := touch(tmpFile, filePerm)
+	assert.NoError(t, err)
+
+	err = errorIfExists(tmpFile, "some message")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "some message")
+}
