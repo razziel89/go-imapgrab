@@ -93,12 +93,41 @@ func TestIterator(t *testing.T) {
 	}
 }
 
+func TestEqual(t *testing.T) {
+	firstSet := setFromSlice([]string{"this", "is", "a", "slice"})
+	secondSet := setFromSlice([]string{"slice", "is", "this", "a"})
+
+	// Equality tests do not take the order into account.
+	assert.True(t, firstSet.equal(&secondSet))
+}
+
+func TestNotEqual(t *testing.T) {
+	firstSet := setFromSlice([]string{"this", "is", "a", "slice"})
+	// Length differs between first and second.
+	secondSet := setFromSlice([]string{"slice", "is", "this"})
+	// Entries are different between first and third.
+	thirdSet := setFromSlice([]string{"slice", "is", "this", "yoda"})
+
+	assert.False(t, firstSet.equal(&secondSet))
+	assert.False(t, firstSet.equal(&thirdSet))
+}
+
 func TestUnion(t *testing.T) {
+	largeSet := setFromSlice([]string{"this", "is", "a", "slice"})
+	unioniseMe := setFromSlice([]string{"this", "slice", "has", "other", "entries"})
+
+	expectedUnion := setFromSlice([]string{"this", "slice"})
+	union := largeSet.union(&unioniseMe)
+
+	assert.True(t, expectedUnion.equal(union))
+}
+
+func TestExclusion(t *testing.T) {
 	largeSet := setFromSlice([]string{"this", "is", "a", "slice"})
 	excludeMe := setFromSlice([]string{"this", "slice", "has", "other", "entries"})
 
-	expectedUnion := []string{"is", "a"}
-	union := largeSet.keepUnion(excludeMe)
+	expectedUnion := setFromSlice([]string{"is", "a"})
+	union := largeSet.exclusion(&excludeMe)
 
-	assert.Equal(t, expectedUnion, union)
+	assert.True(t, expectedUnion.equal(union))
 }

@@ -251,12 +251,12 @@ func expandFolders(folderSpecs, availableFolders []string) []string {
 		}
 	}
 
-	removed := foldersSet.keepUnion(availableFoldersSet)
+	removed := foldersSet.exclusion(&availableFoldersSet).orderedEntries()
 	warning := fmt.Sprintf("unselecting nonexisting folders '%s'", strings.Join(removed, logJoiner))
 	if len(removed) > 0 {
 		logWarning(warning)
 	}
-	folders := foldersSet.orderedEntries()
+	folders := foldersSet.union(&availableFoldersSet).orderedEntries()
 	logInfo(fmt.Sprintf("expanded to folders '%s'", strings.Join(folders, logJoiner)))
 	return folders
 }

@@ -94,15 +94,38 @@ func (s *orderedSet) orderedEntries() []string {
 	return orderedKeysSli
 }
 
-// Keep only those entries in the receiver set that are also in the other set. Return the entries
-// that have been removed.
-func (s *orderedSet) keepUnion(otherSet orderedSet) []string {
-	removed := []string{}
+// Return only those entries from the receiver set that are also in the other set.
+func (s *orderedSet) union(otherSet *orderedSet) *orderedSet {
+	result := newOrderedSet(s.len())
 	for entry := range s.iterator() {
-		if !otherSet.has(entry) {
-			s.remove(entry)
-			removed = append(removed, entry)
+		if otherSet.has(entry) {
+			result.add(entry)
 		}
 	}
-	return removed
+	return &result
+}
+
+// Return only those entries from the receiver set that are not in the other set.
+func (s *orderedSet) exclusion(otherSet *orderedSet) *orderedSet {
+	result := newOrderedSet(s.len())
+	for entry := range s.iterator() {
+		if !otherSet.has(entry) {
+			result.add(entry)
+		}
+	}
+	return &result
+}
+
+// Function equal determines whether both sets contain the same elements. It does not consider the
+// order relevant.
+func (s *orderedSet) equal(otherSet *orderedSet) bool {
+	if s.len() != otherSet.len() {
+		return false
+	}
+	for entry := range s.iterator() {
+		if !otherSet.has(entry) {
+			return false
+		}
+	}
+	return true
 }
