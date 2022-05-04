@@ -108,7 +108,7 @@ func TestUnion(t *testing.T) {
 	expectedUnion := setFromSlice([]string{"this", "slice"})
 	union := largeSet.union(&unioniseMe)
 
-	assert.Equal(t, expectedUnion, union)
+	assert.True(t, expectedUnion.equal(union))
 }
 
 func TestExclusion(t *testing.T) {
