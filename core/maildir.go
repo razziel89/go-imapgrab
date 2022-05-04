@@ -123,10 +123,6 @@ func initExistingMaildir(
 ) (oldmails []oldmail, oldmailFilePath string, err error) {
 	logInfo("retrieving information about emails stored on disk")
 	folderPath := maildirPath.folderPath()
-	if len(folderPath) == 0 {
-		err = fmt.Errorf("path to maildir cannot be empty")
-		return
-	}
 
 	logInfo(fmt.Sprintf("checking for sub-directories of possible maildir %s", folderPath))
 	if !isMaildir(folderPath) {
