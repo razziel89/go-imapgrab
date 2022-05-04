@@ -101,6 +101,17 @@ func TestEqual(t *testing.T) {
 	assert.True(t, firstSet.equal(&secondSet))
 }
 
+func TestNotEqual(t *testing.T) {
+	firstSet := setFromSlice([]string{"this", "is", "a", "slice"})
+	// Length differs between first and second.
+	secondSet := setFromSlice([]string{"slice", "is", "this"})
+	// Entries are different between first and third.
+	thirdSet := setFromSlice([]string{"slice", "is", "this", "yoda"})
+
+	assert.False(t, firstSet.equal(&secondSet))
+	assert.False(t, firstSet.equal(&thirdSet))
+}
+
 func TestUnion(t *testing.T) {
 	largeSet := setFromSlice([]string{"this", "is", "a", "slice"})
 	unioniseMe := setFromSlice([]string{"this", "slice", "has", "other", "entries"})
