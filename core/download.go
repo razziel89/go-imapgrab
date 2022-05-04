@@ -88,7 +88,7 @@ func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err e
 }
 
 func streamingDelivery(
-	messageChan <-chan *imap.Message, maildirPath string, uidvalidity int, wg, stwg *sync.WaitGroup,
+	messageChan <-chan emailOps, maildirPath string, uidvalidity int, wg, stwg *sync.WaitGroup,
 ) (returnedChan <-chan oldmail, errCountPtr *int) {
 	var errCount int
 
