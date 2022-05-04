@@ -85,5 +85,5 @@ func TestErrorIfExistsFailure(t *testing.T) {
 	err = errorIfExists(tmpFile, "some message")
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "some message")
+	assert.Equal(t, err.Error(), "some message")
 }
