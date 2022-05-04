@@ -178,28 +178,29 @@ func initMaildir(oldmailName string, maildirPath maildirPathT) ([]oldmail, strin
 
 // Write an email to the tmp sub-directory of a maildir with an appropriate, unique name and then
 // move it to new sub-directory as mandated by the maildir specs.
-func deliverMessage(rfc822 string, basePath string) error {
-	fileName, err := newUniqueName("")
-	if err != nil {
-		return err
+func deliverMessage(rfc822 string, basePath string) (err error) {
+	// Determine relevant paths.
+	var fileName, tmpPath, newPath string
+	fileName, err = newUniqueName("")
+	if err == nil {
+		tmpPath = filepath.Join(basePath, tmpMaildir, fileName)
+		newPath = filepath.Join(basePath, newMaildir, fileName)
+		err = errorIfExists(tmpPath, fmt.Sprintf("unique file name '%s' is not unique", tmpPath))
 	}
-	tmpPath := filepath.Join(basePath, tmpMaildir, fileName)
-	newPath := filepath.Join(basePath, newMaildir, fileName)
-	if isFile(tmpPath) {
-		return fmt.Errorf("unique file name '%s' is not unique", tmpPath)
+	// Write rfc822 to file.
+	if err == nil {
+		logInfo(fmt.Sprintf("writing new email to file %s", tmpPath))
+		err = os.WriteFile(tmpPath, []byte(rfc822), filePerm) //nolint:gosec
 	}
-	logInfo(fmt.Sprintf("writing new email to file %s", tmpPath))
-	err = os.WriteFile(tmpPath, []byte(rfc822), filePerm) //nolint:gosec
-	if err != nil {
-		return err
+	// Move to new location but only if there exist no other file at that location, yet. This is in
+	// accordance with the maildir specs. It might take a while to write out a file, which means
+	// there could be a race condition here.
+	if err == nil {
+		logInfo(fmt.Sprintf("moving email to permanent storage location %s", newPath))
+		err = errorIfExists(newPath, fmt.Sprintf("permanent storage '%s' already exists", newPath))
 	}
-	logInfo(fmt.Sprintf("moving email to permanent storage location %s", newPath))
-	if isFile(newPath) {
-		return fmt.Errorf("permanent storage '%s' already exists", newPath)
+	if err == nil {
+		err = os.Rename(tmpPath, newPath)
 	}
-	err = os.Rename(tmpPath, newPath)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
