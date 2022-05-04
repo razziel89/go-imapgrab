@@ -95,30 +95,30 @@ func (s *orderedSet) orderedEntries() []string {
 }
 
 // Return only those entries from the receiver set that are also in the other set.
-func (s orderedSet) union(otherSet orderedSet) orderedSet {
+func (s *orderedSet) union(otherSet *orderedSet) *orderedSet {
 	result := newOrderedSet(s.len())
 	for entry := range s.iterator() {
 		if otherSet.has(entry) {
 			result.add(entry)
 		}
 	}
-	return result
+	return &result
 }
 
 // Return only those entries from the receiver set that are not in the other set.
-func (s orderedSet) exclusion(otherSet orderedSet) orderedSet {
+func (s *orderedSet) exclusion(otherSet *orderedSet) *orderedSet {
 	result := newOrderedSet(s.len())
 	for entry := range s.iterator() {
 		if !otherSet.has(entry) {
 			result.add(entry)
 		}
 	}
-	return result
+	return &result
 }
 
 // Function equal determines whether both sets contain the same elements. It does not consider the
 // order relevant.
-func (s orderedSet) equal(otherSet orderedSet) bool {
+func (s *orderedSet) equal(otherSet *orderedSet) bool {
 	if s.len() != otherSet.len() {
 		return false
 	}

@@ -98,7 +98,7 @@ func TestEqual(t *testing.T) {
 	secondSet := setFromSlice([]string{"slice", "is", "this", "a"})
 
 	// Equality tests do not take the order into account.
-	assert.True(t, firstSet.equal(secondSet))
+	assert.True(t, firstSet.equal(&secondSet))
 }
 
 func TestUnion(t *testing.T) {
@@ -106,7 +106,7 @@ func TestUnion(t *testing.T) {
 	unioniseMe := setFromSlice([]string{"this", "slice", "has", "other", "entries"})
 
 	expectedUnion := setFromSlice([]string{"this", "slice"})
-	union := largeSet.union(unioniseMe)
+	union := largeSet.union(&unioniseMe)
 
 	assert.Equal(t, expectedUnion, union)
 }
@@ -116,7 +116,7 @@ func TestExclusion(t *testing.T) {
 	excludeMe := setFromSlice([]string{"this", "slice", "has", "other", "entries"})
 
 	expectedUnion := setFromSlice([]string{"is", "a"})
-	union := largeSet.exclusion(excludeMe)
+	union := largeSet.exclusion(&excludeMe)
 
 	assert.True(t, expectedUnion.equal(union))
 }
