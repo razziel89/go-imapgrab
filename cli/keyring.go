@@ -35,7 +35,8 @@ type keyringOps interface {
 	Set(service string, user string, password string) error
 }
 
-// Struct defaultKeyring is the production implementation of the interface for the keyring module.
+// Struct defaultKeyringImpl is the production implementation of the interface for the keyring
+// module.
 type defaultKeyringImpl struct{}
 
 func (dk defaultKeyringImpl) Get(service string, user string) (string, error) {
