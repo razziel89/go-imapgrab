@@ -19,6 +19,7 @@ Contributions are very welcome (see below)!
 - optional support for system keyring to store credentials securely
 - maildir output fully compatible to the original [`imapgrab`][imapgrab] (please
   open an issue in this repository if you notice incompatibilities)
+- tab completion for many shells
 
 ## Currently absent features
 
@@ -168,6 +169,26 @@ Extract the downloaded archive and move the extracted binary to a location that
 is in your `$PATH` such as `/usr/local/bin`.
 Moving it there will likely require `root` permissions, e.g. via `sudo`.
 From now on, you can simply type `go-imapgrab` in your terminal to use it!
+
+## Tab completion
+
+If you want to set up tab completion for your shell, add the following to your
+shell's configuration file:
+
+- `bash`: add to `~/.bashrc`:
+  ```bash
+  [[ -x $(command -v go-imapgrab) ]] && eval "$(go-imapgrab completion bash)"
+  ```
+- `zsh`: add to `~/.zshrc`:
+  ```zsh
+  [[ -x $(command -v go-imapgrab) ]] && eval "$(go-imapgrab completion zsh)"
+  ```
+- `fish`: add to `~/.config/fish/config.fish`:
+  ```fish
+  if type -q go-imapgrab
+    eval (go-imapgrab completion fish)
+  end
+  ```
 
 # How to contribute
 
