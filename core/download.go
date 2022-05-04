@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 )
 
@@ -33,7 +32,12 @@ const (
 // Determine the indices of emails that have not yet been downloaded. The download process
 // indentifies emails by their indices and not by their UIDs. Thus, we need to take the server-side
 // information as is and not sort it in any way.
+// This means there can be a race condition where go-imapgrab retrieves data about emails, then some
+// emails are removed remotely, and them go-imapgrab downloads emails. This would result in
+// doenloading emails that are already on disk. This race condition cannot be avoided due to the way
+// IMAP servers work (if it can, please tell me :) ).
 func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err error) {
+	ranges = []rangeT{}
 	// Check special cases such as an empty mailbox or uidvalidities that do not agree.
 	if len(uids) == 0 {
 		return []rangeT{}, nil
