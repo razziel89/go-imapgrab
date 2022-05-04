@@ -36,15 +36,17 @@ type keyringOps interface {
 }
 
 // Struct defaultKeyring is the production implementation of the interface for the keyring module.
-type defaultKeyring struct{}
+type defaultKeyringImpl struct{}
 
-func (dk defaultKeyring) Get(service string, user string) (string, error) {
+func (dk defaultKeyringImpl) Get(service string, user string) (string, error) {
 	return keyring.Get(service, user)
 }
 
-func (dk defaultKeyring) Set(service string, user string, password string) error {
+func (dk defaultKeyringImpl) Set(service string, user string, password string) error {
 	return keyring.Set(service, user, password)
 }
+
+var defaultKeyring keyringOps = &defaultKeyringImpl{}
 
 // Function keyringServiceSpec provides a strig identifying a service with all its possible
 // configuration components in the keyring.

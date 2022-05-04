@@ -77,14 +77,14 @@ func initCredentials() error {
 			return nil
 		}
 		logDebug("adding password to keyring")
-		return addToKeyring(rootConf, password, &defaultKeyring{})
+		return addToKeyring(rootConf, password, defaultKeyring)
 	}
 	if noKeyring {
 		return fmt.Errorf("password not set via env var IGRAB_PASSWORD and keyring disabled")
 	}
 	logDebug("password not set via env var IGRAB_PASSWORD, taking from keyring")
 	var err error
-	rootConf.password, err = retrieveFromKeyring(rootConf, &defaultKeyring{})
+	rootConf.password, err = retrieveFromKeyring(rootConf, defaultKeyring)
 	if err != nil {
 		return err
 	}
