@@ -1,5 +1,7 @@
 SHELL := /bin/bash
 
+CGO_ENABLED ?= 0
+
 default: lint
 
 .PHONY: setup
@@ -11,7 +13,7 @@ setup:
 build: go-imapgrab
 
 go-imapgrab: *.go
-	go build -o go-imapgrab ./...
+	CGO_ENABLED=$(CGO_ENABLED) go build -o go-imapgrab ./...
 
 .PHONY: lint
 lint:

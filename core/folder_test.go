@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,9 +55,11 @@ func TestIsGmailDir(t *testing.T) {
 }
 
 func availableTestFolders() []string {
-	return []string{
+	folders := []string{
 		"folder", "death star", "x-wing", "[Gmail]/emperor", "[Google Mail]/rebels",
 	}
+	sort.Strings(folders)
+	return folders
 }
 
 func TestExpandFoldersSelectAll(t *testing.T) {
@@ -80,7 +83,7 @@ func TestExpandFoldersSelectGmail(t *testing.T) {
 func TestExpandFoldersDeselectGmail(t *testing.T) {
 	selector := []string{"_ALL_", "-_Gmail_"}
 	actual := expandFolders(selector, availableTestFolders())
-	assert.Equal(t, []string{"folder", "death star", "x-wing"}, actual)
+	assert.Equal(t, []string{"death star", "folder", "x-wing"}, actual)
 }
 
 func TestExpandFoldersSelectExistent(t *testing.T) {

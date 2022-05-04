@@ -19,40 +19,36 @@ package main
 
 import (
 	"fmt"
-	"sort"
+	"syscall"
 
 	"github.com/razziel89/go-imapgrab/core"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func init() {
-	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(loginCmd)
 }
 
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "Print all folders in your inbox.",
+var loginCmd = &cobra.Command{
+	Use:   "login",
+	Short: "Store credentials in your system's keyring.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		core.SetVerboseLogs(verbose)
-		cfg := core.IMAPConfig{
-			Server:   rootConf.server,
-			Port:     rootConf.port,
-			User:     rootConf.username,
-			Password: rootConf.password,
-		}
-		folders, err := core.GetAllFolders(cfg)
+
+		fmt.Printf(
+			"Please provide your password for the following service:\n"+
+				"  Username: %s\n  Server: %s\n  Port: %d\n\n"+
+				"Your password won't be echoed. "+
+				"You may need to reset your terminal after aborting with Ctrl+C.\n"+
+				"\nPassword:",
+			rootConf.username, rootConf.server, rootConf.port,
+		)
+		password, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			return err
 		}
 
-		sort.Strings(folders)
-
-		for _, folder := range folders {
-			fmt.Println(folder)
-		}
-		return nil
-	},
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return initCredentials()
+		return addToKeyring(rootConf, string(password), defaultKeyring)
 	},
 }

@@ -19,6 +19,7 @@ package core
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -48,7 +49,6 @@ func expandFolders(folderSpecs, availableFolders []string) []string {
 	logInfo(
 		fmt.Sprintf("available folders are '%s'", strings.Join(availableFolders, logJoiner)),
 	)
-
 	// Convert to set to simplify manipulation.
 	availableFoldersSet := setFromSlice(availableFolders)
 	foldersSet := newOrderedSet(len(availableFolders))
@@ -94,12 +94,13 @@ func expandFolders(folderSpecs, availableFolders []string) []string {
 		}
 	}
 
-	removed := foldersSet.keepUnion(availableFoldersSet)
+	removed := foldersSet.exclusion(&availableFoldersSet).orderedEntries()
 	warning := fmt.Sprintf("unselecting nonexisting folders '%s'", strings.Join(removed, logJoiner))
 	if len(removed) > 0 {
 		logWarning(warning)
 	}
-	folders := foldersSet.orderedEntries()
+	folders := foldersSet.union(&availableFoldersSet).orderedEntries()
+	sort.Strings(folders)
 	logInfo(fmt.Sprintf("expanded to folders '%s'", strings.Join(folders, logJoiner)))
 	return folders
 }

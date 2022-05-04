@@ -11,3 +11,5 @@ builds:
       - arm64
       - arm
       - 386
+    env:
+      - CGO_ENABLED=0

@@ -29,36 +29,56 @@ const (
 	serviceFormat = "%s/%s@%s:%d"
 )
 
+// Interface keyringOps abstracts away access to the keyring module.
+type keyringOps interface {
+	Get(service string, user string) (string, error)
+	Set(service string, user string, password string) error
+}
+
+// Struct defaultKeyringImpl is the production implementation of the interface for the keyring
+// module.
+type defaultKeyringImpl struct{}
+
+func (dk defaultKeyringImpl) Get(service string, user string) (string, error) {
+	return keyring.Get(service, user)
+}
+
+func (dk defaultKeyringImpl) Set(service string, user string, password string) error {
+	return keyring.Set(service, user, password)
+}
+
+var defaultKeyring keyringOps = &defaultKeyringImpl{}
+
+// Function keyringServiceSpec provides a strig identifying a service with all its possible
+// configuration components in the keyring.
 func keyringServiceSpec(cfg rootConfigT) string {
 	return fmt.Sprintf(serviceFormat, serviceName, cfg.username, cfg.server, cfg.port)
 }
 
-func retrieveFromKeyring(cfg rootConfigT) (string, error) {
+func retrieveFromKeyring(cfg rootConfigT, keyring keyringOps) (string, error) {
 	serviceSpec := keyringServiceSpec(cfg)
 	systemUserName, err := user.Current()
-	if err != nil {
-		return "", err
+
+	var secret string
+	if err == nil {
+		secret, err = keyring.Get(serviceSpec, systemUserName.Username)
 	}
 
-	secret, err := keyring.Get(serviceSpec, systemUserName.Username)
 	if err != nil {
-		return "", err
+		// Do not return anything that might have been retrieved in case of an error.
+		secret = ""
 	}
 
-	return secret, nil
+	return secret, err
 }
 
-func addToKeyring(cfg rootConfigT, password string) error {
+func addToKeyring(cfg rootConfigT, password string, keyring keyringOps) error {
 	serviceSpec := keyringServiceSpec(cfg)
 	systemUserName, err := user.Current()
-	if err != nil {
-		return err
+
+	if err == nil {
+		err = keyring.Set(serviceSpec, systemUserName.Username, password)
 	}
 
-	err = keyring.Set(serviceSpec, systemUserName.Username, password)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
