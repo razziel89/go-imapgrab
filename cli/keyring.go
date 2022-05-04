@@ -57,29 +57,27 @@ func keyringServiceSpec(cfg rootConfigT) string {
 func retrieveFromKeyring(cfg rootConfigT, keyring keyringOps) (string, error) {
 	serviceSpec := keyringServiceSpec(cfg)
 	systemUserName, err := user.Current()
-	if err != nil {
-		return "", err
+
+	var secret string
+	if err == nil {
+		secret, err = keyring.Get(serviceSpec, systemUserName.Username)
 	}
 
-	secret, err := keyring.Get(serviceSpec, systemUserName.Username)
 	if err != nil {
-		return "", err
+		// Do not return anything that might have been retrieved in case of an error.
+		secret = ""
 	}
 
-	return secret, nil
+	return secret, err
 }
 
 func addToKeyring(cfg rootConfigT, password string, keyring keyringOps) error {
 	serviceSpec := keyringServiceSpec(cfg)
 	systemUserName, err := user.Current()
-	if err != nil {
-		return err
+
+	if err == nil {
+		err = keyring.Set(serviceSpec, systemUserName.Username, password)
 	}
 
-	err = keyring.Set(serviceSpec, systemUserName.Username, password)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
