@@ -50,13 +50,10 @@ func logDebug(v ...interface{}) {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "imapgrab",
+	Use:   "go-imapgrab",
 	Short: "Backup your IMAP-based email accounts with ease.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
-	},
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return initCredentials()
 	},
 }
 
