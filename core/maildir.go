@@ -52,14 +52,10 @@ var deliveryCount = 0
 // same hostname need to start a delivery at the very same time. Furthermore, they must have had
 // delivered the exact same number of emails since launch and a 8-bit cryptographic random number
 // must be identical. It is not clear how that should ever happen.
-func newUniqueName() (string, error) {
-	now := time.Now()
-	timeInSecs := now.Unix()
-	//nolint:gomnd
-	microSecsOfTime := now.Nanosecond() / 1000 // Convert nano seconds to micro seconds.
-
-	pid := os.Getpid()
-
+//
+// You can inject a hostname, which allows to simulate generating a unique name for other
+// environments. If none is injected (empty hostname), generate data for the current system.
+func newUniqueName(hostname string) (filename string, err error) {
 	defer func() {
 		// Increment the global delivery counter for this process. Increment even in an error case
 		// since this counter is supposed to be unique for every message that this process has
@@ -67,31 +63,42 @@ func newUniqueName() (string, error) {
 		deliveryCount++
 	}()
 
-	// Extract an 8-bit random hex number.
-	randomBytes := make([]byte, randomHexSize)
-	if _, err := rand.Read(randomBytes); err != nil {
-		return "", err
-	}
-	randomHex := hex.EncodeToString(randomBytes)
+	// Determine data with functions that cannot fail.
+	now := time.Now()
+	timeInSecs := now.Unix()
+	//nolint:gomnd
+	microSecsOfTime := now.Nanosecond() / 1000 // Convert nano seconds to micro seconds.
+	pid := os.Getpid()
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return "", err
+	// Handle hostname.
+	if hostname == "" {
+		hostname, err = os.Hostname()
 	}
 	// Handle broken hostnames as per the above-linked description.
 	hostname = strings.ReplaceAll(hostname, "/", "\\057")
 	hostname = strings.ReplaceAll(hostname, ":", "\\072")
 
-	filename := fmt.Sprintf(
+	// Handle the random hexadecimal string.
+	randomBytes := make([]byte, randomHexSize)
+	var randomHex string
+	if err == nil {
+		// Extract an 8-bit random hex number.
+		_, err = rand.Read(randomBytes)
+	}
+	if err == nil {
+		randomHex = hex.EncodeToString(randomBytes)
+	}
+
+	filename = fmt.Sprintf(
 		"%d.M%dP%dQ%dR%s.%s", timeInSecs, microSecsOfTime, pid, deliveryCount, randomHex, hostname,
 	)
 
 	// Sanity check against spaces in the file name.
-	if strings.ContainsRune(filename, ' ') {
-		return "", fmt.Errorf("whitespace detected in unique file name %s", filename)
+	if err == nil && strings.ContainsRune(filename, ' ') {
+		err = fmt.Errorf("whitespace detected in unique file name %s", filename)
 	}
 
-	return filename, nil
+	return filename, err
 }
 
 // Function isMaildir checks whether a path is a path to a maildir. A maildir is a directory that
@@ -176,7 +183,7 @@ func initMaildir(oldmailName string, maildirPath maildirPathT) ([]oldmail, strin
 // Write an email to the tmp sub-directory of a maildir with an appropriate, unique name and then
 // move it to new sub-directory as mandated by the maildir specs.
 func deliverMessage(rfc822 string, basePath string) error {
-	fileName, err := newUniqueName()
+	fileName, err := newUniqueName("")
 	if err != nil {
 		return err
 	}
