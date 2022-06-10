@@ -30,7 +30,21 @@ const (
 	messageRetrievalBuffer = 20
 )
 
-func authenticateClient(config IMAPConfig) (imapClient *client.Client, err error) {
+// Make this a function pointer to simplify testing.
+var newImapClient = func(addr string) (imapOps, error) {
+	// Use automatic configuration of TLS options.
+	return client.DialTLS(addr, nil)
+}
+
+type imapOps interface {
+	Login(username string, password string) error
+	List(ref string, name string, ch chan *imap.MailboxInfo) error
+	Select(name string, readOnly bool) (*imap.MailboxStatus, error)
+	Fetch(seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message) error
+	Logout() error
+}
+
+func authenticateClient(config IMAPConfig) (imapClient imapOps, err error) {
 	if len(config.Password) == 0 {
 		logError("empty password detected")
 		err = fmt.Errorf("password not set")
@@ -39,7 +53,7 @@ func authenticateClient(config IMAPConfig) (imapClient *client.Client, err error
 
 	logInfo(fmt.Sprintf("connecting to server %s", config.Server))
 	serverWithPort := fmt.Sprintf("%s:%d", config.Server, config.Port)
-	if imapClient, err = client.DialTLS(serverWithPort, nil); err != nil {
+	if imapClient, err = newImapClient(serverWithPort); err != nil {
 		logError("cannot connect")
 		return nil, err
 	}
@@ -55,7 +69,7 @@ func authenticateClient(config IMAPConfig) (imapClient *client.Client, err error
 	return imapClient, nil
 }
 
-func getFolderList(imapClient *client.Client) (folders []string, err error) {
+func getFolderList(imapClient imapOps) (folders []string, err error) {
 	logInfo("retrieving folders")
 	mailboxes := make(chan *imap.MailboxInfo, folderListBuffer)
 	go func() {
@@ -69,7 +83,7 @@ func getFolderList(imapClient *client.Client) (folders []string, err error) {
 	return folders, err
 }
 
-func selectFolder(imapClient *client.Client, folder string) (*imap.MailboxStatus, error) {
+func selectFolder(imapClient imapOps, folder string) (*imap.MailboxStatus, error) {
 	logInfo(fmt.Sprint("selecting folder:", folder))
 	// Access the folder in read-only mode.
 	mbox, err := imapClient.Select(folder, true)
@@ -85,7 +99,7 @@ func selectFolder(imapClient *client.Client, folder string) (*imap.MailboxStatus
 // converted to count from the last message. That is, -1 refers to the most recent message while 1
 // refers to the second oldest email.
 func streamingRetrieval(
-	mbox *imap.MailboxStatus, imapClient *client.Client, indices []rangeT, wg, stwg *sync.WaitGroup,
+	mbox *imap.MailboxStatus, imapClient imapOps, indices []rangeT, wg, stwg *sync.WaitGroup,
 ) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
 	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
 	// index.
@@ -147,7 +161,7 @@ func (u uid) String() string {
 }
 
 func getAllMessageUUIDs(
-	mbox *imap.MailboxStatus, imapClient *client.Client,
+	mbox *imap.MailboxStatus, imapClient imapOps,
 ) (uids []uid, err error) {
 
 	logInfo("retrieving information about emails stored on server")

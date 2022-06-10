@@ -20,8 +20,6 @@ package core
 import (
 	"fmt"
 	"sync"
-
-	"github.com/emersion/go-imap/client"
 )
 
 const (
@@ -123,7 +121,7 @@ func streamingDelivery(
 }
 
 func downloadMissingEmailsToFolder(
-	imapClient *client.Client, maildirPath maildirPathT, oldmailName string,
+	imapClient imapOps, maildirPath maildirPathT, oldmailName string,
 ) error {
 	oldmails, oldmailPath, err := initMaildir(oldmailName, maildirPath)
 	if err != nil {
