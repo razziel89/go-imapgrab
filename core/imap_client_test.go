@@ -30,6 +30,7 @@ type mockClient struct {
 	mock.Mock
 
 	mailboxes []*imap.MailboxInfo
+	messages  []*imap.Message
 }
 
 func (mc *mockClient) Login(username string, password string) error {
@@ -55,6 +56,10 @@ func (mc *mockClient) Fetch(
 	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
 ) error {
 	args := mc.Called(seqset, items, ch)
+	for _, msg := range mc.messages {
+		ch <- msg
+	}
+	close(ch)
 	return args.Error(0)
 }
 
@@ -62,9 +67,12 @@ func (mc *mockClient) Logout() error {
 	panic("not implemented") // TODO: Implement
 }
 
-func setUpMockClient(t *testing.T, boxes []*imap.MailboxInfo, err error) *mockClient {
+func setUpMockClient(
+	t *testing.T, boxes []*imap.MailboxInfo, messages []*imap.Message, err error,
+) *mockClient {
 	mock := &mockClient{
 		mailboxes: boxes,
+		messages:  messages,
 	}
 	orgClientGetter := newImapClient
 	newImapClient = func(addr string) (imapOps, error) {
@@ -81,7 +89,7 @@ func TestAuthFailure(t *testing.T) {
 }
 
 func TestAuthenticateClientSuccess(t *testing.T) {
-	mock := setUpMockClient(t, nil, nil)
+	mock := setUpMockClient(t, nil, nil, nil)
 	mock.On("Login", "someone", "some password").Return(nil)
 
 	config := IMAPConfig{
@@ -96,7 +104,7 @@ func TestAuthenticateClientSuccess(t *testing.T) {
 }
 
 func TestAuthenticateClientNoPassword(t *testing.T) {
-	_ = setUpMockClient(t, nil, nil)
+	_ = setUpMockClient(t, nil, nil, nil)
 	config := IMAPConfig{}
 
 	_, err := authenticateClient(config)
@@ -106,7 +114,7 @@ func TestAuthenticateClientNoPassword(t *testing.T) {
 
 func TestAuthenticateClientCannotConnect(t *testing.T) {
 	loginErr := fmt.Errorf("cannot log in")
-	_ = setUpMockClient(t, nil, loginErr)
+	_ = setUpMockClient(t, nil, nil, loginErr)
 
 	config := IMAPConfig{
 		User:     "someone",
@@ -121,7 +129,7 @@ func TestAuthenticateClientCannotConnect(t *testing.T) {
 
 func TestAuthenticateClientWrongCredentials(t *testing.T) {
 	loginErr := fmt.Errorf("wrong credentials")
-	mock := setUpMockClient(t, nil, nil)
+	mock := setUpMockClient(t, nil, nil, nil)
 	mock.On("Login", "someone", "wrong password").Return(loginErr)
 
 	config := IMAPConfig{
@@ -140,7 +148,7 @@ func TestGetFolderListSuccess(t *testing.T) {
 		&imap.MailboxInfo{Name: "b2"},
 		&imap.MailboxInfo{Name: "b3"},
 	}
-	m := setUpMockClient(t, boxes, nil)
+	m := setUpMockClient(t, boxes, nil, nil)
 	m.On("List", "", "*", mock.Anything).Return(nil)
 
 	list, err := getFolderList(m)
@@ -154,7 +162,7 @@ func TestGetFolderListError(t *testing.T) {
 	boxes := []*imap.MailboxInfo{
 		&imap.MailboxInfo{Name: "b1"},
 	}
-	m := setUpMockClient(t, boxes, nil)
+	m := setUpMockClient(t, boxes, nil, nil)
 	m.On("List", "", "*", mock.Anything).Return(listErr)
 
 	_, err := getFolderList(m)
@@ -165,11 +173,51 @@ func TestGetFolderListError(t *testing.T) {
 
 func TestSelectFolderSuccess(t *testing.T) {
 	expectedStatus := &imap.MailboxStatus{Messages: 42}
-	m := setUpMockClient(t, nil, nil)
+	m := setUpMockClient(t, nil, nil, nil)
 	m.On("Select", "some folder", true).Return(expectedStatus, nil)
 
 	status, err := selectFolder(m, "some folder")
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedStatus, status)
+}
+
+func TestUIDToStrng(t *testing.T) {
+	u := uid{Mbox: 42, Message: 10}
+	str := "42/10"
+
+	assert.Equal(t, str, fmt.Sprint(u))
+}
+
+func TestGetAllMessageUUIDsSuccess(t *testing.T) {
+	status := &imap.MailboxStatus{
+		Messages:    3,
+		UidValidity: 42,
+	}
+	messages := []*imap.Message{
+		&imap.Message{Uid: 10},
+		// There are no guarantees the server does not return nil. Thus, we make sure to ignore such
+		// values.
+		nil,
+		&imap.Message{Uid: 12},
+		nil,
+		&imap.Message{Uid: 16},
+	}
+
+	expectedSeqSet := &imap.SeqSet{}
+	expectedSeqSet.AddRange(1, 3)
+	expectedUUIDs := []uid{
+		{Mbox: 42, Message: 10},
+		{Mbox: 42, Message: 12},
+		{Mbox: 42, Message: 16},
+	}
+	expectedFetchRequest := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
+
+	m := setUpMockClient(t, nil, messages, nil)
+	m.On("Fetch", expectedSeqSet, expectedFetchRequest, mock.Anything).Return(nil)
+
+	uids, err := getAllMessageUUIDs(status, m)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expectedUUIDs, uids)
 }
