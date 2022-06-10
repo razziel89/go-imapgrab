@@ -19,7 +19,9 @@ package core
 
 import (
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/emersion/go-imap"
 	"github.com/stretchr/testify/assert"
@@ -180,6 +182,81 @@ func TestSelectFolderSuccess(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedStatus, status)
+}
+
+func TestStreamingRetrievalSuccess(t *testing.T) {
+	status := &imap.MailboxStatus{
+		Messages:    16,
+		UidValidity: 42,
+	}
+	ranges := []rangeT{
+		{start: 10, end: 11},
+		{start: 12, end: 13},
+		{start: 16, end: 17},
+	}
+	messages := []*imap.Message{
+		&imap.Message{Uid: 10},
+		&imap.Message{Uid: 12},
+		&imap.Message{Uid: 16},
+	}
+
+	expectedSeqSet := &imap.SeqSet{}
+	expectedSeqSet.AddNum(10, 12, 16)
+	expectedFetchRequest := []imap.FetchItem{
+		imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822,
+	}
+
+	m := setUpMockClient(t, nil, messages, nil)
+	m.On("Fetch", expectedSeqSet, expectedFetchRequest, mock.Anything).Return(
+		fmt.Errorf("retrieval error"),
+	)
+
+	var wg, stwg sync.WaitGroup
+	stwg.Add(1)
+
+	emailChan, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg)
+
+	assert.NoError(t, err)
+	assert.Zero(t, *errPtr)
+
+	// Wait a while and check that nothing has happened yet.
+	select {
+	case <-emailChan:
+		// Fail if something has happened yet.
+		t.Fail()
+	case <-time.After(time.Millisecond * 100): // nolint: gomnd
+		// Continue if nothing has happened yet.
+	}
+
+	// Actually trigger operations and read from output channel.
+	stwg.Done()
+	emails := []*imap.Message{}
+	for em := range emailChan {
+		// Convert type back for easier comparison.
+		msg := em.(*imap.Message)
+		emails = append(emails, msg)
+	}
+	wg.Wait()
+
+	assert.Equal(t, 1, *errPtr)
+	assert.Equal(t, messages, emails)
+}
+
+func TestStreamingRetrievalError(t *testing.T) {
+	status := &imap.MailboxStatus{}
+	m := setUpMockClient(t, nil, nil, nil)
+
+	// These ranges trigger an initial error.
+	ranges := []rangeT{
+		{start: 20, end: 10},
+	}
+
+	var wg, stwg sync.WaitGroup
+	stwg.Add(1)
+
+	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg)
+
+	assert.Error(t, err)
 }
 
 func TestUIDToStrng(t *testing.T) {
