@@ -87,11 +87,10 @@ func selectFolder(imapClient imapOps, folder string) (*imap.MailboxStatus, error
 	logInfo(fmt.Sprint("selecting folder:", folder))
 	// Access the folder in read-only mode.
 	mbox, err := imapClient.Select(folder, true)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		logInfo(fmt.Sprint("flags for selected folder are", mbox.Flags))
+		logInfo(fmt.Sprintf("selected folder contains %d emails", mbox.Messages))
 	}
-	logInfo(fmt.Sprint("flags for selected folder are", mbox.Flags))
-	logInfo(fmt.Sprintf("selected folder contains %d emails", mbox.Messages))
 	return mbox, err
 }
 
