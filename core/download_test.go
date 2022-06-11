@@ -26,6 +26,7 @@ import (
 
 	"github.com/emersion/go-imap"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestDetermineMissingIDsEmptyData(t *testing.T) {
@@ -220,3 +221,42 @@ func TestStreamingDeliverySuccessDespiteOneError(t *testing.T) {
 		msg.AssertExpectations(t)
 	}
 }
+
+func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
+	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
+
+	boxes := []*imap.MailboxInfo{
+		&imap.MailboxInfo{Name: "some-folder"},
+	}
+	status := &imap.MailboxStatus{
+		Name:        "some-folder",
+		UidValidity: 42,
+		Messages:    3,
+	}
+	messages := []*imap.Message{
+		&imap.Message{Uid: 1},
+		&imap.Message{Uid: 2},
+		&imap.Message{Uid: 3},
+	}
+	seqSet := &imap.SeqSet{}
+	seqSet.AddRange(1, 3)
+	fetchRequestListUUIDs := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
+	fetchRequestDownload := []imap.FetchItem{
+		imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822,
+	}
+
+	mockClient := setUpMockClient(t, boxes, messages, nil)
+	mockClient.On("Select", "some-folder", true).Return(status, nil)
+	mockClient.On("Fetch", seqSet, fetchRequestListUUIDs, mock.Anything).Return(nil)
+	mockClient.On("Fetch", seqSet, fetchRequestDownload, mock.Anything).Return(nil)
+
+	maildirPath := maildirPathT{base: mockPath, folder: "some-folder"}
+
+	err := downloadMissingEmailsToFolder(mockClient, maildirPath, "some-oldmail")
+
+	assert.NoError(t, err)
+}
+
+// func downloadMissingEmailsToFolder(
+// 	imapClient imapOps, maildirPath maildirPathT, oldmailName string,
+// ) error {
