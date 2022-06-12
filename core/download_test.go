@@ -286,7 +286,3 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	// New directory contains three files.
 	assert.Equal(t, 3, len(downloadedMessages))
 }
-
-// func downloadMissingEmailsToFolder(
-// 	imapClient imapOps, maildirPath maildirPathT, oldmailName string,
-// ) error {
