@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
+	"bytes"
 	"io/ioutil"
 	"path/filepath"
 	"sync"
@@ -222,22 +223,40 @@ func TestStreamingDeliverySuccessDespiteOneError(t *testing.T) {
 	}
 }
 
+func buildFakeImapMessage(t *testing.T, id uint32, content string) *imap.Message {
+	sectionName, err := imap.ParseBodySectionName(imap.FetchItem("RFC822"))
+	assert.NoError(t, err)
+
+	buf := bytes.NewBufferString(content)
+
+	return &imap.Message{
+		Uid: id,
+		Items: map[imap.FetchItem]interface{}{
+			"INTERNALDATE": nil,
+			"RFC822":       nil,
+			"UID":          nil,
+		},
+		Body: map[*imap.BodySectionName]imap.Literal{
+			sectionName: buf,
+		},
+	}
+}
+
 func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
+	orgVerbosity := verbose
+	SetVerboseLogs(true)
+	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
+
 	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
 
-	boxes := []*imap.MailboxInfo{
-		&imap.MailboxInfo{Name: "some-folder"},
-	}
-	status := &imap.MailboxStatus{
-		Name:        "some-folder",
-		UidValidity: 42,
-		Messages:    3,
-	}
+	boxes := []*imap.MailboxInfo{&imap.MailboxInfo{Name: "some-folder"}}
+	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 3}
 	messages := []*imap.Message{
-		&imap.Message{Uid: 1},
-		&imap.Message{Uid: 2},
-		&imap.Message{Uid: 3},
+		buildFakeImapMessage(t, 1, "some text"),
+		buildFakeImapMessage(t, 2, "some more text"),
+		buildFakeImapMessage(t, 3, "even more text"),
 	}
+
 	seqSet := &imap.SeqSet{}
 	seqSet.AddRange(1, 3)
 	fetchRequestListUUIDs := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
@@ -255,6 +274,17 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	err := downloadMissingEmailsToFolder(mockClient, maildirPath, "some-oldmail")
 
 	assert.NoError(t, err)
+
+	// Check whether emails have actually been downloaded and whether hte oldmail file has been
+	// updated.
+	oldmailContent, err := ioutil.ReadFile(filepath.Join(mockPath, "some-oldmail")) // nolint: gosec
+	assert.NoError(t, err)
+	downloadedMessages, err := ioutil.ReadDir(filepath.Join(mockPath, "some-folder", "new"))
+	assert.NoError(t, err)
+	// Oldmail file contains three lines.
+	assert.Equal(t, 3, bytes.Count(oldmailContent, []byte("\n")))
+	// New directory contains three files.
+	assert.Equal(t, 3, len(downloadedMessages))
 }
 
 // func downloadMissingEmailsToFolder(
