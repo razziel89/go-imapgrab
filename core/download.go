@@ -141,15 +141,11 @@ func downloadMissingEmailsToFolder(
 	if err == nil {
 		missingIDRanges, err = determineMissingIDs(oldmails, uids)
 	}
-	if err != nil {
+	total := accumulateRanges(missingIDRanges)
+	logInfo(fmt.Sprintf("will download %d new emails", total))
+	if err != nil || total == 0 {
 		return err
 	}
-	total := accumulateRanges(missingIDRanges)
-	if total == 0 {
-		logInfo("no new emails, nothing to be done")
-		return nil
-	}
-	logInfo(fmt.Sprintf("will download %d new emails", total))
 
 	var wg, startWg sync.WaitGroup
 	startWg.Add(1) // startWg is used to defer operations until the pipeline is set up.
