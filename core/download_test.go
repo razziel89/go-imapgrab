@@ -286,3 +286,26 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	// New directory contains three files.
 	assert.Equal(t, 3, len(downloadedMessages))
 }
+
+func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
+	orgVerbosity := verbose
+	SetVerboseLogs(true)
+	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
+
+	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
+
+	boxes := []*imap.MailboxInfo{&imap.MailboxInfo{Name: "some-folder"}}
+	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 0}
+	// No emails, thus nothing to be downloaded.
+	messages := []*imap.Message{}
+
+	mockClient := setUpMockClient(t, boxes, messages, nil)
+	mockClient.On("Select", "some-folder", true).Return(status, fmt.Errorf("some error"))
+
+	maildirPath := maildirPathT{base: mockPath, folder: "some-folder"}
+
+	err := downloadMissingEmailsToFolder(mockClient, maildirPath, "some-oldmail")
+
+	assert.Error(t, err)
+	assert.Equal(t, "some error", err.Error())
+}
