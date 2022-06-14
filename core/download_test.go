@@ -19,6 +19,7 @@ package core
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"sync"
@@ -308,4 +309,58 @@ func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, "some error", err.Error())
+}
+
+func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
+	orgVerbosity := verbose
+	SetVerboseLogs(true)
+	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
+
+	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
+
+	boxes := []*imap.MailboxInfo{&imap.MailboxInfo{Name: "some-folder"}}
+	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 3}
+	messages := []*imap.Message{
+		buildFakeImapMessage(t, 1, "some text"),
+		buildFakeImapMessage(t, 2, "some more text"),
+		// One of the messages does not contain the information we need, which will cause an error
+		// in the streaming email delivery that will be logged.
+		&imap.Message{},
+	}
+
+	seqSet := &imap.SeqSet{}
+	seqSet.AddRange(1, 3)
+	fetchRequestListUUIDs := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
+	fetchRequestDownload := []imap.FetchItem{
+		imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822,
+	}
+
+	mockClient := setUpMockClient(t, boxes, messages, nil)
+	mockClient.On("Select", "some-folder", true).Return(status, nil)
+	mockClient.On("Fetch", seqSet, fetchRequestListUUIDs, mock.Anything).Return(nil)
+
+	// Cause an error when retrieving emails because one email cannot be downloaded. Every
+	// successive download succeeds.
+	mockClient.On("Fetch", seqSet, fetchRequestDownload, mock.Anything).
+		Once().Return(fmt.Errorf("download error"))
+
+	maildirPath := maildirPathT{base: mockPath, folder: "some-folder"}
+
+	err := downloadMissingEmailsToFolder(mockClient, maildirPath, "some-oldmail")
+
+	assert.Error(t, err)
+	assert.Equal(
+		t, "there were 1/1/0 errors while: retrieving/delivering/remembering mail", err.Error(),
+	)
+
+	// Check whether we could still download all successfully that were delivered and whether that
+	// email's information has been added to the oldmail file.
+	oldmailContent, err := ioutil.ReadFile(filepath.Join(mockPath, "some-oldmail")) // nolint: gosec
+	assert.NoError(t, err)
+	downloadedMessages, err := ioutil.ReadDir(filepath.Join(mockPath, "some-folder", "new"))
+	assert.NoError(t, err)
+	// Oldmail file contains two lines.
+	assert.Equal(t, 2, bytes.Count(oldmailContent, []byte("\n")))
+	// New directory contains two files.
+	assert.Equal(t, 2, len(downloadedMessages))
 }
