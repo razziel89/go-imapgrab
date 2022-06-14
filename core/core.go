@@ -26,21 +26,70 @@ type IMAPConfig struct {
 	Password string
 }
 
+// ImapgrabOps provides functionality for interacting with the basic imapgrab functionality such as
+// listing contents of mailboxes or downloading emails.
+type ImapgrabOps interface {
+	// authenticateClient is used to authenticate against a remote server
+	authenticateClient(IMAPConfig) error
+	// logout is used to log out from an authenticated session
+	logout() error
+	// getFolderList provides all folders in the configured mailbox
+	getFolderList() ([]string, error)
+	// downloadMissingEmailsToFolder downloads all emails to a local path that are present remotely
+	// but missing locally
+	downloadMissingEmailsToFolder(maildirPathT, string) error
+}
+
+// Imapgrabber is the defailt implementation of ImapgrabOps.
+type Imapgrabber struct {
+	imapOps imapOps
+}
+
+// authenticateClient is used to authenticate against a remote server
+func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
+	imapOps, err := authenticateClient(cfg)
+	ig.imapOps = imapOps
+	return err
+}
+
+// logout is used to log out from an authenticated session
+func (ig *Imapgrabber) logout() error {
+	return logout(ig.imapOps)
+}
+
+// getFolderList provides all folders in the configured mailbox
+func (ig *Imapgrabber) getFolderList() ([]string, error) {
+	return getFolderList(ig.imapOps)
+}
+
+// downloadMissingEmailsToFolder downloads all emails to a local path that are present remotely
+// but missing locally
+func (ig *Imapgrabber) downloadMissingEmailsToFolder(
+	maildirPath maildirPathT, oldmailName string,
+) error {
+	return downloadMissingEmailsToFolder(ig.imapOps, maildirPath, oldmailName)
+}
+
+// NewImapgrabOps creates a new instance of the default implementation of ImapgrabOps.
+func NewImapgrabOps() ImapgrabOps {
+	return &Imapgrabber{}
+}
+
 // GetAllFolders retrieves a list of all folders in a mailbox.
-func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
-	imapClient, err := authenticateClient(cfg)
+func GetAllFolders(cfg IMAPConfig, ops ImapgrabOps) (folders []string, err error) {
+	err = ops.authenticateClient(cfg)
 	if err != nil {
 		return
 	}
 	// Make sure to log out in the end if we logged in successfully.
 	defer func() {
 		// Don't overwrite the error if it has already been set.
-		if logoutErr := imapClient.Logout(); logoutErr != nil && err == nil {
+		if logoutErr := ops.logout(); logoutErr != nil && err == nil {
 			err = logoutErr
 		}
 	}()
 
-	return getFolderList(imapClient)
+	return ops.getFolderList()
 }
 
 // DownloadFolder downloads all not yet downloaded email from a folder in a mailbox to a maildir.
@@ -48,21 +97,21 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 // already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
 // the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
 // sub-directory.
-func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string) error {
+func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, ops ImapgrabOps) error {
 	// Authenticate against the remote server.
-	imapClient, err := authenticateClient(cfg)
+	err := ops.authenticateClient(cfg)
 	if err != nil {
 		return err
 	}
 	// Make sure to log out in the end if we logged in successfully.
 	defer func() {
 		// Don't overwrite the error if it has already been set.
-		if logoutErr := imapClient.Logout(); logoutErr != nil && err == nil {
+		if logoutErr := ops.logout(); logoutErr != nil && err == nil {
 			err = logoutErr
 		}
 	}()
 
-	availableFolders, err := getFolderList(imapClient)
+	availableFolders, err := ops.getFolderList()
 	if err != nil {
 		return err
 	}
@@ -73,7 +122,7 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string) error 
 		oldmailFilePath := oldmailFileName(cfg, folder)
 		maildirPath := maildirPathT{base: maildirBase, folder: folder}
 
-		err = downloadMissingEmailsToFolder(imapClient, maildirPath, oldmailFilePath)
+		err = ops.downloadMissingEmailsToFolder(maildirPath, oldmailFilePath)
 		if err != nil {
 			return err
 		}

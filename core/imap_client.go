@@ -69,6 +69,11 @@ func authenticateClient(config IMAPConfig) (imapClient imapOps, err error) {
 	return imapClient, nil
 }
 
+func logout(imapClient imapOps) error {
+	logInfo("logging out")
+	return imapClient.Logout()
+}
+
 func getFolderList(imapClient imapOps) (folders []string, err error) {
 	logInfo("retrieving folders")
 	mailboxes := make(chan *imap.MailboxInfo, folderListBuffer)
