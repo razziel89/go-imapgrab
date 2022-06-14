@@ -44,7 +44,8 @@ var downloadCmd = &cobra.Command{
 			User:     rootConf.username,
 			Password: rootConf.password,
 		}
-		err := core.DownloadFolder(cfg, downloadConf.folders, downloadConf.path)
+		imapgrabOps := core.NewImapgrabOps()
+		err := core.DownloadFolder(cfg, downloadConf.folders, downloadConf.path, imapgrabOps)
 		if err != nil {
 			return err
 		}
