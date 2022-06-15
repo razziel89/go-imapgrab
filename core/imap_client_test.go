@@ -66,7 +66,8 @@ func (mc *mockClient) Fetch(
 }
 
 func (mc *mockClient) Logout() error {
-	panic("not implemented") // TODO: Implement
+	args := mc.Called()
+	return args.Error(0)
 }
 
 func setUpMockClient(

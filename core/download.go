@@ -130,11 +130,12 @@ func downloadMissingEmailsToFolder(
 	if err == nil {
 		mbox, err = selectFolder(imapClient, maildirPath.folderName())
 	}
-	uidvalidity := int(mbox.UidValidity)
 	// Retrieve information about which emails are present on the remote system and check which ones
 	// are missing when comparing against those on disk.
+	var uidvalidity int
 	var uids []uid
 	if err == nil {
+		uidvalidity = int(mbox.UidValidity)
 		uids, err = getAllMessageUUIDs(mbox, imapClient)
 	}
 	var missingIDRanges []rangeT
