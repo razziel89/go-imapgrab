@@ -52,7 +52,7 @@ var downloadCmd = &cobra.Command{
 		return nil
 	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return initCredentials()
+		return initCredentials(&rootConf, noKeyring, defaultKeyring)
 	},
 }
 

@@ -28,6 +28,7 @@ import (
 const (
 	serviceName   = "go-imapgrab"
 	serviceFormat = "%s/%s@%s:%d"
+	passwdEnvVar  = "IGRAB_PASSWORD"
 )
 
 // Interface keyringOps abstracts away access to the keyring module.
@@ -84,22 +85,22 @@ func addToKeyring(cfg rootConfigT, password string, keyring keyringOps) error {
 	return err
 }
 
-func initCredentials() error {
-	if password, found := os.LookupEnv("IGRAB_PASSWORD"); found {
-		logDebug("password taken from env var IGRAB_PASSWORD")
+func initCredentials(rootConf *rootConfigT, noKeyring bool, keyring keyringOps) error {
+	if password, found := os.LookupEnv(passwdEnvVar); found {
+		logDebug(fmt.Sprintf("password taken from env var %s", passwdEnvVar))
 		rootConf.password = password
 		if noKeyring {
 			return nil
 		}
 		logDebug("adding password to keyring")
-		return addToKeyring(rootConf, password, defaultKeyring)
+		return addToKeyring(*rootConf, password, keyring)
 	}
 	if noKeyring {
-		return fmt.Errorf("password not set via env var IGRAB_PASSWORD and keyring disabled")
+		return fmt.Errorf("password not set via env var %s and keyring disabled", passwdEnvVar)
 	}
-	logDebug("password not set via env var IGRAB_PASSWORD, taking from keyring")
+	logDebug(fmt.Sprintf("password not set via env var %s, taking from keyring", passwdEnvVar))
 	var err error
-	rootConf.password, err = retrieveFromKeyring(rootConf, defaultKeyring)
+	rootConf.password, err = retrieveFromKeyring(*rootConf, keyring)
 	if err != nil {
 		return err
 	}
