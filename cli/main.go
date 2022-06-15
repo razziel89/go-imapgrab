@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	if err := Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err.Error())
 	}
 }

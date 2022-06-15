@@ -49,21 +49,20 @@ func logDebug(v ...interface{}) {
 	}
 }
 
-var rootCmd = &cobra.Command{
-	Use:   "go-imapgrab",
-	Short: "Backup your IMAP-based email accounts with ease.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
+func getRootCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "go-imapgrab",
+		Short: "Backup your IMAP-based email accounts with ease.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
 }
 
-// Execute executes the root command.
-func Execute() error {
-	return rootCmd.Execute()
-}
+var rootCmd = getRootCmd()
 
 func init() {
-	initRootFlags()
+	initRootFlags(rootCmd)
 }
 
 func initCredentials() error {
@@ -88,7 +87,7 @@ func initCredentials() error {
 	return nil
 }
 
-func initRootFlags() {
+func initRootFlags(rootCmd *cobra.Command) {
 	pflags := rootCmd.PersistentFlags()
 
 	pflags.StringVarP(&rootConf.server, "server", "s", "", "address of imap server")
