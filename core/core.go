@@ -79,18 +79,18 @@ func NewImapgrabOps() ImapgrabOps {
 // GetAllFolders retrieves a list of all folders in a mailbox.
 func GetAllFolders(cfg IMAPConfig, ops ImapgrabOps) (folders []string, err error) {
 	err = ops.authenticateClient(cfg)
-	if err != nil {
-		return
+	if err == nil {
+		// Make sure to log out in the end if we logged in successfully.
+		defer func() {
+			// Don't overwrite the error if it has already been set.
+			if logoutErr := ops.logout(); logoutErr != nil && err == nil {
+				err = logoutErr
+			}
+		}()
+		// Actually retrieve folder list.
+		folders, err = ops.getFolderList()
 	}
-	// Make sure to log out in the end if we logged in successfully.
-	defer func() {
-		// Don't overwrite the error if it has already been set.
-		if logoutErr := ops.logout(); logoutErr != nil && err == nil {
-			err = logoutErr
-		}
-	}()
-
-	return ops.getFolderList()
+	return folders, err
 }
 
 // DownloadFolder downloads all not yet downloaded email from a folder in a mailbox to a maildir.
@@ -98,36 +98,36 @@ func GetAllFolders(cfg IMAPConfig, ops ImapgrabOps) (folders []string, err error
 // already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
 // the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
 // sub-directory.
-func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, ops ImapgrabOps) error {
+func DownloadFolder(
+	cfg IMAPConfig, folders []string, maildirBase string, ops ImapgrabOps,
+) (err error) {
 	// Authenticate against the remote server.
-	err := ops.authenticateClient(cfg)
-	if err != nil {
-		return err
+	err = ops.authenticateClient(cfg)
+
+	var availableFolders []string
+	if err == nil {
+		// Make sure to log out in the end if we logged in successfully.
+		defer func() {
+			// Don't overwrite the error if it has already been set.
+			if logoutErr := ops.logout(); logoutErr != nil && err == nil {
+				err = logoutErr
+			}
+		}()
+		// Actually retrieve folder list.
+		availableFolders, err = ops.getFolderList()
 	}
-	// Make sure to log out in the end if we logged in successfully.
-	defer func() {
-		// Don't overwrite the error if it has already been set.
-		if logoutErr := ops.logout(); logoutErr != nil && err == nil {
-			err = logoutErr
+	if err == nil {
+		folders = expandFolders(folders, availableFolders)
+
+		for _, folder := range folders {
+			oldmailFilePath := oldmailFileName(cfg, folder)
+			maildirPath := maildirPathT{base: maildirBase, folder: folder}
+
+			err = ops.downloadMissingEmailsToFolder(maildirPath, oldmailFilePath)
+			if err != nil {
+				return err
+			}
 		}
-	}()
-
-	availableFolders, err := ops.getFolderList()
-	if err != nil {
-		return err
 	}
-
-	folders = expandFolders(folders, availableFolders)
-
-	for _, folder := range folders {
-		oldmailFilePath := oldmailFileName(cfg, folder)
-		maildirPath := maildirPathT{base: maildirBase, folder: folder}
-
-		err = ops.downloadMissingEmailsToFolder(maildirPath, oldmailFilePath)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return err
 }
