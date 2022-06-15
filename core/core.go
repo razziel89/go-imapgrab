@@ -54,7 +54,8 @@ func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
 
 // logout is used to log out from an authenticated session
 func (ig *Imapgrabber) logout() error {
-	return logout(ig.imapOps)
+	logInfo("logging out")
+	return ig.imapOps.Logout()
 }
 
 // getFolderList provides all folders in the configured mailbox
