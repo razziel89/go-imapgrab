@@ -40,7 +40,8 @@ var listCmd = &cobra.Command{
 			User:     rootConf.username,
 			Password: rootConf.password,
 		}
-		folders, err := core.GetAllFolders(cfg)
+		imapgrabOps := core.NewImapgrabOps()
+		folders, err := core.GetAllFolders(cfg, imapgrabOps)
 		if err != nil {
 			return err
 		}
