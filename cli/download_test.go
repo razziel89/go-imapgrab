@@ -23,13 +23,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestListCommand(t *testing.T) {
+func TestDownloadCommand(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "some password")
 
 	mk := &mockKeyring{}
 
 	rootConf := rootConfigT{}
-	cmd := getListCmd(&rootConf, mk, false)
+	cmd := getDownloadCmd(&rootConf, mk, false)
 
 	err := cmd.Execute()
 	assert.Error(t, err)

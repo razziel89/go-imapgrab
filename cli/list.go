@@ -26,7 +26,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func getListCmd(rootConf *rootConfigT, prodRun bool) *cobra.Command {
+func getListCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command {
+	// Do not use the keyring if it has been disabled globally or if this is a test run, i.e. no
+	// prod run.
+	disableKeyring := noKeyring || !prodRun
+
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Print all folders in your inbox.",
@@ -47,19 +51,14 @@ func getListCmd(rootConf *rootConfigT, prodRun bool) *cobra.Command {
 			return err
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			return initCredentials(rootConf, noKeyring, defaultKeyring)
+			return initCredentials(rootConf, disableKeyring, keyring)
 		},
-	}
-
-	// Disable keyring and credentials integration when performing a test run.
-	if !prodRun {
-		cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error { return nil }
 	}
 
 	return cmd
 }
 
-var listCmd = getListCmd(&rootConf, true)
+var listCmd = getListCmd(&rootConf, defaultKeyring, true)
 
 func init() {
 	rootCmd.AddCommand(listCmd)
