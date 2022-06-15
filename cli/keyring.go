@@ -95,14 +95,13 @@ func initCredentials(rootConf *rootConfigT, noKeyring bool, keyring keyringOps) 
 		logDebug("adding password to keyring")
 		return addToKeyring(*rootConf, password, keyring)
 	}
+
 	if noKeyring {
 		return fmt.Errorf("password not set via env var %s and keyring disabled", passwdEnvVar)
 	}
+
 	logDebug(fmt.Sprintf("password not set via env var %s, taking from keyring", passwdEnvVar))
 	var err error
 	rootConf.password, err = retrieveFromKeyring(*rootConf, keyring)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/user"
 	"testing"
 
@@ -136,5 +137,111 @@ func TestAddToKeyringError(t *testing.T) {
 	err = addToKeyring(cfg, cfg.password, &mk)
 
 	assert.Error(t, err)
+	mk.AssertExpectations(t)
+}
+
+func TestInitCredentialsFromEnvironmentWithKeyring(t *testing.T) {
+	t.Setenv("IGRAB_PASSWORD", "some password")
+
+	cfg := rootConfigT{
+		server:   "server",
+		port:     42,
+		username: "user",
+		password: "i will be added",
+	}
+	noKeyring = false
+
+	user, err := user.Current()
+	assert.NoError(t, err)
+
+	mk := &mockKeyring{}
+	// We expect the password to be auto-stored in the keyring in this case.
+	mk.On("Set", "go-imapgrab/user@server:42", user.Username, "some password").
+		Return(nil)
+
+	err = initCredentials(&cfg, noKeyring, mk)
+
+	assert.NoError(t, err)
+	assert.Equal(t, cfg.password, "some password")
+	mk.AssertExpectations(t)
+}
+
+func TestInitCredentialsFromEnvironmentNoKeyring(t *testing.T) {
+	t.Setenv("IGRAB_PASSWORD", "some password")
+
+	cfg := rootConfigT{
+		server:   "server",
+		port:     42,
+		username: "user",
+		password: "i will be added",
+	}
+	noKeyring = true
+	mk := &mockKeyring{}
+
+	err := initCredentials(&cfg, noKeyring, mk)
+
+	assert.NoError(t, err)
+	assert.Equal(t, cfg.password, "some password")
+	// Make sure no keyring interaction took place.
+	mk.AssertExpectations(t)
+}
+
+func TestInitCredentialsNoPasswordNoKeyring(t *testing.T) {
+	if orgVal, found := os.LookupEnv("IGRAB_PASSWORD"); found {
+		defer func() {
+			err := os.Setenv("IGRAB_PASSWORD", orgVal)
+			assert.NoError(t, err)
+		}()
+	}
+	err := os.Unsetenv("IGRAB_PASSWORD")
+	assert.NoError(t, err)
+
+	cfg := rootConfigT{
+		server:   "server",
+		port:     42,
+		username: "user",
+		password: "i will be added",
+	}
+	noKeyring = true
+	mk := &mockKeyring{}
+
+	err = initCredentials(&cfg, noKeyring, mk)
+
+	assert.Error(t, err)
+	// Make sure the password has not been modified.
+	assert.Equal(t, cfg.password, "i will be added")
+	// Make sure no keyring interaction took place.
+	mk.AssertExpectations(t)
+}
+
+func TestInitCredentialsNoPasswordFromKeyring(t *testing.T) {
+	if orgVal, found := os.LookupEnv("IGRAB_PASSWORD"); found {
+		defer func() {
+			err := os.Setenv("IGRAB_PASSWORD", orgVal)
+			assert.NoError(t, err)
+		}()
+	}
+	err := os.Unsetenv("IGRAB_PASSWORD")
+	assert.NoError(t, err)
+
+	cfg := rootConfigT{
+		server:   "server",
+		port:     42,
+		username: "user",
+		password: "i will be added",
+	}
+	noKeyring = false
+
+	user, err := user.Current()
+	assert.NoError(t, err)
+
+	mk := &mockKeyring{}
+	mk.On("Get", "go-imapgrab/user@server:42", user.Username).
+		Return("some password", nil)
+
+	err = initCredentials(&cfg, noKeyring, mk)
+
+	assert.NoError(t, err)
+	assert.Equal(t, cfg.password, "some password")
 	mk.AssertExpectations(t)
 }
