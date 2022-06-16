@@ -18,13 +18,33 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"log"
+	"fmt"
+	"testing"
+
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 )
 
-var logFatal = log.Fatal
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		logFatal(err.Error())
+func TestMain(t *testing.T) {
+	calledRootCmd := false
+	orgRootCmd := rootCmd
+	t.Cleanup(func() { rootCmd = orgRootCmd })
+	rootCmd = &cobra.Command{
+		RunE: func(cmd *cobra.Command, args []string) error {
+			calledRootCmd = true
+			return fmt.Errorf("some error")
+		},
 	}
+
+	calledLogFatal := false
+	orgLogFatal := logFatal
+	t.Cleanup(func() { logFatal = orgLogFatal })
+	logFatal = func(_ ...interface{}) {
+		calledLogFatal = true
+	}
+
+	main()
+
+	assert.True(t, calledRootCmd)
+	assert.True(t, calledLogFatal)
 }
