@@ -19,18 +19,12 @@ package main
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestListCommand(t *testing.T) {
-	t.Setenv("IGRAB_PASSWORD", "some password")
+	doTestOfDownloadOrList(t, getListCmd)
+}
 
-	mk := &mockKeyring{}
-
-	rootConf := rootConfigT{}
-	cmd := getListCmd(&rootConf, mk, false)
-
-	err := cmd.Execute()
-	assert.Error(t, err)
+func TestListCommandNoKeyringProdRun(t *testing.T) {
+	doTestOfDownloadOrListNoKeyringProdRun(t, getDownloadCmd)
 }
