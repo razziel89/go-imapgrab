@@ -27,10 +27,6 @@ import (
 )
 
 func getListCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command {
-	// Do not use the keyring if it has been disabled globally or if this is a test run, i.e. no
-	// prod run.
-	disableKeyring := noKeyring || !prodRun
-
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Print all folders in your inbox.",
@@ -51,6 +47,9 @@ func getListCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.
 			return err
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Do not use the keyring if it has been disabled globally or if this is a test run,
+			// i.e. no prod run.
+			disableKeyring := noKeyring || !prodRun
 			return initCredentials(rootConf, disableKeyring, keyring)
 		},
 	}

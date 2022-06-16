@@ -30,10 +30,6 @@ type downloadConfigT struct {
 }
 
 func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command {
-	// Do not use the keyring if it has been disabled globally or if this is a test run, i.e. no
-	// prod run.
-	disableKeyring := noKeyring || !prodRun
-
 	cmd := &cobra.Command{
 		Use:   "download",
 		Short: "Download all not yet downloaded emails from a folder to a maildir.",
@@ -49,6 +45,9 @@ func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *co
 			return core.DownloadFolder(cfg, downloadConf.folders, downloadConf.path, imapgrabOps)
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Do not use the keyring if it has been disabled globally or if this is a test run,
+			// i.e. no prod run.
+			disableKeyring := noKeyring || !prodRun
 			return initCredentials(rootConf, disableKeyring, keyring)
 		},
 	}
