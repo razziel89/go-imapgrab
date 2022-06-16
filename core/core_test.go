@@ -119,6 +119,7 @@ func TestGetAllFolders(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "some error", err.Error())
 	assert.Equal(t, folders, actualFolders)
+	mock.AssertExpectations(t)
 }
 
 func TestDownloadFolder(t *testing.T) {
@@ -143,6 +144,7 @@ func TestDownloadFolder(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, "some error", err.Error())
+	mock.AssertExpectations(t)
 }
 
 func TestDownloadFolderDownloadErr(t *testing.T) {
@@ -172,4 +174,5 @@ func TestDownloadFolderDownloadErr(t *testing.T) {
 	assert.Error(t, err)
 	// When there is an error during download and logout, the former takes precedence.
 	assert.Equal(t, "download error", err.Error())
+	mock.AssertExpectations(t)
 }
