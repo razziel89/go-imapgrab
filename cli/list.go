@@ -20,40 +20,45 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/razziel89/go-imapgrab/core"
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	rootCmd.AddCommand(listCmd)
+func getListCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Print all folders in your inbox.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			core.SetVerboseLogs(verbose)
+			cfg := core.IMAPConfig{
+				Server:   rootConf.server,
+				Port:     rootConf.port,
+				User:     rootConf.username,
+				Password: rootConf.password,
+			}
+			imapgrabOps := core.NewImapgrabOps()
+			folders, err := core.GetAllFolders(cfg, imapgrabOps)
+
+			sort.Strings(folders)
+			fmt.Println(strings.Join(folders, "\n"))
+
+			return err
+		},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Do not use the keyring if it has been disabled globally or if this is a test run,
+			// i.e. no prod run.
+			disableKeyring := noKeyring || !prodRun
+			return initCredentials(rootConf, disableKeyring, keyring)
+		},
+	}
+
+	return cmd
 }
 
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "Print all folders in your inbox.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		core.SetVerboseLogs(verbose)
-		cfg := core.IMAPConfig{
-			Server:   rootConf.server,
-			Port:     rootConf.port,
-			User:     rootConf.username,
-			Password: rootConf.password,
-		}
-		imapgrabOps := core.NewImapgrabOps()
-		folders, err := core.GetAllFolders(cfg, imapgrabOps)
-		if err != nil {
-			return err
-		}
+var listCmd = getListCmd(&rootConf, defaultKeyring, true)
 
-		sort.Strings(folders)
-
-		for _, folder := range folders {
-			fmt.Println(folder)
-		}
-		return nil
-	},
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return initCredentials()
-	},
+func init() {
+	rootCmd.AddCommand(listCmd)
 }

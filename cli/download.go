@@ -29,38 +29,40 @@ type downloadConfigT struct {
 	path    string
 }
 
+func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "download",
+		Short: "Download all not yet downloaded emails from a folder to a maildir.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			core.SetVerboseLogs(verbose)
+			cfg := core.IMAPConfig{
+				Server:   rootConf.server,
+				Port:     rootConf.port,
+				User:     rootConf.username,
+				Password: rootConf.password,
+			}
+			imapgrabOps := core.NewImapgrabOps()
+			return core.DownloadFolder(cfg, downloadConf.folders, downloadConf.path, imapgrabOps)
+		},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Do not use the keyring if it has been disabled globally or if this is a test run,
+			// i.e. no prod run.
+			disableKeyring := noKeyring || !prodRun
+			return initCredentials(rootConf, disableKeyring, keyring)
+		},
+	}
+
+	return cmd
+}
+
+var downloadCmd = getDownloadCmd(&rootConf, defaultKeyring, true)
+
 func init() {
+	initDownloadFlags(downloadCmd)
 	rootCmd.AddCommand(downloadCmd)
 }
 
-var downloadCmd = &cobra.Command{
-	Use:   "download",
-	Short: "Download all not yet downloaded emails from a folder to a maildir.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		core.SetVerboseLogs(verbose)
-		cfg := core.IMAPConfig{
-			Server:   rootConf.server,
-			Port:     rootConf.port,
-			User:     rootConf.username,
-			Password: rootConf.password,
-		}
-		imapgrabOps := core.NewImapgrabOps()
-		err := core.DownloadFolder(cfg, downloadConf.folders, downloadConf.path, imapgrabOps)
-		if err != nil {
-			return err
-		}
-		return nil
-	},
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return initCredentials()
-	},
-}
-
-func init() {
-	initDownloadFlags()
-}
-
-func initDownloadFlags() {
+func initDownloadFlags(downloadCmd *cobra.Command) {
 	pflags := downloadCmd.PersistentFlags()
 
 	pflags.StringSliceVarP(

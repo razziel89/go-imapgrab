@@ -18,13 +18,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"log"
+	"testing"
 )
 
-var logFatal = log.Fatal
+func TestListCommand(t *testing.T) {
+	doTestOfDownloadOrList(t, getListCmd)
+}
 
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		logFatal(err.Error())
-	}
+func TestListCommandNoKeyringProdRun(t *testing.T) {
+	doTestOfDownloadOrListNoKeyringProdRun(t, getDownloadCmd)
 }

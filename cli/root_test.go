@@ -18,13 +18,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"log"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-var logFatal = log.Fatal
+func TestRootCommand(t *testing.T) {
+	rootCmd := getRootCmd()
+	initRootFlags(rootCmd)
+	err := rootCmd.Execute()
+	assert.NoError(t, err)
+}
 
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		logFatal(err.Error())
-	}
+func TestLogDebug(t *testing.T) {
+	orgVerbose := verbose
+	verbose = true
+	t.Cleanup(func() { verbose = orgVerbose })
+
+	// We deliberately do not catch output here.
+	logDebug("some test", 123)
 }
