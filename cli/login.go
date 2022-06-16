@@ -26,29 +26,39 @@ import (
 	"golang.org/x/term"
 )
 
-func init() {
-	rootCmd.AddCommand(loginCmd)
+func getLoginCmd(
+	rootConf *rootConfigT, keyring keyringOps, readPasswordFn func(int) ([]byte, error),
+) *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "login",
+		Short: "Store credentials in your system's keyring.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			core.SetVerboseLogs(verbose)
+
+			fmt.Printf(
+				"Please provide your password for the following service:\n"+
+					"  Username: %s\n  Server: %s\n  Port: %d\n\n"+
+					"Your password won't be echoed. "+
+					"You may need to reset your terminal after aborting with Ctrl+C.\n"+
+					"\nPassword:",
+				rootConf.username, rootConf.server, rootConf.port,
+			)
+			password, err := readPasswordFn(int(syscall.Stdin))
+			if err == nil {
+				err = addToKeyring(*rootConf, string(password), keyring)
+			}
+			return err
+
+		},
+	}
+
+	return cmd
+
 }
 
-var loginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Store credentials in your system's keyring.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		core.SetVerboseLogs(verbose)
+var loginCmd = getLoginCmd(&rootConf, defaultKeyring, term.ReadPassword)
 
-		fmt.Printf(
-			"Please provide your password for the following service:\n"+
-				"  Username: %s\n  Server: %s\n  Port: %d\n\n"+
-				"Your password won't be echoed. "+
-				"You may need to reset your terminal after aborting with Ctrl+C.\n"+
-				"\nPassword:",
-			rootConf.username, rootConf.server, rootConf.port,
-		)
-		password, err := term.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			return err
-		}
-
-		return addToKeyring(rootConf, string(password), defaultKeyring)
-	},
+func init() {
+	rootCmd.AddCommand(loginCmd)
 }
