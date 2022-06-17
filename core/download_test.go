@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
+	"fmt"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -156,5 +157,114 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
 
 	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
+	tmpdir := t.TempDir()
+	maildirPath := maildirPathT{base: tmpdir, folder: "some-folder"}
+	oldmailFileName := "some-file"
+
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
+		UidValidity: 42,
+		Messages:    3,
+	}
+
+	m := &mockDownloader{t: t}
+
+	m.On("selectFolder", "some-folder").Return(mbox, fmt.Errorf("some error"))
+
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
+
+	assert.Error(t, err)
+	assert.Equal(t, "some error", err.Error())
+	m.AssertExpectations(t)
+}
+
+func TestDownloadMissingEmailsToFolderPreparationNoNewEmails(t *testing.T) {
+	tmpdir := t.TempDir()
+	maildirPath := maildirPathT{base: tmpdir, folder: "some-folder"}
+	oldmailFileName := "some-file"
+
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
+		UidValidity: 42,
+		Messages:    3,
+	}
+	// No emails so nothing will be downloaded.
+	uids := []uid{}
+
+	m := &mockDownloader{t: t}
+
+	m.On("selectFolder", "some-folder").Return(mbox, nil)
+	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
+
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
+
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
+	// This test is almost identical to the success case. The only difference is that we increase
+	// the error counters to test that such errors are reported in the very end.
+	tmpdir := t.TempDir()
+	maildirPath := maildirPathT{base: tmpdir, folder: "some-folder"}
+	folderPath := maildirPath.folderPath()
+	oldmailFileName := "some-oldmail-file"
+	oldmailPath := filepath.Join(tmpdir, oldmailFileName)
+
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
+		UidValidity: 42,
+		Messages:    3,
+	}
+	uids := []uid{
+		{Mbox: 42, Message: 1},
+		{Mbox: 42, Message: 2},
+		{Mbox: 42, Message: 3},
+	}
+	missingIDRanges := []rangeT{{start: 1, end: 4}}
+
+	messages := []*mockEmail{{uid: 1}, {uid: 2}, {uid: 3}}
+	messageChan := make(chan emailOps)
+	var inMessageChan <-chan emailOps = messageChan
+	var fetchErrCount = 1
+
+	delivered := []oldmail{
+		{uidValidity: 42, uid: 1},
+		{uidValidity: 42, uid: 2},
+		{uidValidity: 42, uid: 3},
+	}
+	deliveredChan := make(chan oldmail)
+	var inDeliveredChan <-chan oldmail = deliveredChan
+	var deliverErrCount = 1
+
+	var oldmailErrCount = 1
+
+	m := &mockDownloader{
+		t:             t,
+		messages:      messages,
+		messageChan:   messageChan,
+		delivered:     delivered,
+		deliveredChan: deliveredChan,
+	}
+
+	m.On("selectFolder", "some-folder").Return(mbox, nil)
+	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
+	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything).
+		Return(messageChan, &fetchErrCount, nil)
+	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
+		Return(deliveredChan, &deliverErrCount)
+	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
+		Return(&oldmailErrCount, nil)
+
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
+
+	assert.Error(t, err)
+	assert.Equal(
+		t, "there were 1/1/1 errors while: retrieving/delivering/remembering mail", err.Error(),
+	)
 	m.AssertExpectations(t)
 }
