@@ -98,7 +98,7 @@ func selectFolder(imapClient imapOps, folder string) (*imap.MailboxStatus, error
 // converted to count from the last message. That is, -1 refers to the most recent message while 1
 // refers to the second oldest email.
 func streamingRetrieval(
-	mbox *imap.MailboxStatus, imapClient imapOps, indices []rangeT, wg, stwg *sync.WaitGroup,
+	mbox *imap.MailboxStatus, imapClient imapOps, indices []rangeT, wg, startWg *sync.WaitGroup,
 ) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
 	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
 	// index.
@@ -119,7 +119,7 @@ func streamingRetrieval(
 	orgMessageChan := make(chan *imap.Message, messageRetrievalBuffer)
 	go func() {
 		// Do not start before the entire pipeline has been set up.
-		stwg.Wait()
+		startWg.Wait()
 		err := imapClient.Fetch(
 			seqset,
 			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822},

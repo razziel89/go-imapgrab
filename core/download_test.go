@@ -18,349 +18,253 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/emersion/go-imap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestDetermineMissingIDsEmptyData(t *testing.T) {
-	oldmails := []oldmail{}
-	uids := []uid{}
-
-	ranges, err := determineMissingIDs(oldmails, uids)
-
-	assert.NoError(t, err)
-	assert.Equal(t, []rangeT{}, ranges)
+type mockDownloader struct {
+	messages      []*mockEmail
+	messageChan   chan emailOps
+	delivered     []oldmail
+	deliveredChan chan oldmail
+	t             *testing.T
+	mock.Mock
 }
 
-func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
-	// The fields uidValidity and Mbox mean the same thing. The fields uid and Message also mean the
-	// same thing. The remote server identifies messages by their position in uids instead of their
-	// actual unique identifiers. Thus, it is important that the uids slice is not rearranged in any
-	// way.
-	oldmails := []oldmail{
-		// Note that UIDs start at 1 according to the return values of IMAP servers.
-		{uidValidity: 0, uid: 1, timestamp: 0},
-		{uidValidity: 0, uid: 2, timestamp: 0},
-		{uidValidity: 0, uid: 3, timestamp: 0},
-	}
-	uids := []uid{
-		{Mbox: 0, Message: 1},
-		{Mbox: 0, Message: 3}, // 3 and 2 swapped deliberately.
-		{Mbox: 0, Message: 2},
-	}
-	orgUIDs := make([]uid, len(uids))
-	_ = copy(orgUIDs, uids)
-
-	ranges, err := determineMissingIDs(oldmails, uids)
-
-	assert.NoError(t, err)
-	assert.Equal(t, orgUIDs, uids)
-	assert.Equal(t, []rangeT{}, ranges)
+func (m *mockDownloader) selectFolder(folder string) (*imap.MailboxStatus, error) {
+	args := m.Called(folder)
+	return args.Get(0).(*imap.MailboxStatus), args.Error(1)
 }
 
-func TestDetermineMissingIDsSomeMissing(t *testing.T) {
-	oldmails := []oldmail{
-		{uidValidity: 0, uid: 1, timestamp: 0},
-		{uidValidity: 0, uid: 2, timestamp: 0},
-		{uidValidity: 0, uid: 3, timestamp: 0},
-		{uidValidity: 0, uid: 4, timestamp: 0},
-	}
-	uids := []uid{
-		{Mbox: 0, Message: 1},
-		{Mbox: 0, Message: 5},
-		{Mbox: 0, Message: 6},
-	}
-	orgUIDs := make([]uid, len(uids))
-	_ = copy(orgUIDs, uids)
-
-	ranges, err := determineMissingIDs(oldmails, uids)
-
-	assert.NoError(t, err)
-	assert.Equal(t, orgUIDs, uids)
-	// This means that the emails that are located in the index interval [2, 4) in the "uids" slice
-	// are not on disk. As common in maths, [ denotes a closed interval while ) denotes an open
-	// interval. That is, missing data is `uids[2:4]`.
-	assert.Equal(t, []rangeT{{start: 2, end: 4}}, ranges)
+func (m *mockDownloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uid, error) {
+	args := m.Called(mbox)
+	return args.Get(0).([]uid), args.Error(1)
 }
 
-func TestDetermineMissingIDsMismatchesInRemoteData(t *testing.T) {
-	uids := []uid{
-		{Mbox: 1, Message: 1},
-		{Mbox: 0, Message: 5},
-		{Mbox: 0, Message: 6},
-	}
-
-	// UIDs are not consistent in uids slice.
-	_, err := determineMissingIDs([]oldmail{}, uids)
-	assert.Error(t, err)
-}
-
-func TestDetermineMissingIDsMismatches(t *testing.T) {
-	oldmails := []oldmail{
-		{uidValidity: 1, uid: 1, timestamp: 0},
-	}
-	uids := []uid{
-		{Mbox: 0, Message: 1},
-	}
-
-	// UIDs are not consistent between uid and oldmails slices.
-	_, err := determineMissingIDs(oldmails, uids)
-	assert.Error(t, err)
-}
-
-func TestDetermineMissingIDsSomeMissingNonconsecutiveRanges(t *testing.T) {
-	oldmails := []oldmail{
-		{uidValidity: 0, uid: 1, timestamp: 0},
-		{uidValidity: 0, uid: 3, timestamp: 0},
-		{uidValidity: 0, uid: 4, timestamp: 0},
-		{uidValidity: 0, uid: 6, timestamp: 0},
-	}
-	uids := []uid{
-		{Mbox: 0, Message: 1},
-		{Mbox: 0, Message: 2},
-		{Mbox: 0, Message: 3},
-		{Mbox: 0, Message: 4},
-		{Mbox: 0, Message: 5},
-		{Mbox: 0, Message: 6},
-	}
-
-	ranges, err := determineMissingIDs(oldmails, uids)
-
-	assert.NoError(t, err)
-	assert.Equal(t, []rangeT{{start: 2, end: 3}, {start: 5, end: 6}}, ranges)
-}
-
-// This re-uses the mockEmail struct from the email tests.
-func buildFakeEmail(hasNoData bool) *mockEmail {
-	someTime := time.Now()
-	msg := mockEmail{}
-	if hasNoData {
-		msg.On("Format").Return(
-			// This email misses all fields, which causes errors.
-			[]interface{}{},
-		)
-	} else {
-		msg.On("Format").Return(
-			// This email has all the fields we require.
-			[]interface{}{
-				imap.RawString("uid header"),
-				uint32(1),
-				imap.RawString("time header"),
-				someTime,
-				"rfc822 header",
-				"actual content",
-			},
-		)
-	}
-	return &msg
-}
-
-func TestStreamingDeliverySuccessDespiteOneError(t *testing.T) {
-	// Set up output directory and input channels.
-	tmpdir := setUpEmptyMaildir(t, "folder", "oldmail")
-	maildir := filepath.Join(tmpdir, "folder")
-	resultDir := filepath.Join(maildir, "new")
-
-	// Set up goroutine providing input and remember mocks to later assert on them.
-	mocks := []*mockEmail{}
-	msgChan := make(chan emailOps)
+func (m *mockDownloader) streamingOldmailWriteout(
+	deliveredChan <-chan oldmail, oldmailPath string, wg, startWg *sync.WaitGroup,
+) (*int, error) {
+	args := m.Called(deliveredChan, oldmailPath, wg, startWg)
+	wg.Add(1)
 	go func() {
-		for i := 0; i < 10; i++ {
-			// Nine of these emails will provide all the data we need to store them. One, the one at
-			// i==5, will not have any data. We use this to ensure we can continue processing emails
-			// even though one has problems.
-			msg := buildFakeEmail(i == 5)
-			msgChan <- msg
-			mocks = append(mocks, msg)
+		startWg.Wait()
+		idx := 0
+		for om := range deliveredChan {
+			assert.Equal(m.t, om, m.delivered[idx])
+			idx++
 		}
-		close(msgChan)
+		wg.Done()
 	}()
-
-	var wg, stwg sync.WaitGroup
-	// Delay actual operations until the entire pipeline has been set up.
-	stwg.Add(1)
-
-	uidvalidity := 0
-
-	oldmailChan, errCountPtr := streamingDelivery(msgChan, maildir, uidvalidity, &wg, &stwg)
-	assert.Zero(t, *errCountPtr)
-
-	// Wait a while and check that nothing has happened yet.
-	time.Sleep(time.Millisecond * 100) // nolint: gomnd
-	content, err := ioutil.ReadDir(resultDir)
-	assert.NoError(t, err)
-	assert.Empty(t, content)
-	assert.Empty(t, mocks)
-
-	// Actually trigger operations and read from output channel.
-	stwg.Done()
-	oldmails := []oldmail{}
-	for om := range oldmailChan {
-		oldmails = append(oldmails, om)
-	}
-	wg.Wait()
-	assert.Equal(t, 1, *errCountPtr)
-	assert.Equal(t, 9, len(oldmails))
-
-	// Ensure that we did write as many emails to the directory as we put in, apart from the one
-	// that lacked data.
-	content, err = ioutil.ReadDir(resultDir)
-	assert.NoError(t, err)
-	assert.Equal(t, 9, len(content))
-	assert.Equal(t, 10, len(mocks))
-
-	// Ensure that each email had its Format method called.
-	for _, msg := range mocks {
-		msg.AssertExpectations(t)
-	}
+	return args.Get(0).(*int), args.Error(1)
 }
 
-func buildFakeImapMessage(t *testing.T, id uint32, content string) *imap.Message {
-	sectionName, err := imap.ParseBodySectionName(imap.FetchItem("RFC822"))
-	assert.NoError(t, err)
+func (m *mockDownloader) streamingRetrieval(
+	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup,
+) (<-chan emailOps, *int, error) {
+	args := m.Called(mbox, missingIDRanges, wg, startWg)
+	wg.Add(1)
+	go func() {
+		startWg.Wait()
+		for _, msg := range m.messages {
+			var converted emailOps = msg
+			m.messageChan <- converted
+		}
+		close(m.messageChan)
+		wg.Done()
+	}()
+	return args.Get(0).(chan emailOps), args.Get(1).(*int), args.Error(2)
+}
 
-	buf := bytes.NewBufferString(content)
-
-	return &imap.Message{
-		Uid: id,
-		Items: map[imap.FetchItem]interface{}{
-			"INTERNALDATE": nil,
-			"RFC822":       nil,
-			"UID":          nil,
-		},
-		Body: map[*imap.BodySectionName]imap.Literal{
-			sectionName: buf,
-		},
-	}
+func (m *mockDownloader) streamingDelivery(
+	messageChan <-chan emailOps, maildirPath string, uidvalidity int, wg, startWg *sync.WaitGroup,
+) (<-chan oldmail, *int) {
+	args := m.Called(messageChan, maildirPath, uidvalidity, wg, startWg)
+	wg.Add(1)
+	go func() {
+		startWg.Wait()
+		idx := 0
+		for msg := range messageChan {
+			assert.Equal(m.t, msg, m.messages[idx])
+			m.deliveredChan <- m.delivered[idx]
+			idx++
+		}
+		close(m.deliveredChan)
+		wg.Done()
+	}()
+	return args.Get(0).(chan oldmail), args.Get(1).(*int)
 }
 
 func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
-	orgVerbosity := verbose
-	SetVerboseLogs(true)
-	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
+	tmpdir := t.TempDir()
+	maildirPath := maildirPathT{base: tmpdir, folder: "some-folder"}
+	folderPath := maildirPath.folderPath()
+	oldmailFileName := "some-oldmail-file"
+	oldmailPath := filepath.Join(tmpdir, oldmailFileName)
 
-	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
+		UidValidity: 42,
+		Messages:    3,
+	}
+	uids := []uid{
+		{Mbox: 42, Message: 1},
+		{Mbox: 42, Message: 2},
+		{Mbox: 42, Message: 3},
+	}
+	missingIDRanges := []rangeT{{start: 1, end: 4}}
 
-	boxes := []*imap.MailboxInfo{&imap.MailboxInfo{Name: "some-folder"}}
-	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 3}
-	messages := []*imap.Message{
-		buildFakeImapMessage(t, 1, "some text"),
-		buildFakeImapMessage(t, 2, "some more text"),
-		buildFakeImapMessage(t, 3, "even more text"),
+	messages := []*mockEmail{
+		{uid: 1}, {uid: 2}, {uid: 3},
+	}
+	messageChan := make(chan emailOps)
+	var inMessageChan <-chan emailOps = messageChan
+	var fetchErrCount int
+
+	delivered := []oldmail{
+		{uidValidity: 42, uid: 1},
+		{uidValidity: 42, uid: 2},
+		{uidValidity: 42, uid: 3},
+	}
+	deliveredChan := make(chan oldmail)
+	var inDeliveredChan <-chan oldmail = deliveredChan
+	var deliverErrCount int
+
+	var oldmailErrCount int
+
+	m := &mockDownloader{
+		t:             t,
+		messages:      messages,
+		messageChan:   messageChan,
+		delivered:     delivered,
+		deliveredChan: deliveredChan,
 	}
 
-	seqSet := &imap.SeqSet{}
-	seqSet.AddRange(1, 3)
-	fetchRequestListUUIDs := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
-	fetchRequestDownload := []imap.FetchItem{
-		imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822,
-	}
+	m.On("selectFolder", "some-folder").Return(mbox, nil)
+	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
+	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything).
+		Return(messageChan, &fetchErrCount, nil)
+	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
+		Return(deliveredChan, &deliverErrCount)
+	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
+		Return(&oldmailErrCount, nil)
 
-	mockClient := setUpMockClient(t, boxes, messages, nil)
-	mockClient.On("Select", "some-folder", true).Return(status, nil)
-	mockClient.On("Fetch", seqSet, fetchRequestListUUIDs, mock.Anything).Return(nil)
-	mockClient.On("Fetch", seqSet, fetchRequestDownload, mock.Anything).Return(nil)
-
-	maildirPath := maildirPathT{base: mockPath, folder: "some-folder"}
-
-	err := downloadMissingEmailsToFolder(mockClient, maildirPath, "some-oldmail")
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
 
 	assert.NoError(t, err)
-
-	// Check whether emails have actually been downloaded and whether hte oldmail file has been
-	// updated.
-	oldmailContent, err := ioutil.ReadFile(filepath.Join(mockPath, "some-oldmail")) // nolint: gosec
-	assert.NoError(t, err)
-	downloadedMessages, err := ioutil.ReadDir(filepath.Join(mockPath, "some-folder", "new"))
-	assert.NoError(t, err)
-	// Oldmail file contains three lines.
-	assert.Equal(t, 3, bytes.Count(oldmailContent, []byte("\n")))
-	// New directory contains three files.
-	assert.Equal(t, 3, len(downloadedMessages))
+	m.AssertExpectations(t)
 }
 
 func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
-	orgVerbosity := verbose
-	SetVerboseLogs(true)
-	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
+	tmpdir := t.TempDir()
+	maildirPath := maildirPathT{base: tmpdir, folder: "some-folder"}
+	oldmailFileName := "some-file"
 
-	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
+		UidValidity: 42,
+		Messages:    3,
+	}
 
-	boxes := []*imap.MailboxInfo{&imap.MailboxInfo{Name: "some-folder"}}
-	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 0}
-	// No emails, thus nothing to be downloaded.
-	messages := []*imap.Message{}
+	m := &mockDownloader{t: t}
 
-	mockClient := setUpMockClient(t, boxes, messages, nil)
-	mockClient.On("Select", "some-folder", true).Return(status, fmt.Errorf("some error"))
+	m.On("selectFolder", "some-folder").Return(mbox, fmt.Errorf("some error"))
 
-	maildirPath := maildirPathT{base: mockPath, folder: "some-folder"}
-
-	err := downloadMissingEmailsToFolder(mockClient, maildirPath, "some-oldmail")
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
 
 	assert.Error(t, err)
 	assert.Equal(t, "some error", err.Error())
+	m.AssertExpectations(t)
+}
+
+func TestDownloadMissingEmailsToFolderPreparationNoNewEmails(t *testing.T) {
+	tmpdir := t.TempDir()
+	maildirPath := maildirPathT{base: tmpdir, folder: "some-folder"}
+	oldmailFileName := "some-file"
+
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
+		UidValidity: 42,
+		Messages:    3,
+	}
+	// No emails so nothing will be downloaded.
+	uids := []uid{}
+
+	m := &mockDownloader{t: t}
+
+	m.On("selectFolder", "some-folder").Return(mbox, nil)
+	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
+
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
+
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
 }
 
 func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
-	orgVerbosity := verbose
-	SetVerboseLogs(true)
-	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
+	// This test is almost identical to the success case. The only difference is that we increase
+	// the error counters to test that such errors are reported in the very end.
+	tmpdir := t.TempDir()
+	maildirPath := maildirPathT{base: tmpdir, folder: "some-folder"}
+	folderPath := maildirPath.folderPath()
+	oldmailFileName := "some-oldmail-file"
+	oldmailPath := filepath.Join(tmpdir, oldmailFileName)
 
-	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
+		UidValidity: 42,
+		Messages:    3,
+	}
+	uids := []uid{
+		{Mbox: 42, Message: 1},
+		{Mbox: 42, Message: 2},
+		{Mbox: 42, Message: 3},
+	}
+	missingIDRanges := []rangeT{{start: 1, end: 4}}
 
-	boxes := []*imap.MailboxInfo{&imap.MailboxInfo{Name: "some-folder"}}
-	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 3}
-	messages := []*imap.Message{
-		buildFakeImapMessage(t, 1, "some text"),
-		buildFakeImapMessage(t, 2, "some more text"),
-		// One of the messages does not contain the information we need, which will cause an error
-		// in the streaming email delivery that will be logged.
-		&imap.Message{},
+	messages := []*mockEmail{{uid: 1}, {uid: 2}, {uid: 3}}
+	messageChan := make(chan emailOps)
+	var inMessageChan <-chan emailOps = messageChan
+	var fetchErrCount = 1
+
+	delivered := []oldmail{
+		{uidValidity: 42, uid: 1},
+		{uidValidity: 42, uid: 2},
+		{uidValidity: 42, uid: 3},
+	}
+	deliveredChan := make(chan oldmail)
+	var inDeliveredChan <-chan oldmail = deliveredChan
+	var deliverErrCount = 1
+
+	var oldmailErrCount = 1
+
+	m := &mockDownloader{
+		t:             t,
+		messages:      messages,
+		messageChan:   messageChan,
+		delivered:     delivered,
+		deliveredChan: deliveredChan,
 	}
 
-	seqSet := &imap.SeqSet{}
-	seqSet.AddRange(1, 3)
-	fetchRequestListUUIDs := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
-	fetchRequestDownload := []imap.FetchItem{
-		imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822,
-	}
+	m.On("selectFolder", "some-folder").Return(mbox, nil)
+	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
+	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything).
+		Return(messageChan, &fetchErrCount, nil)
+	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
+		Return(deliveredChan, &deliverErrCount)
+	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
+		Return(&oldmailErrCount, nil)
 
-	mockClient := setUpMockClient(t, boxes, messages, nil)
-	mockClient.On("Select", "some-folder", true).Return(status, nil)
-	mockClient.On("Fetch", seqSet, fetchRequestListUUIDs, mock.Anything).Return(nil)
-
-	// Cause an error when retrieving emails because one email cannot be downloaded. Every
-	// successive download succeeds.
-	mockClient.On("Fetch", seqSet, fetchRequestDownload, mock.Anything).
-		Once().Return(fmt.Errorf("download error"))
-
-	maildirPath := maildirPathT{base: mockPath, folder: "some-folder"}
-
-	err := downloadMissingEmailsToFolder(mockClient, maildirPath, "some-oldmail")
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
 
 	assert.Error(t, err)
 	assert.Equal(
-		t, "there were 1/1/0 errors while: retrieving/delivering/remembering mail", err.Error(),
+		t, "there were 1/1/1 errors while: retrieving/delivering/remembering mail", err.Error(),
 	)
-
-	// Check whether we could still download all successfully that were delivered and whether that
-	// email's information has been added to the oldmail file.
-	oldmailContent, err := ioutil.ReadFile(filepath.Join(mockPath, "some-oldmail")) // nolint: gosec
-	assert.NoError(t, err)
-	downloadedMessages, err := ioutil.ReadDir(filepath.Join(mockPath, "some-folder", "new"))
-	assert.NoError(t, err)
-	// Oldmail file contains two lines.
-	assert.Equal(t, 2, bytes.Count(oldmailContent, []byte("\n")))
-	// New directory contains two files.
-	assert.Equal(t, 2, len(downloadedMessages))
+	m.AssertExpectations(t)
 }

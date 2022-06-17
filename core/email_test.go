@@ -27,6 +27,7 @@ import (
 )
 
 type mockEmail struct {
+	uid int
 	mock.Mock
 }
 

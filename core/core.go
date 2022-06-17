@@ -42,13 +42,18 @@ type ImapgrabOps interface {
 
 // Imapgrabber is the defailt implementation of ImapgrabOps.
 type Imapgrabber struct {
-	imapOps imapOps
+	downloadOps downloadOps
+	imapOps     imapOps
 }
 
 // authenticateClient is used to authenticate against a remote server
 func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
 	imapOps, err := authenticateClient(cfg)
 	ig.imapOps = imapOps
+	ig.downloadOps = downloader{
+		imapOps:    imapOps,
+		deliverOps: deliverer{},
+	}
 	return err
 }
 
@@ -68,7 +73,7 @@ func (ig *Imapgrabber) getFolderList() ([]string, error) {
 func (ig *Imapgrabber) downloadMissingEmailsToFolder(
 	maildirPath maildirPathT, oldmailName string,
 ) error {
-	return downloadMissingEmailsToFolder(ig.imapOps, maildirPath, oldmailName)
+	return downloadMissingEmailsToFolder(ig.downloadOps, maildirPath, oldmailName)
 }
 
 // NewImapgrabOps creates a new instance of the default implementation of ImapgrabOps.
