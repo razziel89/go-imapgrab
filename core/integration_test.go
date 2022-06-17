@@ -55,7 +55,7 @@ func buildFakeDownloader(imapOps imapOps) *downloader {
 	}
 }
 
-func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
+func TestIntegrationDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	orgVerbosity := verbose
 	SetVerboseLogs(true)
 	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
@@ -102,7 +102,7 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	assert.Equal(t, 3, len(downloadedMessages))
 }
 
-func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
+func TestIntegrationDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 	orgVerbosity := verbose
 	SetVerboseLogs(true)
 	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
@@ -127,7 +127,7 @@ func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 	assert.Equal(t, "some error", err.Error())
 }
 
-func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
+func TestIntegrationDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	orgVerbosity := verbose
 	SetVerboseLogs(true)
 	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
