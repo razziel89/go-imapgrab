@@ -29,106 +29,56 @@ const (
 	messageDeliveryBuffer = 10
 )
 
-// Determine the indices of emails that have not yet been downloaded. The download process
-// indentifies emails by their indices and not by their UIDs. Thus, we need to take the server-side
-// information as is and not sort it in any way.
-// This means there can be a race condition where go-imapgrab retrieves data about emails, then some
-// emails are removed remotely, and them go-imapgrab downloads emails. This would result in
-// doenloading emails that are already on disk. This race condition cannot be avoided due to the way
-// IMAP servers work (if it can, please tell me :) ).
-func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err error) {
-	ranges = []rangeT{}
-	// Check special cases such as an empty mailbox or uidvalidities that do not agree.
-	if len(uids) == 0 {
-		return []rangeT{}, nil
-	}
-	uidvalidity := uids[0].Mbox
-	for _, msg := range uids {
-		if msg.Mbox != uidvalidity {
-			err = fmt.Errorf("inconsistent UID validity on retrieved data")
-			return
-		}
-	}
-	for _, msg := range oldmails {
-		if msg.uidValidity != uidvalidity {
-			err = fmt.Errorf("inconsistent UID validity on stored data")
-			return
-		}
-	}
-
-	// Add the UIDs of the oldmail data (the data stored on disk) to a map to simplify determining
-	// whether we've already downloaded some message.
-	oldmailUIDs := make(map[int]struct{}, len(oldmails))
-	for _, msg := range oldmails {
-		oldmailUIDs[msg.uid] = struct{}{}
-	}
-
-	// Determine which UIDs are missing on disk. The resulting structure will already be sorted.
-	missingIDs := []int{}
-	for msgIdx, msg := range uids {
-		if _, found := oldmailUIDs[msg.Message]; !found {
-			missingIDs = append(missingIDs, msgIdx+1) // Emails are identified starting at 1.
-		}
-	}
-	if len(missingIDs) == 0 {
-		// All's well, everything is already on disk.
-		return
-	}
-
-	// Extract consecutive ranges of UIDs from the missing UIDs, which speeds up downloading. That
-	// way, we avoid retrieving messages one at a time.
-	start := missingIDs[0]
-	last := start
-	for _, mis := range missingIDs {
-		if mis-last > 1 {
-			ranges = append(ranges, rangeT{start: start, end: last + 1})
-			start = mis
-		}
-		last = mis
-	}
-	ranges = append(ranges, rangeT{start: start, end: last + 1})
-
-	return ranges, nil
+type downloadOps interface {
+	selectFolder(folder string) (*imap.MailboxStatus, error)
+	getAllMessageUUIDs(*imap.MailboxStatus) ([]uid, error)
+	streamingOldmailWriteout(<-chan oldmail, string, *sync.WaitGroup, *sync.WaitGroup) (*int, error)
+	streamingRetrieval(
+		*imap.MailboxStatus, []rangeT, *sync.WaitGroup, *sync.WaitGroup,
+	) (<-chan emailOps, *int, error)
+	streamingDelivery(
+		<-chan emailOps, string, int, *sync.WaitGroup, *sync.WaitGroup,
+	) (<-chan oldmail, *int)
 }
 
-func streamingDelivery(
-	messageChan <-chan emailOps, maildirPath string, uidvalidity int, wg, stwg *sync.WaitGroup,
-) (returnedChan <-chan oldmail, errCountPtr *int) {
-	var errCount int
+type downloader struct {
+	imapOps    imapOps
+	deliverOps deliverOps
+}
 
-	deliveredChan := make(chan oldmail, messageDeliveryBuffer)
+func (d downloader) selectFolder(folder string) (*imap.MailboxStatus, error) {
+	return selectFolder(d.imapOps, folder)
+}
 
-	wg.Add(1)
-	go func() {
-		// Do not start before the entire pipeline has been set up.
-		stwg.Wait()
-		for msg := range messageChan {
-			// Deliver each email to the `tmp` directory and move them to the `new` directory.
-			text, oldmail, err := rfc822FromEmail(msg, uidvalidity)
-			if err == nil {
-				err = deliverMessage(text, maildirPath)
-			}
-			if err != nil {
-				logError(err.Error())
-				errCount++
-				continue
-			}
-			deliveredChan <- oldmail
-		}
-		wg.Done()
-		close(deliveredChan)
-	}()
+func (d downloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uid, error) {
+	return getAllMessageUUIDs(mbox, d.imapOps)
+}
 
-	return deliveredChan, &errCount
+func (d downloader) streamingOldmailWriteout(
+	deliveredChan <-chan oldmail, oldmailPath string, wg, startWg *sync.WaitGroup,
+) (*int, error) {
+	return streamingOldmailWriteout(deliveredChan, oldmailPath, wg, startWg)
+}
+
+func (d downloader) streamingRetrieval(
+	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup,
+) (<-chan emailOps, *int, error) {
+	return streamingRetrieval(mbox, d.imapOps, missingIDRanges, wg, startWg)
+}
+
+func (d downloader) streamingDelivery(
+	messageChan <-chan emailOps, maildirPath string, uidvalidity int, wg, startWg *sync.WaitGroup,
+) (<-chan oldmail, *int) {
+	return streamingDelivery(d.deliverOps, messageChan, maildirPath, uidvalidity, wg, startWg)
 }
 
 func downloadMissingEmailsToFolder(
-	imapClient imapOps, maildirPath maildirPathT, oldmailName string,
+	ops downloadOps, maildirPath maildirPathT, oldmailName string,
 ) error {
 	oldmails, oldmailPath, err := initMaildir(oldmailName, maildirPath)
 	var mbox *imap.MailboxStatus
 	if err == nil {
-		mbox, err = selectFolder(imapClient, maildirPath.folderName())
+		mbox, err = ops.selectFolder(maildirPath.folderName())
 	}
 	// Retrieve information about which emails are present on the remote system and check which ones
 	// are missing when comparing against those on disk.
@@ -136,7 +86,7 @@ func downloadMissingEmailsToFolder(
 	var uids []uid
 	if err == nil {
 		uidvalidity = int(mbox.UidValidity)
-		uids, err = getAllMessageUUIDs(mbox, imapClient)
+		uids, err = ops.getAllMessageUUIDs(mbox)
 	}
 	var missingIDRanges []rangeT
 	if err == nil {
@@ -152,18 +102,20 @@ func downloadMissingEmailsToFolder(
 	startWg.Add(1) // startWg is used to defer operations until the pipeline is set up.
 
 	// Retrieve email information. This does not download the emails themselves yet.
-	messageChan, fetchErrCount, err := streamingRetrieval(
-		mbox, imapClient, missingIDRanges, &wg, &startWg,
+	messageChan, fetchErrCount, err := ops.streamingRetrieval(
+		mbox, missingIDRanges, &wg, &startWg,
 	)
 	var deliveredChan <-chan oldmail
 	var deliverErrCount, oldmailErrCount *int
 	if err == nil {
 		// Download missing emails and store them on disk.
-		deliveredChan, deliverErrCount = streamingDelivery(
+		deliveredChan, deliverErrCount = ops.streamingDelivery(
 			messageChan, maildirPath.folderPath(), uidvalidity, &wg, &startWg,
 		)
 		// Retrieve and write out information about all emails.
-		oldmailErrCount, err = streamingOldmailWriteout(deliveredChan, oldmailPath, &wg, &startWg)
+		oldmailErrCount, err = ops.streamingOldmailWriteout(
+			deliveredChan, oldmailPath, &wg, &startWg,
+		)
 	}
 	if err == nil {
 		// Wait until all has been processed and report on errors.
