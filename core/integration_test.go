@@ -57,7 +57,7 @@ func buildFakeDownloader(imapOps imapOps) *downloader {
 }
 
 func TestIntegrationDownloadMissingEmailsToFolderSuccess(t *testing.T) {
-	if val, found := os.LookupEnv("SKIP_INTEGRATION_TESTS"); found && val == "0" {
+	if val, found := os.LookupEnv("SKIP_INTEGRATION_TESTS"); !found || val != "0" {
 		t.Skip("integration tests disabled")
 	}
 
@@ -108,7 +108,7 @@ func TestIntegrationDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 }
 
 func TestIntegrationDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
-	if val, found := os.LookupEnv("SKIP_INTEGRATION_TESTS"); found && val == "0" {
+	if val, found := os.LookupEnv("SKIP_INTEGRATION_TESTS"); !found || val != "0" {
 		t.Skip("integration tests disabled")
 	}
 
@@ -137,7 +137,7 @@ func TestIntegrationDownloadMissingEmailsToFolderPreparationError(t *testing.T) 
 }
 
 func TestIntegrationDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
-	if val, found := os.LookupEnv("SKIP_INTEGRATION_TESTS"); found && val == "0" {
+	if val, found := os.LookupEnv("SKIP_INTEGRATION_TESTS"); !found || val != "0" {
 		t.Skip("integration tests disabled")
 	}
 
