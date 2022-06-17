@@ -11,7 +11,12 @@ setup:
 lint:
 	golangci-lint run .
 
-test: .test.log
+full-test:
+	touch go.mod
+	SKIP_INTEGRATION_TESTS=0 $(MAKE) .test.log
+
+test:
+	SKIP_INTEGRATION_TESTS=1 $(MAKE) .test.log
 
 .test.log: go.* *.go
 	set -o pipefail && \

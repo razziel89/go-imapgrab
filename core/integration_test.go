@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -56,6 +57,10 @@ func buildFakeDownloader(imapOps imapOps) *downloader {
 }
 
 func TestIntegrationDownloadMissingEmailsToFolderSuccess(t *testing.T) {
+	if val, found := os.LookupEnv("SKIP_INTEGRATION_TESTS"); found && val == "0" {
+		t.Skip("integration tests disabled")
+	}
+
 	orgVerbosity := verbose
 	SetVerboseLogs(true)
 	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
@@ -103,6 +108,10 @@ func TestIntegrationDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 }
 
 func TestIntegrationDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
+	if val, found := os.LookupEnv("SKIP_INTEGRATION_TESTS"); found && val == "0" {
+		t.Skip("integration tests disabled")
+	}
+
 	orgVerbosity := verbose
 	SetVerboseLogs(true)
 	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
@@ -128,6 +137,10 @@ func TestIntegrationDownloadMissingEmailsToFolderPreparationError(t *testing.T) 
 }
 
 func TestIntegrationDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
+	if val, found := os.LookupEnv("SKIP_INTEGRATION_TESTS"); found && val == "0" {
+		t.Skip("integration tests disabled")
+	}
+
 	orgVerbosity := verbose
 	SetVerboseLogs(true)
 	t.Cleanup(func() { SetVerboseLogs(orgVerbosity) })
