@@ -18,6 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Package core provides central functionality for backing up IMAP mailboxes.
 package core
 
+import "os"
+
 // IMAPConfig is a configuration needed to access an IMAP server.
 type IMAPConfig struct {
 	Server   string
@@ -42,14 +44,17 @@ type ImapgrabOps interface {
 
 // Imapgrabber is the defailt implementation of ImapgrabOps.
 type Imapgrabber struct {
-	downloadOps downloadOps
-	imapOps     imapOps
+	downloadOps  downloadOps
+	imapOps      imapOps
+	interruptOps interruptOps
 }
 
 // authenticateClient is used to authenticate against a remote server
 func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
 	imapOps, err := authenticateClient(cfg)
 	ig.imapOps = imapOps
+	// ig.interruptOps = newInterruptOps([]os.Signal{os.Interrupt})
+	ig.interruptOps = newInterruptOps([]os.Signal{})
 	ig.downloadOps = downloader{
 		imapOps:    imapOps,
 		deliverOps: deliverer{},
@@ -73,7 +78,7 @@ func (ig *Imapgrabber) getFolderList() ([]string, error) {
 func (ig *Imapgrabber) downloadMissingEmailsToFolder(
 	maildirPath maildirPathT, oldmailName string,
 ) error {
-	return downloadMissingEmailsToFolder(ig.downloadOps, maildirPath, oldmailName)
+	return downloadMissingEmailsToFolder(ig.downloadOps, maildirPath, oldmailName, ig.interruptOps)
 }
 
 // NewImapgrabOps creates a new instance of the default implementation of ImapgrabOps.

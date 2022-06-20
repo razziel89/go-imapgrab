@@ -19,6 +19,7 @@ package core
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/emersion/go-imap"
@@ -98,7 +99,11 @@ func selectFolder(imapClient imapOps, folder string) (*imap.MailboxStatus, error
 // converted to count from the last message. That is, -1 refers to the most recent message while 1
 // refers to the second oldest email.
 func streamingRetrieval(
-	mbox *imap.MailboxStatus, imapClient imapOps, indices []rangeT, wg, startWg *sync.WaitGroup,
+	mbox *imap.MailboxStatus,
+	imapClient imapOps,
+	indices []rangeT,
+	wg, startWg *sync.WaitGroup,
+	interruptChan <-chan os.Signal,
 ) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
 	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
 	// index.
@@ -116,7 +121,7 @@ func streamingRetrieval(
 	wg.Add(1)
 	var errCount int
 	translatedMessageChan := make(chan emailOps, messageRetrievalBuffer)
-	orgMessageChan := make(chan *imap.Message, messageRetrievalBuffer)
+	orgMessageChan := make(chan *imap.Message)
 	go func() {
 		// Do not start before the entire pipeline has been set up.
 		startWg.Wait()
@@ -136,10 +141,17 @@ func streamingRetrieval(
 	// to use a `chan emailOps` as a `chan *imap.Message`. Thus, we need a separate goroutine
 	// translating between the two.
 	go func() {
-		for msg := range orgMessageChan {
-			// Here, the compiler auto-generates the code to translate a `*imap.Message` into a
-			// `emailOps`.
-			translatedMessageChan <- msg
+		for {
+			select {
+			case msg := <-orgMessageChan:
+				// Here, the compiler auto-generates the code to translate a `*imap.Message` into a
+				// `emailOps`.
+				translatedMessageChan <- msg
+			case <-interruptChan:
+				logWarning("caught keyboard interupt, closing connection")
+				close(orgMessageChan)
+				break
+			}
 		}
 		close(translatedMessageChan)
 	}()
