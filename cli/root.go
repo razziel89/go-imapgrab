@@ -70,5 +70,5 @@ func initRootFlags(rootCmd *cobra.Command) {
 	pflags.IntVarP(&rootConf.port, "port", "p", defaultPort, "login port for imap server")
 	pflags.StringVarP(&rootConf.username, "user", "u", "", "login user name")
 	pflags.BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	pflags.BoolVarP(&noKeyring, "no-keyring", "k", false, "do not use the systen keyring")
+	pflags.BoolVarP(&noKeyring, "no-keyring", "k", false, "do not use the system keyring")
 }
