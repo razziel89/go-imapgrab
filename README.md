@@ -1,4 +1,6 @@
 # General
+![Core](https://img.shields.io/badge/Core-100.0%25-brightgreen)
+![CLI](https://img.shields.io/badge/CLI-100.0%25-brightgreen)
 
 This is `go-imapgrab`, a re-implementation of the amazing [`imapgrab`][imapgrab]
 in plain Golang.
