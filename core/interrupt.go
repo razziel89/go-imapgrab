@@ -37,7 +37,7 @@ type interrupter struct {
 }
 
 func (i *interrupter) register() func() {
-	signalChan := make(chan os.Signal)
+	signalChan := make(chan os.Signal, len(i.signals))
 	signal.Notify(signalChan, i.signals...)
 	i.channel = signalChan
 	return i.deregister

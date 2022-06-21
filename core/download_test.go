@@ -65,9 +65,9 @@ func (m *mockDownloader) streamingOldmailWriteout(
 }
 
 func (m *mockDownloader) streamingRetrieval(
-	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup,
+	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup, in interruptT,
 ) (<-chan emailOps, *int, error) {
-	args := m.Called(mbox, missingIDRanges, wg, startWg)
+	args := m.Called(mbox, missingIDRanges, wg, startWg, in)
 	wg.Add(1)
 	go func() {
 		startWg.Wait()
@@ -113,9 +113,7 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 		Messages:    3,
 	}
 	uids := []uid{
-		{Mbox: 42, Message: 1},
-		{Mbox: 42, Message: 2},
-		{Mbox: 42, Message: 3},
+		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
 	}
 	missingIDRanges := []rangeT{{start: 1, end: 4}}
 
@@ -127,9 +125,7 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	var fetchErrCount int
 
 	delivered := []oldmail{
-		{uidValidity: 42, uid: 1},
-		{uidValidity: 42, uid: 2},
-		{uidValidity: 42, uid: 3},
+		{uidValidity: 42, uid: 1}, {uidValidity: 42, uid: 2}, {uidValidity: 42, uid: 3},
 	}
 	deliveredChan := make(chan oldmail)
 	var inDeliveredChan <-chan oldmail = deliveredChan
@@ -154,10 +150,16 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
 		Return(&oldmailErrCount, nil)
 
-	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
+	mi := &mockInterrupter{}
+	mi.On("reguister").Return(mi.deregister)
+	mi.On("dereguister").Return()
+	mi.On("signal").Return()
+
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
 	assert.NoError(t, err)
 	m.AssertExpectations(t)
+	mi.AssertExpectations(t)
 }
 
 func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
@@ -175,7 +177,12 @@ func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 
 	m.On("selectFolder", "some-folder").Return(mbox, fmt.Errorf("some error"))
 
-	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
+	mi := &mockInterrupter{}
+	mi.On("reguister").Return(mi.deregister)
+	mi.On("dereguister").Return()
+	mi.On("signal").Return()
+
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
 	assert.Error(t, err)
 	assert.Equal(t, "some error", err.Error())
@@ -200,7 +207,12 @@ func TestDownloadMissingEmailsToFolderPreparationNoNewEmails(t *testing.T) {
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
 
-	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
+	mi := &mockInterrupter{}
+	mi.On("reguister").Return(mi.deregister)
+	mi.On("dereguister").Return()
+	mi.On("signal").Return()
+
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
 	assert.NoError(t, err)
 	m.AssertExpectations(t)
@@ -221,9 +233,7 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 		Messages:    3,
 	}
 	uids := []uid{
-		{Mbox: 42, Message: 1},
-		{Mbox: 42, Message: 2},
-		{Mbox: 42, Message: 3},
+		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
 	}
 	missingIDRanges := []rangeT{{start: 1, end: 4}}
 
@@ -233,14 +243,11 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	var fetchErrCount = 1
 
 	delivered := []oldmail{
-		{uidValidity: 42, uid: 1},
-		{uidValidity: 42, uid: 2},
-		{uidValidity: 42, uid: 3},
+		{uidValidity: 42, uid: 1}, {uidValidity: 42, uid: 2}, {uidValidity: 42, uid: 3},
 	}
 	deliveredChan := make(chan oldmail)
 	var inDeliveredChan <-chan oldmail = deliveredChan
 	var deliverErrCount = 1
-
 	var oldmailErrCount = 1
 
 	m := &mockDownloader{
@@ -260,7 +267,12 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
 		Return(&oldmailErrCount, nil)
 
-	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName)
+	mi := &mockInterrupter{}
+	mi.On("reguister").Return(mi.deregister)
+	mi.On("dereguister").Return()
+	mi.On("signal").Return()
+
+	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
 	assert.Error(t, err)
 	assert.Equal(
@@ -322,7 +334,7 @@ func TestDownloaderStreamingRetrieval(t *testing.T) {
 	}
 	var wg, startWg sync.WaitGroup
 
-	_, errPtr, err := dl.streamingRetrieval(mbox, nil, &wg, &startWg)
+	_, errPtr, err := dl.streamingRetrieval(mbox, nil, &wg, &startWg, make(interruptT))
 
 	assert.NoError(t, err)
 	wg.Wait()

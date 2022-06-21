@@ -34,8 +34,8 @@ func (m *mockImapgrabber) authenticateClient(cfg IMAPConfig) error {
 	return args.Error(0)
 }
 
-func (m *mockImapgrabber) logout() error {
-	args := m.Called()
+func (m *mockImapgrabber) logout(doTerminate bool) error {
+	args := m.Called(doTerminate)
 	return args.Error(0)
 }
 
@@ -95,7 +95,20 @@ func TestImapgrabberLogout(t *testing.T) {
 	m.On("Logout").Return(fmt.Errorf("some error"))
 	ig.imapOps = m
 
-	err := ig.logout()
+	err := ig.logout(false)
+
+	assert.Error(t, err)
+}
+
+func TestImapgrabberTerminate(t *testing.T) {
+	ig, ok := NewImapgrabOps().(*Imapgrabber)
+	assert.True(t, ok)
+
+	m := setUpMockClient(t, nil, nil, nil)
+	m.On("Terminate").Return(fmt.Errorf("some error"))
+	ig.imapOps = m
+
+	err := ig.logout(true)
 
 	assert.Error(t, err)
 }

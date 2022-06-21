@@ -103,6 +103,7 @@ type atomicBool struct {
 // Obtain messages whose ids/indices lie in certain ranges. Negative indices are automatically
 // converted to count from the last message. That is, -1 refers to the most recent message while 1
 // refers to the second oldest email.
+//nolint:funlen
 func streamingRetrieval(
 	mbox *imap.MailboxStatus,
 	imapClient imapOps,
@@ -167,7 +168,7 @@ func streamingRetrieval(
 					wg.Done()
 				}
 				// Clean up and report.
-				logWarning("caught keyboard interupt, closing connection")
+				logWarning("caught keyboard interrupt, closing connection")
 				errCount++
 			case msg := <-orgMessageChan:
 				// Here, the compiler auto-generates the code to translate a `*imap.Message` into a

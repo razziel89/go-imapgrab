@@ -70,6 +70,11 @@ func (mc *mockClient) Logout() error {
 	return args.Error(0)
 }
 
+func (mc *mockClient) Terminate() error {
+	args := mc.Called()
+	return args.Error(0)
+}
+
 func setUpMockClient(
 	t *testing.T, boxes []*imap.MailboxInfo, messages []*imap.Message, err error,
 ) *mockClient {
@@ -215,7 +220,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
 
-	emailChan, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg)
+	emailChan, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, make(interruptT))
 
 	assert.NoError(t, err)
 	assert.Zero(t, *errPtr)
@@ -255,7 +260,7 @@ func TestStreamingRetrievalError(t *testing.T) {
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
 
-	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg)
+	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg, make(interruptT))
 
 	assert.Error(t, err)
 }
