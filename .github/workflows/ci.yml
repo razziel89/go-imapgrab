@@ -69,13 +69,13 @@ jobs:
       uses: tj-actions/coverage-badge-go@v1
       with:
         filename: ./cli/coverage_badge_report.out
-        text: CLI-Coverage
+        text: CLI Coverage
     
     - name: Generate core module coverage badge
       uses: tj-actions/coverage-badge-go@v1
       with:
         filename: ./core/coverage_badge_report.out
-        text: Core-Coverage
+        text: Core Coverage
     
     - name: Update readme in repo
       run: |
