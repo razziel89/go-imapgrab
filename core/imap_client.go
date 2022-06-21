@@ -147,7 +147,7 @@ func streamingRetrieval(
 
 	wg.Add(1)
 	// Ensure we call "Done" exactly once on wg here.
-	alreadyDone := newOnce(func() { wg.Done() })
+	already := newOnce(func() { wg.Done() })
 	var errCount int
 	translatedMessageChan := make(chan emailOps, messageRetrievalBuffer)
 	orgMessageChan := make(chan *imap.Message)
@@ -163,18 +163,18 @@ func streamingRetrieval(
 			logError(err.Error())
 			errCount++
 		}
-		alreadyDone.call()
+		already.call()
 	}()
 
 	go func() {
 		defer close(translatedMessageChan)
-		for !alreadyDone.called {
+		for !already.called {
 			select {
 			case <-interrupt:
-				alreadyDone.call()
-				// Clean up and report.
-				logWarning("caught keyboard interrupt, closing connection")
 				errCount++
+				already.call()
+				logWarning("caught keyboard interrupt, closing connection")
+				// Clean up and report.
 			case msg := <-orgMessageChan:
 				// Ignore nil values that we sometimes receive even though we should not.
 				if msg != nil {

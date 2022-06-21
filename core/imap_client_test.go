@@ -19,6 +19,7 @@ package core
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -263,6 +264,46 @@ func TestStreamingRetrievalError(t *testing.T) {
 	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg, make(interruptT))
 
 	assert.Error(t, err)
+}
+
+func TestStreamingRetrievalInterrupt(t *testing.T) {
+	status := &imap.MailboxStatus{
+		Messages:    16,
+		UidValidity: 42,
+	}
+	ranges := []rangeT{{start: 10, end: 11}}
+	messages := []*imap.Message{}
+
+	m := &mockClient{messages: messages}
+	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	// This code was taken from setUpMockClient because we do not want to assert expectations here.
+	orgClientGetter := newImapClient
+	newImapClient = func(addr string) (imapOps, error) {
+		return m, nil
+	}
+	t.Cleanup(func() { newImapClient = orgClientGetter })
+
+	var wg, stwg sync.WaitGroup
+	stwg.Add(1)
+
+	// Create a buffered channel and send an interrupt signal before calling streamingRetrieval to
+	// trigger the interrupt case. Interrupts are handled preferentially compared to message
+	// conversion.
+	interrupt := make(chan os.Signal, 1)
+	interrupt <- os.Interrupt
+
+	_, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupt)
+
+	assert.NoError(t, err)
+
+	// We will not have to call stwg.Done() because the interrupt handler goroutine will
+	// automatically call wg.Done() once it has handled the interrupt.
+	wg.Wait()
+	assert.Equal(t, 1, *errPtr)
+
+	// We call stwg.Done() here to give all goroutines the chance to finish execution.
+	stwg.Done()
 }
 
 func TestUIDToStrng(t *testing.T) {
