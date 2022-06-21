@@ -141,19 +141,20 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 		deliveredChan: deliveredChan,
 	}
 
+	interrupt := make(interruptT)
+	mi := &mockInterrupter{}
+	mi.On("register").Return(mi.deregister)
+	mi.On("deregister").Return()
+	mi.On("interrupt").Return(interrupt)
+
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
-	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything).
+	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything, interrupt).
 		Return(messageChan, &fetchErrCount, nil)
 	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
 		Return(&oldmailErrCount, nil)
-
-	mi := &mockInterrupter{}
-	mi.On("reguister").Return(mi.deregister)
-	mi.On("dereguister").Return()
-	mi.On("signal").Return()
 
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
@@ -178,9 +179,9 @@ func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 	m.On("selectFolder", "some-folder").Return(mbox, fmt.Errorf("some error"))
 
 	mi := &mockInterrupter{}
-	mi.On("reguister").Return(mi.deregister)
-	mi.On("dereguister").Return()
-	mi.On("signal").Return()
+	mi.On("register").Return(mi.deregister)
+	mi.On("deregister").Return()
+	mi.On("interrupt").Return(make(interruptT))
 
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
@@ -208,9 +209,9 @@ func TestDownloadMissingEmailsToFolderPreparationNoNewEmails(t *testing.T) {
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
 
 	mi := &mockInterrupter{}
-	mi.On("reguister").Return(mi.deregister)
-	mi.On("dereguister").Return()
-	mi.On("signal").Return()
+	mi.On("register").Return(mi.deregister)
+	mi.On("deregister").Return()
+	mi.On("interrupt").Return(make(interruptT))
 
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
@@ -228,9 +229,7 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	oldmailPath := filepath.Join(tmpdir, oldmailFileName)
 
 	mbox := &imap.MailboxStatus{
-		Name:        "some-folder",
-		UidValidity: 42,
-		Messages:    3,
+		Name: "some-folder", UidValidity: 42, Messages: 3,
 	}
 	uids := []uid{
 		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
@@ -258,19 +257,20 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 		deliveredChan: deliveredChan,
 	}
 
+	interrupt := make(interruptT)
+	mi := &mockInterrupter{}
+	mi.On("register").Return(mi.deregister)
+	mi.On("deregister").Return()
+	mi.On("interrupt").Return(interrupt)
+
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
-	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything).
+	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything, interrupt).
 		Return(messageChan, &fetchErrCount, nil)
 	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
 		Return(&oldmailErrCount, nil)
-
-	mi := &mockInterrupter{}
-	mi.On("reguister").Return(mi.deregister)
-	mi.On("dereguister").Return()
-	mi.On("signal").Return()
 
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 

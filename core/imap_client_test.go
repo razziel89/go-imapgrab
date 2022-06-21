@@ -41,11 +41,11 @@ func (mc *mockClient) Login(username string, password string) error {
 }
 
 func (mc *mockClient) List(ref string, name string, ch chan *imap.MailboxInfo) error {
+	defer close(ch)
 	args := mc.Called(ref, name, ch)
 	for _, box := range mc.mailboxes {
 		ch <- box
 	}
-	close(ch)
 	return args.Error(0)
 }
 
@@ -57,11 +57,11 @@ func (mc *mockClient) Select(name string, readOnly bool) (*imap.MailboxStatus, e
 func (mc *mockClient) Fetch(
 	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
 ) error {
+	defer close(ch)
 	args := mc.Called(seqset, items, ch)
 	for _, msg := range mc.messages {
 		ch <- msg
 	}
-	close(ch)
 	return args.Error(0)
 }
 

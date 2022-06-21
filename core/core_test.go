@@ -125,7 +125,7 @@ func TestGetAllFolders(t *testing.T) {
 	mock := &mockImapgrabber{}
 	mock.On("authenticateClient", cfg).Return(nil)
 	mock.On("getFolderList").Return(folders, nil)
-	mock.On("logout").Return(fmt.Errorf("some error"))
+	mock.On("logout", false).Return(fmt.Errorf("some error"))
 
 	actualFolders, err := GetAllFolders(cfg, mock)
 
@@ -150,7 +150,7 @@ func TestDownloadFolder(t *testing.T) {
 	mock := &mockImapgrabber{}
 	mock.On("authenticateClient", cfg).Return(nil)
 	mock.On("getFolderList").Return(folders, nil)
-	mock.On("logout").Return(fmt.Errorf("some error"))
+	mock.On("logout", false).Return(fmt.Errorf("some error"))
 	mock.On("downloadMissingEmailsToFolder", maildirPathF1, oldmailF1).Return(nil)
 
 	err := DownloadFolder(cfg, folders, maildir, mock)
@@ -177,7 +177,7 @@ func TestDownloadFolderDownloadErr(t *testing.T) {
 	mock := &mockImapgrabber{}
 	mock.On("authenticateClient", cfg).Return(nil)
 	mock.On("getFolderList").Return(folders, nil)
-	mock.On("logout").Return(fmt.Errorf("some error"))
+	mock.On("logout", true).Return(fmt.Errorf("some error"))
 	mock.On("downloadMissingEmailsToFolder", maildirPathF1, oldmailF1).Return(nil)
 	mock.On("downloadMissingEmailsToFolder", maildirPathF2, oldmailF2).
 		Return(fmt.Errorf("download error"))
