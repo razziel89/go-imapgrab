@@ -20,8 +20,6 @@ package core
 
 import (
 	"os"
-
-	"github.com/emersion/go-imap/client"
 )
 
 // IMAPConfig is a configuration needed to access an IMAP server.
@@ -38,7 +36,7 @@ type ImapgrabOps interface {
 	// authenticateClient is used to authenticate against a remote server
 	authenticateClient(IMAPConfig) error
 	// logout is used to log out from an authenticated session
-	logout() error
+	logout(bool) error
 	// getFolderList provides all folders in the configured mailbox
 	getFolderList() ([]string, error)
 	// downloadMissingEmailsToFolder downloads all emails to a local path that are present remotely
@@ -66,7 +64,11 @@ func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
 }
 
 // logout is used to log out from an authenticated session
-func (ig *Imapgrabber) logout() error {
+func (ig *Imapgrabber) logout(doTerminate bool) error {
+	if doTerminate {
+		logInfo("terminating connection")
+		return ig.imapOps.Terminate()
+	}
 	logInfo("logging out")
 	return ig.imapOps.Logout()
 }
@@ -96,7 +98,7 @@ func GetAllFolders(cfg IMAPConfig, ops ImapgrabOps) (folders []string, err error
 		// Make sure to log out in the end if we logged in successfully.
 		defer func() {
 			// Don't overwrite the error if it has already been set.
-			if logoutErr := ops.logout(); logoutErr != nil && err == nil {
+			if logoutErr := ops.logout(false); logoutErr != nil && err == nil {
 				err = logoutErr
 			}
 		}()
@@ -121,22 +123,10 @@ func DownloadFolder(
 	if err == nil {
 		// Make sure to log out in the end if we logged in successfully.
 		defer func() {
-			if err == nil {
-				// Log out gracefully if there hasn't been an error.
-				if logoutErr := ops.logout(); logoutErr != nil {
-					err = logoutErr
-				}
-			} else {
-				// Otherwise, terminate the connection.
-				logWarning("terminating connection due to error")
-				g := ops.(*Imapgrabber)
-				o := g.imapOps
-				c := o.(*client.Client)
-				if termErr := c.Terminate(); termErr != nil {
-					logError(termErr.Error())
-				}
+			if logoutErr := ops.logout(err != nil); logoutErr != nil && err == nil {
+				// Don't overwrite the error if it has already been set.
+				err = logoutErr
 			}
-			// Don't overwrite the error if it has already been set.
 		}()
 		// Actually retrieve folder list.
 		availableFolders, err = ops.getFolderList()

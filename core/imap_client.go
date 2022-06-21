@@ -42,6 +42,7 @@ type imapOps interface {
 	Select(name string, readOnly bool) (*imap.MailboxStatus, error)
 	Fetch(seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message) error
 	Logout() error
+	Terminate() error
 }
 
 func authenticateClient(config IMAPConfig) (imapClient imapOps, err error) {
@@ -94,6 +95,11 @@ func selectFolder(imapClient imapOps, folder string) (*imap.MailboxStatus, error
 	return mbox, err
 }
 
+type atomicBool struct {
+	value bool
+	sync.Mutex
+}
+
 // Obtain messages whose ids/indices lie in certain ranges. Negative indices are automatically
 // converted to count from the last message. That is, -1 refers to the most recent message while 1
 // refers to the second oldest email.
@@ -118,7 +124,7 @@ func streamingRetrieval(
 	}
 
 	wg.Add(1)
-	alreadyDone := false
+	alreadyDone := atomicBool{value: false}
 	var errCount int
 	translatedMessageChan := make(chan emailOps, messageRetrievalBuffer)
 	orgMessageChan := make(chan *imap.Message)
@@ -134,7 +140,12 @@ func streamingRetrieval(
 			logError(err.Error())
 			errCount++
 		}
-		if !alreadyDone {
+
+		// Ensure we call "Done" exactly once on wg here.
+		alreadyDone.Lock()
+		defer alreadyDone.Unlock()
+		if !alreadyDone.value {
+			alreadyDone.value = true
 			wg.Done()
 		}
 	}()
@@ -144,22 +155,26 @@ func streamingRetrieval(
 	// translating between the two.
 	// Also handle interrupts in this goroutine.
 	go func() {
-		for {
+		defer close(translatedMessageChan)
+		for !alreadyDone.value {
 			select {
 			case <-interrupt:
-				alreadyDone = true
+				// Ensure we call "Done" exactly once on wg here.
+				alreadyDone.Lock()
+				defer alreadyDone.Unlock()
+				if !alreadyDone.value {
+					alreadyDone.value = true
+					wg.Done()
+				}
+				// Clean up and report.
 				logWarning("caught keyboard interupt, closing connection")
 				errCount++
-				wg.Done()
-				close(translatedMessageChan)
-				return
 			case msg := <-orgMessageChan:
 				// Here, the compiler auto-generates the code to translate a `*imap.Message` into a
 				// `emailOps`.
 				translatedMessageChan <- msg
 			}
 		}
-		close(translatedMessageChan)
 	}()
 
 	return translatedMessageChan, &errCount, nil
