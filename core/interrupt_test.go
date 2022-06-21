@@ -17,7 +17,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package core
 
-import "github.com/stretchr/testify/mock"
+import (
+	"os"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
 
 type mockInterrupter struct {
 	mock.Mock
@@ -35,4 +43,32 @@ func (i *mockInterrupter) deregister() {
 func (i *mockInterrupter) interrupt() interruptT {
 	args := i.Called()
 	return args.Get(0).(interruptT)
+}
+
+func TestInterrupter(t *testing.T) {
+	interrupter := newInterruptOps([]os.Signal{os.Interrupt})
+	defer interrupter.register()()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	receivedSignal := false
+	go func() {
+		<-interrupter.interrupt()
+		receivedSignal = true
+		wg.Done()
+	}()
+
+	// Sleep a while to be sure we didn't read from the channel yet.
+	time.Sleep(time.Millisecond * 100) //nolint:gomnd
+	assert.False(t, receivedSignal)
+
+	// Send signal to self.
+	self, err := os.FindProcess(os.Getpid())
+	assert.NoError(t, err)
+	err = self.Signal(os.Interrupt)
+	assert.NoError(t, err)
+
+	wg.Wait()
+	assert.True(t, receivedSignal)
 }
