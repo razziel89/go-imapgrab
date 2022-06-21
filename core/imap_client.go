@@ -171,9 +171,13 @@ func streamingRetrieval(
 				logWarning("caught keyboard interrupt, closing connection")
 				errCount++
 			case msg := <-orgMessageChan:
-				// Here, the compiler auto-generates the code to translate a `*imap.Message` into a
-				// `emailOps`.
-				translatedMessageChan <- msg
+				// Somehow, we sometimes receive nil values from the channel. We do not want to
+				// process those any further, which is why we filter them out here.
+				if msg != nil {
+					// Here, the compiler auto-generates the code to translate a `*imap.Message`
+					// into a `emailOps`.
+					translatedMessageChan <- msg
+				}
 			}
 		}
 	}()

@@ -18,7 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 )
@@ -54,21 +53,4 @@ func (i *interrupter) interrupt() interruptT {
 
 func newInterruptOps(signals []os.Signal) interruptOps {
 	return &interrupter{signals: signals}
-}
-
-func recoverFromPanic(fn func(string), outerErr *error) {
-	recovered := recover()
-	if recovered == nil {
-		return
-	}
-
-	var err error
-	var ok bool
-	if err, ok = recovered.(error); !ok {
-		err = fmt.Errorf("%v", recovered)
-	}
-	fn(err.Error())
-	if outerErr != nil && *outerErr == nil {
-		*outerErr = err
-	}
 }
