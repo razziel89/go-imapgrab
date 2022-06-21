@@ -19,7 +19,6 @@ package core
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/emersion/go-imap"
@@ -103,7 +102,7 @@ func streamingRetrieval(
 	imapClient imapOps,
 	indices []rangeT,
 	wg, startWg *sync.WaitGroup,
-	interruptChan <-chan os.Signal,
+	interrupt interruptT,
 ) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
 	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
 	// index.
@@ -119,6 +118,7 @@ func streamingRetrieval(
 	}
 
 	wg.Add(1)
+	alreadyDone := false
 	var errCount int
 	translatedMessageChan := make(chan emailOps, messageRetrievalBuffer)
 	orgMessageChan := make(chan *imap.Message)
@@ -134,23 +134,29 @@ func streamingRetrieval(
 			logError(err.Error())
 			errCount++
 		}
-		wg.Done()
+		if !alreadyDone {
+			wg.Done()
+		}
 	}()
 
 	// Translate from *imap.Message to emailOps. Sadly, the compiler does not auto-generate the code
 	// to use a `chan emailOps` as a `chan *imap.Message`. Thus, we need a separate goroutine
 	// translating between the two.
+	// Also handle interrupts in this goroutine.
 	go func() {
 		for {
 			select {
+			case <-interrupt:
+				alreadyDone = true
+				logWarning("caught keyboard interupt, closing connection")
+				errCount++
+				wg.Done()
+				close(translatedMessageChan)
+				return
 			case msg := <-orgMessageChan:
 				// Here, the compiler auto-generates the code to translate a `*imap.Message` into a
 				// `emailOps`.
 				translatedMessageChan <- msg
-			case <-interruptChan:
-				logWarning("caught keyboard interupt, closing connection")
-				close(orgMessageChan)
-				break
 			}
 		}
 		close(translatedMessageChan)

@@ -19,7 +19,6 @@ package core
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/emersion/go-imap"
@@ -35,7 +34,7 @@ type downloadOps interface {
 	getAllMessageUUIDs(*imap.MailboxStatus) ([]uid, error)
 	streamingOldmailWriteout(<-chan oldmail, string, *sync.WaitGroup, *sync.WaitGroup) (*int, error)
 	streamingRetrieval(
-		*imap.MailboxStatus, []rangeT, *sync.WaitGroup, *sync.WaitGroup, <-chan os.Signal,
+		*imap.MailboxStatus, []rangeT, *sync.WaitGroup, *sync.WaitGroup, interruptT,
 	) (<-chan emailOps, *int, error)
 	streamingDelivery(
 		<-chan emailOps, string, int, *sync.WaitGroup, *sync.WaitGroup,
@@ -65,9 +64,9 @@ func (d downloader) streamingRetrieval(
 	mbox *imap.MailboxStatus,
 	missingIDRanges []rangeT,
 	wg, startWg *sync.WaitGroup,
-	interruptChan <-chan os.Signal,
+	interrupt interruptT,
 ) (<-chan emailOps, *int, error) {
-	return streamingRetrieval(mbox, d.imapOps, missingIDRanges, wg, startWg, interruptChan)
+	return streamingRetrieval(mbox, d.imapOps, missingIDRanges, wg, startWg, interrupt)
 }
 
 func (d downloader) streamingDelivery(
@@ -107,7 +106,7 @@ func downloadMissingEmailsToFolder(
 	defer sig.register()()
 	// Retrieve email information. This does not download the emails themselves yet.
 	messageChan, fetchErrCount, err := ops.streamingRetrieval(
-		mbox, missingIDRanges, &wg, &startWg, sig.interruptChan(),
+		mbox, missingIDRanges, &wg, &startWg, sig.interrupt(),
 	)
 	var deliveredChan <-chan oldmail
 	var deliverErrCount, oldmailErrCount *int

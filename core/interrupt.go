@@ -23,10 +23,12 @@ import (
 	"os/signal"
 )
 
+type interruptT <-chan os.Signal
+
 type interruptOps interface {
 	register() func()
 	deregister()
-	interruptChan() <-chan os.Signal
+	interrupt() interruptT
 }
 
 type interrupter struct {
@@ -46,7 +48,7 @@ func (i *interrupter) deregister() {
 	i.channel = nil
 }
 
-func (i *interrupter) interruptChan() <-chan os.Signal {
+func (i *interrupter) interrupt() interruptT {
 	return i.channel
 }
 

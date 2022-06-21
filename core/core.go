@@ -18,7 +18,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Package core provides central functionality for backing up IMAP mailboxes.
 package core
 
-import "os"
+import (
+	"os"
+
+	"github.com/emersion/go-imap/client"
+)
 
 // IMAPConfig is a configuration needed to access an IMAP server.
 type IMAPConfig struct {
@@ -53,8 +57,7 @@ type Imapgrabber struct {
 func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
 	imapOps, err := authenticateClient(cfg)
 	ig.imapOps = imapOps
-	// ig.interruptOps = newInterruptOps([]os.Signal{os.Interrupt})
-	ig.interruptOps = newInterruptOps([]os.Signal{})
+	ig.interruptOps = newInterruptOps([]os.Signal{os.Interrupt})
 	ig.downloadOps = downloader{
 		imapOps:    imapOps,
 		deliverOps: deliverer{},
@@ -118,10 +121,22 @@ func DownloadFolder(
 	if err == nil {
 		// Make sure to log out in the end if we logged in successfully.
 		defer func() {
-			// Don't overwrite the error if it has already been set.
-			if logoutErr := ops.logout(); logoutErr != nil && err == nil {
-				err = logoutErr
+			if err == nil {
+				// Log out gracefully if there hasn't been an error.
+				if logoutErr := ops.logout(); logoutErr != nil {
+					err = logoutErr
+				}
+			} else {
+				// Otherwise, terminate the connection.
+				logWarning("terminating connection due to error")
+				g := ops.(*Imapgrabber)
+				o := g.imapOps
+				c := o.(*client.Client)
+				if termErr := c.Terminate(); termErr != nil {
+					logError(termErr.Error())
+				}
 			}
+			// Don't overwrite the error if it has already been set.
 		}()
 		// Actually retrieve folder list.
 		availableFolders, err = ops.getFolderList()
