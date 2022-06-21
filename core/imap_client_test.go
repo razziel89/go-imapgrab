@@ -19,6 +19,7 @@ package core
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -41,11 +42,11 @@ func (mc *mockClient) Login(username string, password string) error {
 }
 
 func (mc *mockClient) List(ref string, name string, ch chan *imap.MailboxInfo) error {
+	defer close(ch)
 	args := mc.Called(ref, name, ch)
 	for _, box := range mc.mailboxes {
 		ch <- box
 	}
-	close(ch)
 	return args.Error(0)
 }
 
@@ -57,15 +58,20 @@ func (mc *mockClient) Select(name string, readOnly bool) (*imap.MailboxStatus, e
 func (mc *mockClient) Fetch(
 	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
 ) error {
+	defer close(ch)
 	args := mc.Called(seqset, items, ch)
 	for _, msg := range mc.messages {
 		ch <- msg
 	}
-	close(ch)
 	return args.Error(0)
 }
 
 func (mc *mockClient) Logout() error {
+	args := mc.Called()
+	return args.Error(0)
+}
+
+func (mc *mockClient) Terminate() error {
 	args := mc.Called()
 	return args.Error(0)
 }
@@ -215,7 +221,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
 
-	emailChan, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg)
+	emailChan, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, make(interruptT))
 
 	assert.NoError(t, err)
 	assert.Zero(t, *errPtr)
@@ -255,9 +261,49 @@ func TestStreamingRetrievalError(t *testing.T) {
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
 
-	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg)
+	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg, make(interruptT))
 
 	assert.Error(t, err)
+}
+
+func TestStreamingRetrievalInterrupt(t *testing.T) {
+	status := &imap.MailboxStatus{
+		Messages:    16,
+		UidValidity: 42,
+	}
+	ranges := []rangeT{{start: 10, end: 11}}
+	messages := []*imap.Message{}
+
+	m := &mockClient{messages: messages}
+	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	// This code was taken from setUpMockClient because we do not want to assert expectations here.
+	orgClientGetter := newImapClient
+	newImapClient = func(addr string) (imapOps, error) {
+		return m, nil
+	}
+	t.Cleanup(func() { newImapClient = orgClientGetter })
+
+	var wg, stwg sync.WaitGroup
+	stwg.Add(1)
+
+	// Create a buffered channel and send an interrupt signal before calling streamingRetrieval to
+	// trigger the interrupt case. Interrupts are handled preferentially compared to message
+	// conversion.
+	interrupt := make(chan os.Signal, 1)
+	interrupt <- os.Interrupt
+
+	_, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupt)
+
+	assert.NoError(t, err)
+
+	// We will not have to call stwg.Done() because the interrupt handler goroutine will
+	// automatically call wg.Done() once it has handled the interrupt.
+	wg.Wait()
+	assert.Equal(t, 1, *errPtr)
+
+	// We call stwg.Done() here to give all goroutines the chance to finish execution.
+	stwg.Done()
 }
 
 func TestUIDToStrng(t *testing.T) {

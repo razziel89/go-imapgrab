@@ -34,8 +34,8 @@ func (m *mockImapgrabber) authenticateClient(cfg IMAPConfig) error {
 	return args.Error(0)
 }
 
-func (m *mockImapgrabber) logout() error {
-	args := m.Called()
+func (m *mockImapgrabber) logout(doTerminate bool) error {
+	args := m.Called(doTerminate)
 	return args.Error(0)
 }
 
@@ -95,7 +95,20 @@ func TestImapgrabberLogout(t *testing.T) {
 	m.On("Logout").Return(fmt.Errorf("some error"))
 	ig.imapOps = m
 
-	err := ig.logout()
+	err := ig.logout(false)
+
+	assert.Error(t, err)
+}
+
+func TestImapgrabberTerminate(t *testing.T) {
+	ig, ok := NewImapgrabOps().(*Imapgrabber)
+	assert.True(t, ok)
+
+	m := setUpMockClient(t, nil, nil, nil)
+	m.On("Terminate").Return(fmt.Errorf("some error"))
+	ig.imapOps = m
+
+	err := ig.logout(true)
 
 	assert.Error(t, err)
 }
@@ -112,7 +125,7 @@ func TestGetAllFolders(t *testing.T) {
 	mock := &mockImapgrabber{}
 	mock.On("authenticateClient", cfg).Return(nil)
 	mock.On("getFolderList").Return(folders, nil)
-	mock.On("logout").Return(fmt.Errorf("some error"))
+	mock.On("logout", false).Return(fmt.Errorf("some error"))
 
 	actualFolders, err := GetAllFolders(cfg, mock)
 
@@ -137,7 +150,7 @@ func TestDownloadFolder(t *testing.T) {
 	mock := &mockImapgrabber{}
 	mock.On("authenticateClient", cfg).Return(nil)
 	mock.On("getFolderList").Return(folders, nil)
-	mock.On("logout").Return(fmt.Errorf("some error"))
+	mock.On("logout", false).Return(fmt.Errorf("some error"))
 	mock.On("downloadMissingEmailsToFolder", maildirPathF1, oldmailF1).Return(nil)
 
 	err := DownloadFolder(cfg, folders, maildir, mock)
@@ -164,7 +177,7 @@ func TestDownloadFolderDownloadErr(t *testing.T) {
 	mock := &mockImapgrabber{}
 	mock.On("authenticateClient", cfg).Return(nil)
 	mock.On("getFolderList").Return(folders, nil)
-	mock.On("logout").Return(fmt.Errorf("some error"))
+	mock.On("logout", true).Return(fmt.Errorf("some error"))
 	mock.On("downloadMissingEmailsToFolder", maildirPathF1, oldmailF1).Return(nil)
 	mock.On("downloadMissingEmailsToFolder", maildirPathF2, oldmailF2).
 		Return(fmt.Errorf("download error"))

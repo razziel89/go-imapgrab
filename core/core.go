@@ -18,6 +18,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Package core provides central functionality for backing up IMAP mailboxes.
 package core
 
+import (
+	"os"
+)
+
 // IMAPConfig is a configuration needed to access an IMAP server.
 type IMAPConfig struct {
 	Server   string
@@ -32,7 +36,7 @@ type ImapgrabOps interface {
 	// authenticateClient is used to authenticate against a remote server
 	authenticateClient(IMAPConfig) error
 	// logout is used to log out from an authenticated session
-	logout() error
+	logout(bool) error
 	// getFolderList provides all folders in the configured mailbox
 	getFolderList() ([]string, error)
 	// downloadMissingEmailsToFolder downloads all emails to a local path that are present remotely
@@ -42,14 +46,16 @@ type ImapgrabOps interface {
 
 // Imapgrabber is the defailt implementation of ImapgrabOps.
 type Imapgrabber struct {
-	downloadOps downloadOps
-	imapOps     imapOps
+	downloadOps  downloadOps
+	imapOps      imapOps
+	interruptOps interruptOps
 }
 
 // authenticateClient is used to authenticate against a remote server
 func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
 	imapOps, err := authenticateClient(cfg)
 	ig.imapOps = imapOps
+	ig.interruptOps = newInterruptOps([]os.Signal{os.Interrupt})
 	ig.downloadOps = downloader{
 		imapOps:    imapOps,
 		deliverOps: deliverer{},
@@ -58,7 +64,11 @@ func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
 }
 
 // logout is used to log out from an authenticated session
-func (ig *Imapgrabber) logout() error {
+func (ig *Imapgrabber) logout(doTerminate bool) error {
+	if doTerminate {
+		logInfo("terminating connection")
+		return ig.imapOps.Terminate()
+	}
 	logInfo("logging out")
 	return ig.imapOps.Logout()
 }
@@ -73,7 +83,7 @@ func (ig *Imapgrabber) getFolderList() ([]string, error) {
 func (ig *Imapgrabber) downloadMissingEmailsToFolder(
 	maildirPath maildirPathT, oldmailName string,
 ) error {
-	return downloadMissingEmailsToFolder(ig.downloadOps, maildirPath, oldmailName)
+	return downloadMissingEmailsToFolder(ig.downloadOps, maildirPath, oldmailName, ig.interruptOps)
 }
 
 // NewImapgrabOps creates a new instance of the default implementation of ImapgrabOps.
@@ -88,7 +98,7 @@ func GetAllFolders(cfg IMAPConfig, ops ImapgrabOps) (folders []string, err error
 		// Make sure to log out in the end if we logged in successfully.
 		defer func() {
 			// Don't overwrite the error if it has already been set.
-			if logoutErr := ops.logout(); logoutErr != nil && err == nil {
+			if logoutErr := ops.logout(false); logoutErr != nil && err == nil {
 				err = logoutErr
 			}
 		}()
@@ -113,8 +123,8 @@ func DownloadFolder(
 	if err == nil {
 		// Make sure to log out in the end if we logged in successfully.
 		defer func() {
-			// Don't overwrite the error if it has already been set.
-			if logoutErr := ops.logout(); logoutErr != nil && err == nil {
+			if logoutErr := ops.logout(err != nil); logoutErr != nil && err == nil {
+				// Don't overwrite the error if it has already been set.
 				err = logoutErr
 			}
 		}()

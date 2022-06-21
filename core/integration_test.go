@@ -90,8 +90,9 @@ func TestIntegrationDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	maildirPath := maildirPathT{base: mockPath, folder: "some-folder"}
 
 	downloader := buildFakeDownloader(mockClient)
+	interrupter := newInterruptOps(nil)
 
-	err := downloadMissingEmailsToFolder(downloader, maildirPath, "some-oldmail")
+	err := downloadMissingEmailsToFolder(downloader, maildirPath, "some-oldmail", interrupter)
 
 	assert.NoError(t, err)
 
@@ -129,8 +130,9 @@ func TestIntegrationDownloadMissingEmailsToFolderPreparationError(t *testing.T) 
 	maildirPath := maildirPathT{base: mockPath, folder: "some-folder"}
 
 	downloader := buildFakeDownloader(mockClient)
+	interrupter := newInterruptOps(nil)
 
-	err := downloadMissingEmailsToFolder(downloader, maildirPath, "some-oldmail")
+	err := downloadMissingEmailsToFolder(downloader, maildirPath, "some-oldmail", interrupter)
 
 	assert.Error(t, err)
 	assert.Equal(t, "some error", err.Error())
@@ -176,8 +178,9 @@ func TestIntegrationDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	maildirPath := maildirPathT{base: mockPath, folder: "some-folder"}
 
 	downloader := buildFakeDownloader(mockClient)
+	interrupter := newInterruptOps(nil)
 
-	err := downloadMissingEmailsToFolder(downloader, maildirPath, "some-oldmail")
+	err := downloadMissingEmailsToFolder(downloader, maildirPath, "some-oldmail", interrupter)
 
 	assert.Error(t, err)
 	assert.Equal(

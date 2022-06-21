@@ -42,6 +42,7 @@ type imapOps interface {
 	Select(name string, readOnly bool) (*imap.MailboxStatus, error)
 	Fetch(seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message) error
 	Logout() error
+	Terminate() error
 }
 
 func authenticateClient(config IMAPConfig) (imapClient imapOps, err error) {
@@ -94,11 +95,42 @@ func selectFolder(imapClient imapOps, folder string) (*imap.MailboxStatus, error
 	return mbox, err
 }
 
+// Type once behaves like sync.Once but we can also query whether it has already been called. This
+// is needed because sync.Once does not provide a facility to check that.
+type once struct {
+	called bool
+	hook   func()
+	sync.Once
+}
+
+func (o *once) call() {
+	o.Do(o.hook)
+}
+
+func newOnce(hook func()) *once {
+	o := once{}
+	innerHook := func() {
+		o.called = true
+		hook()
+	}
+	o.hook = innerHook
+	return &o
+}
+
 // Obtain messages whose ids/indices lie in certain ranges. Negative indices are automatically
 // converted to count from the last message. That is, -1 refers to the most recent message while 1
 // refers to the second oldest email.
+//
+// In this function, we translate from *imap.Message to emailOps separately. Sadly, the compiler
+// does not auto-generate the code to use a `chan emailOps` as a `chan *imap.Message`. Thus, we need
+// a separate, second goroutine translating between the two. This second goroutine also handles
+// interrupts.
 func streamingRetrieval(
-	mbox *imap.MailboxStatus, imapClient imapOps, indices []rangeT, wg, startWg *sync.WaitGroup,
+	mbox *imap.MailboxStatus,
+	imapClient imapOps,
+	indices []rangeT,
+	wg, startWg *sync.WaitGroup,
+	interrupt interruptT,
 ) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
 	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
 	// index.
@@ -114,9 +146,11 @@ func streamingRetrieval(
 	}
 
 	wg.Add(1)
+	// Ensure we call "Done" exactly once on wg here.
+	already := newOnce(func() { wg.Done() })
 	var errCount int
 	translatedMessageChan := make(chan emailOps, messageRetrievalBuffer)
-	orgMessageChan := make(chan *imap.Message, messageRetrievalBuffer)
+	orgMessageChan := make(chan *imap.Message)
 	go func() {
 		// Do not start before the entire pipeline has been set up.
 		startWg.Wait()
@@ -129,19 +163,26 @@ func streamingRetrieval(
 			logError(err.Error())
 			errCount++
 		}
-		wg.Done()
+		already.call()
 	}()
 
-	// Translate from *imap.Message to emailOps. Sadly, the compiler does not auto-generate the code
-	// to use a `chan emailOps` as a `chan *imap.Message`. Thus, we need a separate goroutine
-	// translating between the two.
 	go func() {
-		for msg := range orgMessageChan {
-			// Here, the compiler auto-generates the code to translate a `*imap.Message` into a
-			// `emailOps`.
-			translatedMessageChan <- msg
+		defer close(translatedMessageChan)
+		for !already.called {
+			select {
+			case <-interrupt:
+				errCount++
+				already.call()
+				logWarning("caught keyboard interrupt, closing connection")
+				// Clean up and report.
+			case msg := <-orgMessageChan:
+				// Ignore nil values that we sometimes receive even though we should not.
+				if msg != nil {
+					// Here, the compiler generates code to convert `*imap.Message` into emailOps`.
+					translatedMessageChan <- msg
+				}
+			}
 		}
-		close(translatedMessageChan)
 	}()
 
 	return translatedMessageChan, &errCount, nil
