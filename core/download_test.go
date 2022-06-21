@@ -268,3 +268,75 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	)
 	m.AssertExpectations(t)
 }
+
+func TestDownloaderSelectFolder(t *testing.T) {
+	var mbox *imap.MailboxStatus
+	m := &mockClient{}
+	m.On("Select", mock.Anything, mock.Anything).Return(mbox, fmt.Errorf("some error"))
+	dl := &downloader{
+		imapOps:    m,
+		deliverOps: nil,
+	}
+
+	_, err := dl.selectFolder("some-folder")
+
+	assert.Error(t, err)
+}
+
+func TestDownloaderGetAllMessageUUIDs(t *testing.T) {
+	mbox := &imap.MailboxStatus{
+		Messages: 0,
+	}
+	m := &mockClient{}
+	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
+	dl := &downloader{
+		imapOps:    m,
+		deliverOps: nil,
+	}
+
+	_, err := dl.getAllMessageUUIDs(mbox)
+
+	assert.Error(t, err)
+}
+
+func TestDownloaderStreamingOldmailWriteout(t *testing.T) {
+	dl := &downloader{}
+	inChan := make(chan oldmail)
+	close(inChan)
+	var wg, startWg *sync.WaitGroup
+
+	_, err := dl.streamingOldmailWriteout(inChan, "", wg, startWg)
+
+	assert.Error(t, err)
+}
+
+func TestDownloaderStreamingRetrieval(t *testing.T) {
+	mbox := &imap.MailboxStatus{
+		Messages: 0,
+	}
+	m := &mockClient{}
+	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
+	dl := &downloader{
+		imapOps:    m,
+		deliverOps: nil,
+	}
+	var wg, startWg sync.WaitGroup
+
+	_, errPtr, err := dl.streamingRetrieval(mbox, nil, &wg, &startWg)
+
+	assert.NoError(t, err)
+	wg.Wait()
+	assert.Equal(t, 1, *errPtr)
+}
+
+func TestDownloaderStreamingDelivery(t *testing.T) {
+	dl := &downloader{}
+	inChan := make(chan emailOps)
+	close(inChan)
+	var wg, startWg sync.WaitGroup
+
+	_, errPtr := dl.streamingDelivery(inChan, "", 42, &wg, &startWg)
+
+	wg.Wait()
+	assert.Equal(t, 0, *errPtr)
+}

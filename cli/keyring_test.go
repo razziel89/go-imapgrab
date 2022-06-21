@@ -245,3 +245,13 @@ func TestInitCredentialsNoPasswordFromKeyring(t *testing.T) {
 	assert.Equal(t, cfg.password, "some password")
 	mk.AssertExpectations(t)
 }
+
+func TestDefaultKeyringGet(t *testing.T) {
+	dk := defaultKeyringImpl{}
+	_, _ = dk.Get("", "")
+}
+
+func TestDefaultKeyringSet(t *testing.T) {
+	dk := defaultKeyringImpl{}
+	_ = dk.Set("", "", "")
+}
