@@ -87,7 +87,7 @@ an environment variable every time you invoke `go-imapgrab`.
 To do so, simply run the following command:
 
 ```bash
-go-imapgrab login -u ${USERNAME} -s ${SERVER} -p ${PORT}
+go-imapgrab login -u "${USERNAME}" -s "${SERVER}" -p "${PORT}"
 ```
 
 Then, enter your password at the prompt.
@@ -120,7 +120,7 @@ export IGRAB_PASSWORD=${PASSWORD}
 To list folders in your mailbox, run:
 
 ```bash
-go-imapgrab list -u ${USERNAME} -s ${SERVER} -p ${PORT}
+go-imapgrab list -u "${USERNAME}" -s "${SERVER}" -p "${PORT}"
 ```
 
 The specification of the port it optional, it defaults to 993.
@@ -154,8 +154,8 @@ For example, to download all folders apart from Gmail-specific ones and the
 `Drafts` directory, you can run:
 
 ```bash
-go-imapgrab download -u ${USERNAME} -s ${SERVER} -p ${PORT} \
-    -f _ALL_ -f -_Gmail_ -f -Drafts --path ${LOCALPATH}
+go-imapgrab download -u "${USERNAME}" -s "${SERVER}" -p "${PORT}" \
+    -f _ALL_ -f -_Gmail_ -f -Drafts --path "${LOCALPATH}"
 ```
 
 For the first run for a mailbox, specify for `${LOCALPATH}` a non-existing or
