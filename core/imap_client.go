@@ -95,15 +95,36 @@ func selectFolder(imapClient imapOps, folder string) (*imap.MailboxStatus, error
 	return mbox, err
 }
 
-type atomicBool struct {
-	value bool
-	sync.Mutex
+// Type once behaves like sync.Once but we can also query whether it has already been called. This
+// is needed because sync.Once does not provide a facility to check that.
+type once struct {
+	called bool
+	hook   func()
+	sync.Once
+}
+
+func (o *once) call() {
+	o.Do(o.hook)
+}
+
+func newOnce(hook func()) *once {
+	o := once{}
+	innerHook := func() {
+		o.called = true
+		hook()
+	}
+	o.hook = innerHook
+	return &o
 }
 
 // Obtain messages whose ids/indices lie in certain ranges. Negative indices are automatically
 // converted to count from the last message. That is, -1 refers to the most recent message while 1
 // refers to the second oldest email.
-//nolint:funlen
+//
+// In this function, we translate from *imap.Message to emailOps separately. Sadly, the compiler
+// does not auto-generate the code to use a `chan emailOps` as a `chan *imap.Message`. Thus, we need
+// a separate, second goroutine translating between the two. This second goroutine also handles
+// interrupts.
 func streamingRetrieval(
 	mbox *imap.MailboxStatus,
 	imapClient imapOps,
@@ -125,7 +146,8 @@ func streamingRetrieval(
 	}
 
 	wg.Add(1)
-	alreadyDone := atomicBool{value: false}
+	// Ensure we call "Done" exactly once on wg here.
+	alreadyDone := newOnce(func() { wg.Done() })
 	var errCount int
 	translatedMessageChan := make(chan emailOps, messageRetrievalBuffer)
 	orgMessageChan := make(chan *imap.Message)
@@ -141,41 +163,22 @@ func streamingRetrieval(
 			logError(err.Error())
 			errCount++
 		}
-
-		// Ensure we call "Done" exactly once on wg here.
-		alreadyDone.Lock()
-		defer alreadyDone.Unlock()
-		if !alreadyDone.value {
-			alreadyDone.value = true
-			wg.Done()
-		}
+		alreadyDone.call()
 	}()
 
-	// Translate from *imap.Message to emailOps. Sadly, the compiler does not auto-generate the code
-	// to use a `chan emailOps` as a `chan *imap.Message`. Thus, we need a separate goroutine
-	// translating between the two.
-	// Also handle interrupts in this goroutine.
 	go func() {
 		defer close(translatedMessageChan)
-		for !alreadyDone.value {
+		for !alreadyDone.called {
 			select {
 			case <-interrupt:
-				// Ensure we call "Done" exactly once on wg here.
-				alreadyDone.Lock()
-				defer alreadyDone.Unlock()
-				if !alreadyDone.value {
-					alreadyDone.value = true
-					wg.Done()
-				}
+				alreadyDone.call()
 				// Clean up and report.
 				logWarning("caught keyboard interrupt, closing connection")
 				errCount++
 			case msg := <-orgMessageChan:
-				// Somehow, we sometimes receive nil values from the channel. We do not want to
-				// process those any further, which is why we filter them out here.
+				// Ignore nil values that we sometimes receive even though we should not.
 				if msg != nil {
-					// Here, the compiler auto-generates the code to translate a `*imap.Message`
-					// into a `emailOps`.
+					// Here, the compiler generates code to convert `*imap.Message` into emailOps`.
 					translatedMessageChan <- msg
 				}
 			}
