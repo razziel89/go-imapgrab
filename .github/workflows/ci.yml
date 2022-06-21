@@ -53,35 +53,36 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # TODO: uncomment once tests have been added
-    # - name: Test project and generate test coverage
-    #   run: |
-    #    make test
-    #    make coverage_badge_report.out
-    #
-    # - name: Generate coverage badge
-    #   uses: tj-actions/coverage-badge-go@v1
-    #   with:
-    #     filename: coverage_badge_report.out
-    #
-    # - name: Check whether the README was actually updated and commit if it was
-    #   id: readme_check
-    #   run: |
-    #     set -x
-    #     git status
-    #     git diff-index HEAD
-    #     readme_changed=$(git diff-index --quiet HEAD -- README.md; echo $?) || :
-    #     echo "::set-output name=README_CHANGED::${readme_changed}"
-    #     if [[ $readme_changed -eq 1 ]]; then
-    #       git config --local user.email 'github-actions[bot]@users.noreply.github.com' &&
-    #       git config --local user.name 'github-actions[bot]' &&
-    #       git add README.md &&
-    #       git commit -m "Auto-update coverage badge"
-    #     fi
-    #
-    # - name: Push changes if on main branch
-    #   if: steps.readme_check.outputs.README_CHANGED == '1' && github.ref == 'refs/heads/main'
-    #   uses: ad-m/github-push-action@master
-    #   with:
-    #     github_token: ${{ github.token }}
-    #     branch: ${{ github.head_ref }}
+    - name: Test core module and generate test coverage
+      working-directory: ./core/
+      run: |
+       make test
+       make coverage_badge_report.out
+
+    - name: Test CLI module and generate test coverage
+      working-directory: ./cli/
+      run: |
+       make test
+       make coverage_badge_report.out
+    
+    - name: Generate CLI module coverage badge
+      uses: tj-actions/coverage-badge-go@v1
+      with:
+        filename: ./cli/coverage_badge_report.out
+        text: CLI-Coverage
+    
+    - name: Generate core module coverage badge
+      uses: tj-actions/coverage-badge-go@v1
+      with:
+        filename: ./core/coverage_badge_report.out
+        text: Core-Coverage
+    
+    - name: Update readme in repo
+      run: |
+        git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+        git config --local user.name 'github-actions[bot]'
+        # If any of the following commands fail, it means the readme did not
+        # change. Ignore such errors.
+        git add README.md &&
+        git commit -m "Auto-update coverage badges [skip ci] [ci skip]" && 
+        git push origin main || :
