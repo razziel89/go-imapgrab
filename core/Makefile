@@ -12,7 +12,6 @@ lint:
 	golangci-lint run .
 
 full-test:
-	touch go.mod
 	SKIP_INTEGRATION_TESTS=0 $(MAKE) .test.log
 
 test:
