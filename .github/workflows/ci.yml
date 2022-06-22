@@ -44,6 +44,10 @@ jobs:
         version: latest
         skip-go-installation: true
 
+    - name: Set CLIVERSION env var on tag
+      if: startsWith(github.ref, 'refs/tags/')
+      run: echo "CLIVERSION=$(git describe --exact-match --tags | sed 's/^v//')" >> $GITHUB_ENV
+
     - name: Release binaries on tag
       uses: goreleaser/goreleaser-action@v2
       if: startsWith(github.ref, 'refs/tags/')

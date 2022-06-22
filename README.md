@@ -31,7 +31,6 @@ Contributions to these would be welcome.
 - password specification via command line argument (use environment variable or
   keyring for now)
 - more than two verbosity levels
-- `version` and `about` commands
 - disabling SSL for connections
 - change user for download (cf. [`imapgrab`][imapgrab]'s `--localuser` flag) to
   be runnable as `root` (use `sudo` instead to change the user for one
