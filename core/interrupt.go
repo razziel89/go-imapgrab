@@ -20,6 +20,7 @@ package core
 import (
 	"os"
 	"os/signal"
+	"sync"
 )
 
 type interruptT <-chan os.Signal
@@ -28,29 +29,77 @@ type interruptOps interface {
 	register() func()
 	deregister()
 	interrupt() interruptT
+	interrupted() bool
+	uninterruptible(func()) bool
 }
 
 type interrupter struct {
 	signals []os.Signal
 	channel chan os.Signal
+	sync.Mutex
+}
+
+func (i *interrupter) lock() func() {
+	i.Lock()
+	return i.Unlock
 }
 
 func (i *interrupter) register() func() {
+	defer i.lock()()
 	signalChan := make(chan os.Signal, len(i.signals))
 	signal.Notify(signalChan, i.signals...)
 	i.channel = signalChan
 	return i.deregister
 }
 
-func (i *interrupter) deregister() {
-	signal.Stop(i.channel)
+func (i *interrupter) deregisterNoLock() {
+	if i.channel != nil {
+		signal.Stop(i.channel)
+	}
 	i.channel = nil
 }
 
+func (i *interrupter) deregister() {
+	defer i.lock()()
+	i.deregisterNoLock()
+}
+
 func (i *interrupter) interrupt() interruptT {
+	defer i.lock()()
 	return i.channel
 }
 
+func (i *interrupter) uninterruptible(fn func()) bool {
+	defer i.lock()()
+	if i.channel == nil {
+		return false
+	}
+	select {
+	case <-i.channel:
+		i.deregisterNoLock()
+		return false
+	default:
+		fn()
+		return true
+	}
+}
+
+func (i *interrupter) interrupted() bool {
+	defer i.lock()()
+	if i.channel == nil {
+		return true
+	}
+	select {
+	case <-i.channel:
+		i.deregisterNoLock()
+		return true
+	default:
+		return false
+	}
+}
+
 func newInterruptOps(signals []os.Signal) interruptOps {
-	return &interrupter{signals: signals}
+	result := &interrupter{signals: signals}
+	result.register()
+	return result
 }

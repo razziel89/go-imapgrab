@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -65,6 +66,7 @@ func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
 
 // logout is used to log out from an authenticated session
 func (ig *Imapgrabber) logout(doTerminate bool) error {
+	defer ig.interruptOps.deregister()
 	if doTerminate {
 		logInfo("terminating connection")
 		return ig.imapOps.Terminate()
@@ -82,8 +84,13 @@ func (ig *Imapgrabber) getFolderList() ([]string, error) {
 // but missing locally
 func (ig *Imapgrabber) downloadMissingEmailsToFolder(
 	maildirPath maildirPathT, oldmailName string,
-) error {
-	return downloadMissingEmailsToFolder(ig.downloadOps, maildirPath, oldmailName, ig.interruptOps)
+) (err error) {
+	if !ig.interruptOps.interrupted() {
+		return downloadMissingEmailsToFolder(
+			ig.downloadOps, maildirPath, oldmailName, ig.interruptOps,
+		)
+	}
+	return fmt.Errorf("not downloading due to previous interrupt")
 }
 
 // NewImapgrabOps creates a new instance of the default implementation of ImapgrabOps.
@@ -107,6 +114,46 @@ func GetAllFolders(cfg IMAPConfig, ops ImapgrabOps) (folders []string, err error
 	}
 	return folders, err
 }
+
+type threadConfig struct {
+	cfg    IMAPConfig
+	folder string
+}
+
+// func ParallelFolderDownload(
+//     cfgs []IMAPConfig, folders []string, maildirBase string, threads int,
+// ) (err error) {
+//
+//     if len(cfgs) != len(folders) {
+//         return fmt.Errorf("have %d configs for %d folders", len(cfgs), len(folders))
+//     }
+//
+//     threadCfgs := []threadConfig{}
+//     for idx := range cfgs {
+//         threadCfgs = append(threadCfgs, threadConfig{cfgs[idx], folders[idx]})
+//     }
+//
+//     // This channel will ensure we never run more than threads download operations at the same time.
+//     controller := make(chan bool, threads)
+//     // Fill controller up. Each value in the controller means we can spawn one more thread.
+//     for idx := 0; idx < threads; idx++ {
+//         controller <- true
+//     }
+//
+//     interrupt := newInterruptOps([]os.Signal{os.Interrupt})
+//     defer interrupt.register()()
+//
+//     for threadIdx, threadCfg := range threadCfgs {
+//         if interrupted {
+//             break
+//         }
+//         controller <- true
+//         go func() {
+//             // Fill controller back up.
+//             controller <- true
+//         }()
+//     }
+// }
 
 // DownloadFolder downloads all not yet downloaded email from a folder in a mailbox to a maildir.
 // The oldmail file in the parent directory of the maildir is used to determine which emails have

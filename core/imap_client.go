@@ -130,7 +130,7 @@ func streamingRetrieval(
 	imapClient imapOps,
 	indices []rangeT,
 	wg, startWg *sync.WaitGroup,
-	interrupt interruptT,
+	interrupted func() bool,
 ) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
 	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
 	// index.
@@ -169,13 +169,13 @@ func streamingRetrieval(
 	go func() {
 		defer close(translatedMessageChan)
 		for !already.called {
-			select {
-			case <-interrupt:
+			if interrupted() {
 				errCount++
 				already.call()
 				logWarning("caught keyboard interrupt, closing connection")
 				// Clean up and report.
-			case msg := <-orgMessageChan:
+			} else {
+				msg := <-orgMessageChan
 				// Ignore nil values that we sometimes receive even though we should not.
 				if msg != nil {
 					// Here, the compiler generates code to convert `*imap.Message` into emailOps`.
