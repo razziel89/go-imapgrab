@@ -21,6 +21,8 @@ package core
 import (
 	"fmt"
 	"os"
+	"strings"
+	"sync"
 )
 
 // IMAPConfig is a configuration needed to access an IMAP server.
@@ -115,81 +117,110 @@ func GetAllFolders(cfg IMAPConfig, ops ImapgrabOps) (folders []string, err error
 	return folders, err
 }
 
-type threadConfig struct {
-	cfg    IMAPConfig
-	folder string
+func partitionFolders(folders []string, numPartitions int) [][]string {
+	// partitions := [][]string{}
+	//
+	// for _, folder := range folders {
+	//     partitions = append(partitions, []string{folder})
+	// }
+	//
+	// return partitions
+	return [][]string{[]string{}, folders}
 }
 
-// func ParallelFolderDownload(
-//     cfgs []IMAPConfig, folders []string, maildirBase string, threads int,
-// ) (err error) {
-//
-//     if len(cfgs) != len(folders) {
-//         return fmt.Errorf("have %d configs for %d folders", len(cfgs), len(folders))
-//     }
-//
-//     threadCfgs := []threadConfig{}
-//     for idx := range cfgs {
-//         threadCfgs = append(threadCfgs, threadConfig{cfgs[idx], folders[idx]})
-//     }
-//
-//     // This channel will ensure we never run more than threads download operations at the same time.
-//     controller := make(chan bool, threads)
-//     // Fill controller up. Each value in the controller means we can spawn one more thread.
-//     for idx := 0; idx < threads; idx++ {
-//         controller <- true
-//     }
-//
-//     interrupt := newInterruptOps([]os.Signal{os.Interrupt})
-//     defer interrupt.register()()
-//
-//     for threadIdx, threadCfg := range threadCfgs {
-//         if interrupted {
-//             break
-//         }
-//         controller <- true
-//         go func() {
-//             // Fill controller back up.
-//             controller <- true
-//         }()
-//     }
-// }
+type threadSafeErrors struct {
+	errs []string
+	sync.Mutex
+}
+
+func (t *threadSafeErrors) add(err error) {
+	t.Lock()
+	defer t.Unlock()
+	if err != nil {
+		t.errs = append(t.errs, err.Error())
+	}
+}
+
+func (t *threadSafeErrors) err() error {
+	t.Lock()
+	defer t.Unlock()
+	if len(t.errs) == 0 {
+		return nil
+	}
+	return fmt.Errorf("errors detected: %s", strings.Join(t.errs, ", "))
+}
 
 // DownloadFolder downloads all not yet downloaded email from a folder in a mailbox to a maildir.
 // The oldmail file in the parent directory of the maildir is used to determine which emails have
 // already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
 // the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
 // sub-directory.
-func DownloadFolder(
-	cfg IMAPConfig, folders []string, maildirBase string, ops ImapgrabOps,
-) (err error) {
+func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, threads int) error {
+	interrupt := newInterruptOps([]os.Signal{os.Interrupt})
+	defer interrupt.deregister()
+
+	errs := threadSafeErrors{}
+
+	ops := NewImapgrabOps()
 	// Authenticate against the remote server.
-	err = ops.authenticateClient(cfg)
+	errs.add(ops.authenticateClient(cfg))
+	logError(fmt.Sprintf("authenticated download ops %d/%d(max)", 1, threads))
 
 	var availableFolders []string
-	if err == nil {
+	if errs.err() == nil {
 		// Make sure to log out in the end if we logged in successfully.
 		defer func() {
-			if logoutErr := ops.logout(err != nil); logoutErr != nil && err == nil {
-				// Don't overwrite the error if it has already been set.
-				err = logoutErr
-			}
+			errs.add(ops.logout(errs.err() != nil))
 		}()
 		// Actually retrieve folder list.
+		var err error
 		availableFolders, err = ops.getFolderList()
+		errs.add(err)
 	}
-	if err == nil {
-		folders = expandFolders(folders, availableFolders)
+	if errs.err() != nil {
+		return errs.err()
+	}
+	folders = expandFolders(folders, availableFolders)
+	partitions := partitionFolders(folders, threads)
 
-		for _, folder := range folders {
-			oldmailFilePath := oldmailFileName(cfg, folder)
-			maildirPath := maildirPathT{base: maildirBase, folder: folder}
+	var wg sync.WaitGroup
+	defer wg.Wait()
 
-			err = ops.downloadMissingEmailsToFolder(maildirPath, oldmailFilePath)
-			if err != nil {
-				return err
-			}
+	for idx, partition := range partitions {
+		logError(fmt.Sprint(idx, partition))
+		if idx > 0 {
+			// The first goroutine will use the "ops" we alread have. Every other goroutine will get
+			// its own "ops". This way, the mutex implicit in the interrupt handler does not cause
+			// deadlocks or slowdowns beocause each gorutine has its own one.
+			// After this call, the interrupt signal handler hidden in "ops" will be registered.
+			ops = NewImapgrabOps()
+			// Authenticate against the remote server.
+			errs.add(ops.authenticateClient(cfg))
+			logError(fmt.Sprintf("authenticated download ops %d/%d(max)", idx+1, threads))
+			// Make sure to log out in the end if we logged in successfully.
+			defer func() {
+				errs.add(ops.logout(errs.err() != nil))
+			}()
+		}
+		// The signal handler in "ops" is already registered. Thus, if we have no yet been
+		// interrupted, we can be sure the goroutine will receive any interrupt.
+		if !interrupt.interrupted() && errs.err() == nil {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for _, folder := range partition {
+					logError(folder)
+					oldmailFilePath := oldmailFileName(cfg, folder)
+					maildirPath := maildirPathT{base: maildirBase, folder: folder}
+
+					downloadErr := ops.downloadMissingEmailsToFolder(maildirPath, oldmailFilePath)
+					errs.add(downloadErr)
+				}
+			}()
+		} else {
+			errs.add(fmt.Errorf("stopping download threads due to user interrupt or error"))
+			break
 		}
 	}
-	return err
+	return errs.err()
 }

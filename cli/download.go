@@ -27,6 +27,7 @@ var downloadConf downloadConfigT
 type downloadConfigT struct {
 	folders []string
 	path    string
+	threads int
 }
 
 func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command {
@@ -41,8 +42,9 @@ func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *co
 				User:     rootConf.username,
 				Password: rootConf.password,
 			}
-			imapgrabOps := core.NewImapgrabOps()
-			return core.DownloadFolder(cfg, downloadConf.folders, downloadConf.path, imapgrabOps)
+			return core.DownloadFolder(
+				cfg, downloadConf.folders, downloadConf.path, downloadConf.threads,
+			)
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Do not use the keyring if it has been disabled globally or if this is a test run,
@@ -76,4 +78,5 @@ func initDownloadFlags(downloadCmd *cobra.Command) {
 			"spec to deselect instead, specs are interpreted in order)\n",
 	)
 	pflags.StringVar(&downloadConf.path, "path", "", "the local path to your maildir's parent dir")
+	pflags.IntVarP(&downloadConf.threads, "threads", "t", 1, "number of download threads to use")
 }
