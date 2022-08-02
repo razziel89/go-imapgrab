@@ -73,7 +73,7 @@ func (ig *Imapgrabber) logout(doTerminate bool) error {
 		logInfo("terminating connection")
 		return ig.imapOps.Terminate()
 	}
-	logInfo("logging out")
+	logInfo(fmt.Sprintf("logging out %v", ig))
 	return ig.imapOps.Logout()
 }
 
@@ -124,8 +124,9 @@ func partitionFolders(folders []string, numPartitions int) [][]string {
 	//     partitions = append(partitions, []string{folder})
 	// }
 	//
-	// return partitions
+	// return [][]string{folders}
 	return [][]string{[]string{}, folders}
+	// return [][]string{[]string{}, []string{}}
 }
 
 type threadSafeErrors struct {
@@ -161,33 +162,38 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 
 	errs := threadSafeErrors{}
 
-	ops := NewImapgrabOps()
+	mainOps := NewImapgrabOps()
 	// Authenticate against the remote server.
-	errs.add(ops.authenticateClient(cfg))
+	errs.add(mainOps.authenticateClient(cfg))
 	logError(fmt.Sprintf("authenticated download ops %d/%d(max)", 1, threads))
 
 	var availableFolders []string
 	if errs.err() == nil {
-		// Make sure to log out in the end if we logged in successfully.
-		defer func() {
-			errs.add(ops.logout(errs.err() != nil))
-		}()
+		// The logout happens in each goroutine that uses the ImapgrabOps.
 		// Actually retrieve folder list.
 		var err error
-		availableFolders, err = ops.getFolderList()
+		availableFolders, err = mainOps.getFolderList()
 		errs.add(err)
 	}
 	if errs.err() != nil {
+		// Special case handling for logout in error case.
+		errs.add(mainOps.logout(errs.err() != nil))
 		return errs.err()
 	}
 	folders = expandFolders(folders, availableFolders)
 	partitions := partitionFolders(folders, threads)
+	// threads = len(partitions)
 
 	var wg sync.WaitGroup
-	defer wg.Wait()
+	defer func() {
+		logError("DONE")
+		wg.Wait()
+	}()
 
-	for idx, partition := range partitions {
+	for idx := range partitions {
+		partition := partitions[idx]
 		logError(fmt.Sprint(idx, partition))
+		var ops ImapgrabOps
 		if idx > 0 {
 			// The first goroutine will use the "ops" we alread have. Every other goroutine will get
 			// its own "ops". This way, the mutex implicit in the interrupt handler does not cause
@@ -197,10 +203,8 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 			// Authenticate against the remote server.
 			errs.add(ops.authenticateClient(cfg))
 			logError(fmt.Sprintf("authenticated download ops %d/%d(max)", idx+1, threads))
-			// Make sure to log out in the end if we logged in successfully.
-			defer func() {
-				errs.add(ops.logout(errs.err() != nil))
-			}()
+		} else {
+			ops = mainOps
 		}
 		// The signal handler in "ops" is already registered. Thus, if we have no yet been
 		// interrupted, we can be sure the goroutine will receive any interrupt.
@@ -208,16 +212,26 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+				// Make sure to log out in the end if we logged in successfully.
+				defer func() {
+					errs.add(ops.logout(errs.err() != nil))
+				}()
+				logError(fmt.Sprintf("GR: %v", partition))
+				logError(fmt.Sprintf("OPS: %v", ops))
 				for _, folder := range partition {
 					logError(folder)
 					oldmailFilePath := oldmailFileName(cfg, folder)
+					logError(oldmailFilePath)
 					maildirPath := maildirPathT{base: maildirBase, folder: folder}
+					logError(fmt.Sprint(maildirPath))
 
 					downloadErr := ops.downloadMissingEmailsToFolder(maildirPath, oldmailFilePath)
 					errs.add(downloadErr)
 				}
+				logError("GR: DONE")
 			}()
 		} else {
+			logError("interrupted")
 			errs.add(fmt.Errorf("stopping download threads due to user interrupt or error"))
 			break
 		}

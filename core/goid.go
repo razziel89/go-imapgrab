@@ -18,31 +18,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
-	"log"
+	"bytes"
+	"fmt"
+	"runtime"
+	"strconv"
 )
 
-const logJoiner = ", "
-
-var verbose = false
-
-// SetVerboseLogs sets the log level for core functionality to verbose if passed true and to less
-// verbose if passed false.
-func SetVerboseLogs(verb bool) {
-	verbose = verb
-}
-
-func logInfo(msg string) {
-	if verbose {
-		log.Println(grid()+": INFO", msg)
-	}
-}
-
-func logWarning(msg string) {
-	// Always log warning.
-	log.Println(grid()+": WARNING", msg)
-}
-
-func logError(msg string) {
-	// Always log errors.
-	log.Println(grid()+": ERROR", msg)
+func grid() string {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return fmt.Sprint(n)
 }
