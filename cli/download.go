@@ -69,14 +69,15 @@ func initDownloadFlags(downloadCmd *cobra.Command) {
 
 	pflags.StringSliceVarP(
 		&downloadConf.folders,
-		"folder",
-		"f",
-		[]string{},
+		"folder", "f", []string{},
 		"a folder spec specifying something to download (can be a folder name,\n"+
 			"_ALL_ selects all folders, _Gmail_ selects Gmail folders, specify this\n"+
 			"flag multiple times for multiple specs, prepend a minus '-' to any\n"+
 			"spec to deselect instead, specs are interpreted in order)\n",
 	)
 	pflags.StringVar(&downloadConf.path, "path", "", "the local path to your maildir's parent dir")
-	pflags.IntVarP(&downloadConf.threads, "threads", "t", 1, "number of download threads to use")
+	pflags.IntVarP(
+		&downloadConf.threads, "threads", "t", 0,
+		"number of download threads to use, one per folder by default",
+	)
 }
