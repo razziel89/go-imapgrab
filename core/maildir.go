@@ -41,7 +41,7 @@ const (
 // A global delivery counter for this process used to determine a unique file name. A value of 0
 // means no delivery has yet occurred.
 // TODO: use a mutex to enable multi-threaded downloads.
-var deliveryCount = 0
+var deliveryCount = threadSafeCounter{}
 
 // Get a unique name for an email that will be delivered. Follow the process described here
 // https://cr.yp.to/proto/maildir.html and implemented by getmail6 here
@@ -56,12 +56,7 @@ var deliveryCount = 0
 // You can inject a hostname, which allows to simulate generating a unique name for other
 // environments. If none is injected (empty hostname), generate data for the current system.
 func newUniqueName(hostname string) (filename string, err error) {
-	defer func() {
-		// Increment the global delivery counter for this process. Increment even in an error case
-		// since this counter is supposed to be unique for every message that this process has
-		// processed.
-		deliveryCount++
-	}()
+	localCount := deliveryCount.inc()
 
 	// Determine data with functions that cannot fail.
 	now := time.Now()
@@ -90,7 +85,7 @@ func newUniqueName(hostname string) (filename string, err error) {
 	}
 
 	filename = fmt.Sprintf(
-		"%d.M%dP%dQ%dR%s.%s", timeInSecs, microSecsOfTime, pid, deliveryCount, randomHex, hostname,
+		"%d.M%dP%dQ%dR%s.%s", timeInSecs, microSecsOfTime, pid, localCount, randomHex, hostname,
 	)
 
 	// Sanity check against spaces in the file name.

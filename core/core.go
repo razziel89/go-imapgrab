@@ -21,7 +21,6 @@ package core
 import (
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 )
 
@@ -133,28 +132,6 @@ func partitionFolders(folders []string, numPartitions int) ([][]string, int) {
 	return partitions, numPartitions
 }
 
-type threadSafeErrors struct {
-	errs []string
-	sync.Mutex
-}
-
-func (t *threadSafeErrors) add(err error) {
-	t.Lock()
-	defer t.Unlock()
-	if err != nil {
-		t.errs = append(t.errs, err.Error())
-	}
-}
-
-func (t *threadSafeErrors) err() error {
-	t.Lock()
-	defer t.Unlock()
-	if len(t.errs) == 0 {
-		return nil
-	}
-	return fmt.Errorf("errors detected: %s", strings.Join(t.errs, ", "))
-}
-
 // DownloadFolder downloads all not yet downloaded email from a folder in a mailbox to a maildir.
 // The oldmail file in the parent directory of the maildir is used to determine which emails have
 // already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
@@ -164,38 +141,35 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 	interrupt := newInterruptOps([]os.Signal{os.Interrupt})
 	defer interrupt.deregister()
 
-	errs := threadSafeErrors{}
+	errs := threadSafeErrors{verbose: true}
 
+	// The logout happens in each goroutine that uses the ImapgrabOps to download. This one will be
+	// used by the first downloading goroutine.
 	mainOps := NewImapgrabOps()
 	// Authenticate against the remote server.
 	errs.add(mainOps.authenticateClient(cfg))
-	logError(fmt.Sprintf("authenticated download ops %d/%d(max)", 1, threads))
 
 	var availableFolders []string
-	if errs.err() == nil {
-		// The logout happens in each goroutine that uses the ImapgrabOps.
+	if errs.bad() {
 		// Actually retrieve folder list.
 		var err error
 		availableFolders, err = mainOps.getFolderList()
 		errs.add(err)
 	}
-	if errs.err() != nil {
+	if errs.bad() {
 		// Special case handling for logout in error case.
-		errs.add(mainOps.logout(errs.err() != nil))
+		errs.add(mainOps.logout(true))
 		return errs.err()
 	}
 	folders = expandFolders(folders, availableFolders)
 	partitions, threads := partitionFolders(folders, threads)
 
 	var wg sync.WaitGroup
-	defer func() {
-		logError("DONE")
-		wg.Wait()
-	}()
 
 	for idx := range partitions {
+		// We must not close over loop variables in Go. Otherwise, the second iteration will
+		// overwrite the partition used in the first iteration's goroutine.
 		partition := partitions[idx]
-		logError(fmt.Sprint(idx, partition))
 		var ops ImapgrabOps
 		if idx > 0 {
 			// The first goroutine will use the "ops" we alread have. Every other goroutine will get
@@ -205,39 +179,36 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 			ops = NewImapgrabOps()
 			// Authenticate against the remote server.
 			errs.add(ops.authenticateClient(cfg))
-			logError(fmt.Sprintf("authenticated download ops %d/%d(max)", idx+1, threads))
 		} else {
 			ops = mainOps
 		}
-		// The signal handler in "ops" is already registered. Thus, if we have no yet been
+		// The signal handler in "ops" is already registered. Thus, if we have not yet been
 		// interrupted, we can be sure the goroutine will receive any interrupt.
-		if !interrupt.interrupted() && errs.err() == nil {
+		if !interrupt.interrupted() && !errs.bad() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				// Make sure to log out in the end if we logged in successfully.
 				defer func() {
-					errs.add(ops.logout(errs.err() != nil))
+					errs.add(ops.logout(errs.bad()))
 				}()
-				logError(fmt.Sprintf("GR: %v", partition))
-				logError(fmt.Sprintf("OPS: %v", ops))
 				for _, folder := range partition {
-					logError(folder)
 					oldmailFilePath := oldmailFileName(cfg, folder)
-					logError(oldmailFilePath)
 					maildirPath := maildirPathT{base: maildirBase, folder: folder}
-					logError(fmt.Sprint(maildirPath))
 
 					downloadErr := ops.downloadMissingEmailsToFolder(maildirPath, oldmailFilePath)
 					errs.add(downloadErr)
 				}
-				logError("GR: DONE")
 			}()
 		} else {
-			logError("interrupted")
 			errs.add(fmt.Errorf("stopping download threads due to user interrupt or error"))
 			break
 		}
 	}
+
+	// Wait here instead of deferring the wait. Deferred functions are executed after computing the
+	// return value, but we want to return the actual error. Thus, wait until all goroutines have
+	// finished and return the error value then.
+	wg.Wait()
 	return errs.err()
 }

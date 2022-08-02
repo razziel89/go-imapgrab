@@ -18,17 +18,51 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
-	"bytes"
 	"fmt"
-	"runtime"
-	"strconv"
+	"strings"
+	"sync"
 )
 
-func grid() string {
-	b := make([]byte, 64)
-	b = b[:runtime.Stack(b, false)]
-	b = bytes.TrimPrefix(b, []byte("goroutine "))
-	b = b[:bytes.IndexByte(b, ' ')]
-	n, _ := strconv.ParseUint(string(b), 10, 64)
-	return fmt.Sprint(n)
+type threadSafeErrors struct {
+	errs    []string
+	verbose bool
+	sync.Mutex
+}
+
+func (t *threadSafeErrors) add(err error) {
+	if err != nil {
+		if t.verbose {
+			logError(err.Error())
+		}
+		t.Lock()
+		defer t.Unlock()
+		t.errs = append(t.errs, err.Error())
+	}
+}
+
+func (t *threadSafeErrors) bad() bool {
+	t.Lock()
+	defer t.Unlock()
+	return len(t.errs) != 0
+}
+
+func (t *threadSafeErrors) err() error {
+	t.Lock()
+	defer t.Unlock()
+	if len(t.errs) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%d errors detected: %s", len(t.errs), strings.Join(t.errs, ", "))
+}
+
+type threadSafeCounter struct {
+	count int
+	sync.Mutex
+}
+
+func (t *threadSafeCounter) inc() int {
+	t.Lock()
+	defer t.Unlock()
+	t.count++
+	return t.count
 }
