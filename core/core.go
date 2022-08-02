@@ -117,16 +117,20 @@ func GetAllFolders(cfg IMAPConfig, ops ImapgrabOps) (folders []string, err error
 	return folders, err
 }
 
-func partitionFolders(folders []string, numPartitions int) [][]string {
-	// partitions := [][]string{}
-	//
-	// for _, folder := range folders {
-	//     partitions = append(partitions, []string{folder})
-	// }
-	//
-	// return [][]string{folders}
-	return [][]string{[]string{}, folders}
-	// return [][]string{[]string{}, []string{}}
+func partitionFolders(folders []string, numPartitions int) ([][]string, int) {
+	// Never spawn more threads than there are folders.
+	if numPartitions > len(folders) {
+		numPartitions = len(folders)
+	}
+
+	partitions := make([][]string, numPartitions)
+
+	for idx, folder := range folders {
+		partIdx := idx % numPartitions
+		partitions[partIdx] = append(partitions[partIdx], folder)
+	}
+
+	return partitions, numPartitions
 }
 
 type threadSafeErrors struct {
@@ -181,8 +185,7 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 		return errs.err()
 	}
 	folders = expandFolders(folders, availableFolders)
-	partitions := partitionFolders(folders, threads)
-	// threads = len(partitions)
+	partitions, threads := partitionFolders(folders, threads)
 
 	var wg sync.WaitGroup
 	defer func() {
