@@ -72,7 +72,7 @@ func (ig *Imapgrabber) logout(doTerminate bool) error {
 		logInfo("terminating connection")
 		return ig.imapOps.Terminate()
 	}
-	logInfo(fmt.Sprintf("logging out %v", ig))
+	logInfo(fmt.Sprintf("logging out"))
 	return ig.imapOps.Logout()
 }
 
@@ -150,7 +150,7 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 	errs.add(mainOps.authenticateClient(cfg))
 
 	var availableFolders []string
-	if errs.bad() {
+	if !errs.bad() {
 		// Actually retrieve folder list.
 		var err error
 		availableFolders, err = mainOps.getFolderList()
@@ -160,6 +160,9 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 		// Special case handling for logout in error case.
 		errs.add(mainOps.logout(true))
 		return errs.err()
+	}
+	if threads == 0 {
+		threads = len(availableFolders)
 	}
 	folders = expandFolders(folders, availableFolders)
 	partitions, threads := partitionFolders(folders, threads)
