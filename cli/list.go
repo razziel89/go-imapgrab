@@ -26,7 +26,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func getListCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command {
+func getListCmd(
+	rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
+) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Print all folders in your inbox.",
@@ -39,7 +41,7 @@ func getListCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.
 				Password: rootConf.password,
 			}
 			imapgrabOps := core.NewImapgrabOps()
-			folders, err := core.GetAllFolders(cfg, imapgrabOps)
+			folders, err := ops.getAllFolders(cfg, imapgrabOps)
 
 			sort.Strings(folders)
 			fmt.Println(strings.Join(folders, "\n"))
@@ -57,7 +59,7 @@ func getListCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.
 	return cmd
 }
 
-var listCmd = getListCmd(&rootConf, defaultKeyring, true)
+var listCmd = getListCmd(&rootConf, defaultKeyring, true, &corer{})
 
 func init() {
 	rootCmd.AddCommand(listCmd)

@@ -25,9 +25,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TODO: implement mock for coreOps
+
 func doTestOfDownloadOrList(
 	t *testing.T,
-	getCmdFn func(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command,
+	getCmdFn func(
+		rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
+	) *cobra.Command,
 ) {
 	t.Setenv("IGRAB_PASSWORD", "some password")
 

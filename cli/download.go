@@ -30,7 +30,9 @@ type downloadConfigT struct {
 	threads int
 }
 
-func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command {
+func getDownloadCmd(
+	rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
+) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "download",
 		Short: "Download all not yet downloaded emails from a folder to a maildir.",
@@ -42,7 +44,7 @@ func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *co
 				User:     rootConf.username,
 				Password: rootConf.password,
 			}
-			return core.DownloadFolder(
+			return ops.downloadFolder(
 				cfg, downloadConf.folders, downloadConf.path, downloadConf.threads,
 			)
 		},
@@ -57,7 +59,7 @@ func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *co
 	return cmd
 }
 
-var downloadCmd = getDownloadCmd(&rootConf, defaultKeyring, true)
+var downloadCmd = getDownloadCmd(&rootConf, defaultKeyring, true, &corer{})
 
 func init() {
 	initDownloadFlags(downloadCmd)
