@@ -125,25 +125,35 @@ func streamingOldmailWriteout(
 	var errCount int
 	wg.Add(1)
 	go func() {
+		var byteCount int
+		var err error
 		// Do not start before the entire pipeline has been set up.
 		stwg.Wait()
 		for om := range oldmailChan {
-			line := fmt.Sprintf(oldmailFormat, om.uidValidity, om.uid, om.timestamp)
-			// Undo the replacement done when reading the file. See readOldmail for details.
-			lineAsBytes := bytes.ReplaceAll([]byte(line), oldmailSepReplace, oldmailFormatSep)
-			byteCount, err := handle.Write(lineAsBytes)
-			if err != nil {
-				logError(err.Error())
-				errCount++
-				// TODO: Don't attempt to write anymore. We don't expect a failure to write to fix
-				// itself suddenly for the next writeout. However, right now, breaking here would
-				// mean the previous goroutines in the pipeline would hang. Since we wait for all of
-				// them to finish, that would mean one error to write results in a deadlock.
-				// Find a solution for this problem and break here on the first error.
-				// I don't expect many write-out errors in real life, though. Most failure cases
-				// will be caught when opening the file above. Still, a fix would be nice.
+			// We do not expect errors to write out to fix themselves the next time around. Thus, we
+			// only write if all writes had been successful so far. However, we read from
+			// oldmailChan even if there has been an error. That way, we ensure that other
+			// goroutines feeding the input channels do not hang.
+			//
+			// TODO: Find a way to signal the other goroutines that there has been an error. Until
+			// now, we would continue to retrieve and parse emails but not write oldmail information
+			// to disk.
+			//
+			// I don't expect many write-out errors in real life, though. Most failure
+			// cases will be caught when opening the file above. Still, a fix would be nice.
+			if err == nil {
+				line := fmt.Sprintf(oldmailFormat, om.uidValidity, om.uid, om.timestamp)
+				// Undo the replacement done when reading the file. See readOldmail for details.
+				lineAsBytes := bytes.ReplaceAll([]byte(line), oldmailSepReplace, oldmailFormatSep)
+				byteCount, err = handle.Write(lineAsBytes)
+				if err != nil {
+					logError(err.Error())
+					errCount++
+				} else {
+					logInfo(fmt.Sprintf("wrote %d bytes to oldmail file", byteCount))
+				}
 			} else {
-				logInfo(fmt.Sprintf("wrote %d bytes to oldmail file", byteCount))
+				logInfo("skipping oldmail writeout due to previous write error")
 			}
 		}
 
