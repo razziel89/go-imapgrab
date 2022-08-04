@@ -65,7 +65,7 @@ func (m *mockDownloader) streamingOldmailWriteout(
 }
 
 func (m *mockDownloader) streamingRetrieval(
-	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup, in interruptT,
+	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup, in func() bool,
 ) (<-chan emailOps, *int, error) {
 	args := m.Called(mbox, missingIDRanges, wg, startWg, in)
 	wg.Add(1)
@@ -130,7 +130,6 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	deliveredChan := make(chan oldmail)
 	var inDeliveredChan <-chan oldmail = deliveredChan
 	var deliverErrCount int
-
 	var oldmailErrCount int
 
 	m := &mockDownloader{
@@ -141,16 +140,16 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 		deliveredChan: deliveredChan,
 	}
 
-	interrupt := make(interruptT)
 	mi := &mockInterrupter{}
-	mi.On("register").Return(mi.deregister)
-	mi.On("deregister").Return()
-	mi.On("interrupt").Return(interrupt)
+	mi.On("interrupted").Return(false)
 
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
-	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything, interrupt).
-		Return(messageChan, &fetchErrCount, nil)
+	m.On("streamingRetrieval",
+		mbox, missingIDRanges, mock.Anything, mock.Anything,
+		// We cannot use functions in expectations. Thus use this construct instead.
+		mock.AnythingOfType("func() bool"),
+	).Return(messageChan, &fetchErrCount, nil)
 	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
@@ -176,17 +175,15 @@ func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 
 	m := &mockDownloader{t: t}
 
-	m.On("selectFolder", "some-folder").Return(mbox, fmt.Errorf("some error"))
+	m.On("selectFolder", "some-folder").Return(mbox, nil)
 
 	mi := &mockInterrupter{}
-	mi.On("register").Return(mi.deregister)
-	mi.On("deregister").Return()
-	mi.On("interrupt").Return(make(interruptT))
+	mi.On("interrupted").Return(true) // Simulate an interrupt.
 
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
 	assert.Error(t, err)
-	assert.Equal(t, "some error", err.Error())
+	assert.Equal(t, "aborting due to user interrupt", err.Error())
 	m.AssertExpectations(t)
 }
 
@@ -209,9 +206,7 @@ func TestDownloadMissingEmailsToFolderPreparationNoNewEmails(t *testing.T) {
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
 
 	mi := &mockInterrupter{}
-	mi.On("register").Return(mi.deregister)
-	mi.On("deregister").Return()
-	mi.On("interrupt").Return(make(interruptT))
+	mi.On("interrupted").Return(false)
 
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
@@ -257,16 +252,15 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 		deliveredChan: deliveredChan,
 	}
 
-	interrupt := make(interruptT)
 	mi := &mockInterrupter{}
-	mi.On("register").Return(mi.deregister)
-	mi.On("deregister").Return()
-	mi.On("interrupt").Return(interrupt)
+	mi.On("interrupted").Return(false)
 
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
-	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything, interrupt).
-		Return(messageChan, &fetchErrCount, nil)
+	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything,
+		// We cannot use functions in expectations. Thus use this construct instead.
+		mock.AnythingOfType("func() bool"),
+	).Return(messageChan, &fetchErrCount, nil)
 	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
@@ -333,8 +327,9 @@ func TestDownloaderStreamingRetrieval(t *testing.T) {
 		deliverOps: nil,
 	}
 	var wg, startWg sync.WaitGroup
+	interrupted := func() bool { return false }
 
-	_, errPtr, err := dl.streamingRetrieval(mbox, nil, &wg, &startWg, make(interruptT))
+	_, errPtr, err := dl.streamingRetrieval(mbox, nil, &wg, &startWg, interrupted)
 
 	assert.NoError(t, err)
 	wg.Wait()

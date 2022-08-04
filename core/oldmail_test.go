@@ -292,7 +292,7 @@ func TestOldmailWriteoutWriteAndCloseError(t *testing.T) {
 
 	wg.Wait()
 
-	assert.Equal(t, 3, *errCountPtr)
+	assert.Equal(t, 2, *errCountPtr)
 	f.m.AssertExpectations(t)
 
 	// Ensure that was the last value in the channel.

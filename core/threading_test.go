@@ -15,28 +15,33 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package main
+package core
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestListCommand(t *testing.T) {
-	mockOps := mockCoreOps{}
-	mockOps.On("getAllFolders", mock.Anything).Return([]string{}, fmt.Errorf("some error"))
-	defer mockOps.AssertExpectations(t)
+func TestThreadSafeErrorsLifeCycle(t *testing.T) {
+	errs := threadSafeErrors{}
+	assert.NoError(t, errs.err())
+	assert.False(t, errs.bad())
 
-	doTestOfDownloadOrList(t, getListCmd, &mockOps)
-}
+	// Adding no error will not cause the state to turn bad.
+	errs.add(nil)
+	assert.NoError(t, errs.err())
+	assert.False(t, errs.bad())
 
-func TestListCommandNoKeyringProdRun(t *testing.T) {
-	mockOps := mockCoreOps{}
-	// Nothing will be called because the keyring cannot be initialised and the password is not
-	// given via an env var.
-	defer mockOps.AssertExpectations(t)
+	// Adding an error will cause the state to turn bad.
+	errs.add(fmt.Errorf("some error"))
+	assert.Error(t, errs.err())
+	assert.True(t, errs.bad())
+	assert.Contains(t, errs.err().Error(), "some error")
 
-	doTestOfDownloadOrListNoKeyringProdRun(t, getDownloadCmd, &mockOps)
+	// Adding no error will keep the state bad.
+	errs.add(nil)
+	assert.Error(t, errs.err())
+	assert.True(t, errs.bad())
 }

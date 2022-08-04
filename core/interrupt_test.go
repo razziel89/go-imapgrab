@@ -31,37 +31,41 @@ type mockInterrupter struct {
 	mock.Mock
 }
 
-func (i *mockInterrupter) register() func() {
-	args := i.Called()
-	return args.Get(0).(func())
-}
-
 func (i *mockInterrupter) deregister() {
 	_ = i.Called()
 }
 
-func (i *mockInterrupter) interrupt() interruptT {
+func (i *mockInterrupter) interrupted() bool {
 	args := i.Called()
-	return args.Get(0).(interruptT)
+	return args.Bool(0)
 }
 
 func TestInterrupter(t *testing.T) {
 	interrupter := newInterruptOps([]os.Signal{os.Interrupt})
-	defer interrupter.register()()
+	defer interrupter.deregister()
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
 	receivedSignal := false
 	go func() {
-		<-interrupter.interrupt()
+		// We check whether we have been interrupted again and again just like what would be done
+		// before downloading each email. Ensure we try for longer than we wait further down.
+		maxTries := 1000 //nolint:gomnd
+		for try := 0; try <= maxTries; try++ {
+			if interrupter.interrupted() {
+				break
+			}
+			time.Sleep(time.Millisecond) //nolint:gomnd
+		}
 		receivedSignal = true
 		wg.Done()
 	}()
 
-	// Sleep a while to be sure we didn't read from the channel yet.
+	// Sleep a while to be sure the above loop already went through a few iterations.
 	time.Sleep(time.Millisecond * 100) //nolint:gomnd
 	assert.False(t, receivedSignal)
+	assert.False(t, interrupter.interrupted())
 
 	// Send signal to self.
 	self, err := os.FindProcess(os.Getpid())
@@ -71,4 +75,10 @@ func TestInterrupter(t *testing.T) {
 
 	wg.Wait()
 	assert.True(t, receivedSignal)
+	assert.True(t, interrupter.interrupted())
+}
+
+func TestInterrupterNoChannel(t *testing.T) {
+	interrupter := interrupter{}
+	assert.True(t, interrupter.interrupted())
 }

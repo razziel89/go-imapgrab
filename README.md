@@ -17,6 +17,7 @@ Contributions are very welcome (see below)!
 
 - download IMAP mailboxes to a local directory following the
   [`maildir`][maildir] format
+- download folders in parallel
 - static binary without any additional dependencies
 - optional support for system keyring to store credentials securely
 - maildir output fully compatible to the original [`imapgrab`][imapgrab] (please
@@ -39,6 +40,7 @@ Contributions to these would be welcome.
 - view downloaded emails (use `mutt -f ${LOCALPATH}/${FOLDER}` for that)
 - local removal of emails that have been removed remotely
 - a graphical user interface
+- download a single folder with multiple threads
 
 # Why a re-implementation
 
@@ -182,9 +184,18 @@ case it negates the specification.
 Thus, `-Drafts` in the above example deselects that folder, while `_ALL_`
 selects all folders first.
 
-These folder specification have been taken from [`imapgrab`][imapgrab].
+These folder specifications have been taken from [`imapgrab`][imapgrab].
 In contrast, though, multiple folders are not separated by commas but the
 `--folder` flag can be provided several times instead.
+
+By default, all folders will be downloaded in parallel using one thread per
+folder.
+The implementation of that feature required one login to the IMAP server for
+each download thread because of a dependency.
+Your email provider may disallow multiple logins in quick succession.
+Thus, you may want to use the `--threads` flag to limit the number of logins and
+thus threads downloading in parallel.
+Parallel downloads are most useful for initial syncs.
 
 To see the full specification for the `download` command, run:
 

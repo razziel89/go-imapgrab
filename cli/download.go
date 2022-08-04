@@ -27,9 +27,12 @@ var downloadConf downloadConfigT
 type downloadConfigT struct {
 	folders []string
 	path    string
+	threads int
 }
 
-func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *cobra.Command {
+func getDownloadCmd(
+	rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
+) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "download",
 		Short: "Download all not yet downloaded emails from a folder to a maildir.",
@@ -41,8 +44,9 @@ func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *co
 				User:     rootConf.username,
 				Password: rootConf.password,
 			}
-			imapgrabOps := core.NewImapgrabOps()
-			return core.DownloadFolder(cfg, downloadConf.folders, downloadConf.path, imapgrabOps)
+			return ops.downloadFolder(
+				cfg, downloadConf.folders, downloadConf.path, downloadConf.threads,
+			)
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Do not use the keyring if it has been disabled globally or if this is a test run,
@@ -55,7 +59,7 @@ func getDownloadCmd(rootConf *rootConfigT, keyring keyringOps, prodRun bool) *co
 	return cmd
 }
 
-var downloadCmd = getDownloadCmd(&rootConf, defaultKeyring, true)
+var downloadCmd = getDownloadCmd(&rootConf, defaultKeyring, true, &corer{})
 
 func init() {
 	initDownloadFlags(downloadCmd)
@@ -67,13 +71,15 @@ func initDownloadFlags(downloadCmd *cobra.Command) {
 
 	pflags.StringSliceVarP(
 		&downloadConf.folders,
-		"folder",
-		"f",
-		[]string{},
+		"folder", "f", []string{},
 		"a folder spec specifying something to download (can be a folder name,\n"+
 			"_ALL_ selects all folders, _Gmail_ selects Gmail folders, specify this\n"+
 			"flag multiple times for multiple specs, prepend a minus '-' to any\n"+
 			"spec to deselect instead, specs are interpreted in order)\n",
 	)
 	pflags.StringVar(&downloadConf.path, "path", "", "the local path to your maildir's parent dir")
+	pflags.IntVarP(
+		&downloadConf.threads, "threads", "t", 0,
+		"number of download threads to use, one per folder by default",
+	)
 }
