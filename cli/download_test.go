@@ -27,8 +27,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// TODO: implement mock for coreOps
-
 func doTestOfDownloadOrList(
 	t *testing.T,
 	getCmdFn func(

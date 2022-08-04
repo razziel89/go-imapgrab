@@ -40,7 +40,6 @@ const (
 
 // A global delivery counter for this process used to determine a unique file name. A value of 0
 // means no delivery has yet occurred.
-// TODO: use a mutex to enable multi-threaded downloads.
 var deliveryCount = &threadSafeCounter{}
 
 // Get a unique name for an email that will be delivered. Follow the process described here
