@@ -65,7 +65,7 @@ func (m *mockDownloader) streamingOldmailWriteout(
 }
 
 func (m *mockDownloader) streamingRetrieval(
-	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup, in interruptT,
+	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup, in func() bool,
 ) (<-chan emailOps, *int, error) {
 	args := m.Called(mbox, missingIDRanges, wg, startWg, in)
 	wg.Add(1)
@@ -333,8 +333,9 @@ func TestDownloaderStreamingRetrieval(t *testing.T) {
 		deliverOps: nil,
 	}
 	var wg, startWg sync.WaitGroup
+	interrupted := func() bool { return false }
 
-	_, errPtr, err := dl.streamingRetrieval(mbox, nil, &wg, &startWg, make(interruptT))
+	_, errPtr, err := dl.streamingRetrieval(mbox, nil, &wg, &startWg, interrupted)
 
 	assert.NoError(t, err)
 	wg.Wait()

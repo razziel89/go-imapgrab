@@ -19,7 +19,6 @@ package core
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -220,8 +219,9 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
+	interrupted := func() bool { return false }
 
-	emailChan, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, make(interruptT))
+	emailChan, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupted)
 
 	assert.NoError(t, err)
 	assert.Zero(t, *errPtr)
@@ -260,8 +260,9 @@ func TestStreamingRetrievalError(t *testing.T) {
 
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
+	interrupted := func() bool { return false }
 
-	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg, make(interruptT))
+	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupted)
 
 	assert.Error(t, err)
 }
@@ -287,13 +288,11 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
 
-	// Create a buffered channel and send an interrupt signal before calling streamingRetrieval to
-	// trigger the interrupt case. Interrupts are handled preferentially compared to message
-	// conversion.
-	interrupt := make(chan os.Signal, 1)
-	interrupt <- os.Interrupt
+	// Return true, which simulates the receipt of a signal for interruption, which will trigger the
+	// interrupt case. Interrupts are handled preferentially compared to message conversion.
+	interrupted := func() bool { return true }
 
-	_, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupt)
+	_, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupted)
 
 	assert.NoError(t, err)
 

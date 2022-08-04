@@ -45,6 +45,11 @@ func (i *mockInterrupter) interrupt() interruptT {
 	return args.Get(0).(interruptT)
 }
 
+func (i *mockInterrupter) interrupted() bool {
+	args := i.Called()
+	return args.Bool(0)
+}
+
 func TestInterrupter(t *testing.T) {
 	interrupter := newInterruptOps([]os.Signal{os.Interrupt})
 	defer interrupter.register()()

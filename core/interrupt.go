@@ -30,7 +30,6 @@ type interruptOps interface {
 	deregister()
 	interrupt() interruptT
 	interrupted() bool
-	uninterruptible(func()) bool
 }
 
 type interrupter struct {
@@ -67,21 +66,6 @@ func (i *interrupter) deregister() {
 func (i *interrupter) interrupt() interruptT {
 	defer i.lock()()
 	return i.channel
-}
-
-func (i *interrupter) uninterruptible(fn func()) bool {
-	defer i.lock()()
-	if i.channel == nil {
-		return false
-	}
-	select {
-	case <-i.channel:
-		i.deregisterNoLock()
-		return false
-	default:
-		fn()
-		return true
-	}
 }
 
 func (i *interrupter) interrupted() bool {

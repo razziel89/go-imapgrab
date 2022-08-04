@@ -72,7 +72,7 @@ func (ig *Imapgrabber) logout(doTerminate bool) error {
 		logInfo("terminating connection")
 		return ig.imapOps.Terminate()
 	}
-	logInfo(fmt.Sprintf("logging out"))
+	logInfo("logging out")
 	return ig.imapOps.Logout()
 }
 
@@ -117,7 +117,7 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 	return folders, err
 }
 
-func partitionFolders(folders []string, numPartitions int) ([][]string, int) {
+func partitionFolders(folders []string, numPartitions int) [][]string {
 	// Never spawn more threads than there are folders.
 	if numPartitions > len(folders) {
 		numPartitions = len(folders)
@@ -130,7 +130,7 @@ func partitionFolders(folders []string, numPartitions int) ([][]string, int) {
 		partitions[partIdx] = append(partitions[partIdx], folder)
 	}
 
-	return partitions, numPartitions
+	return partitions
 }
 
 // DownloadFolder downloads all not yet downloaded email from a folder in a mailbox to a maildir.
@@ -138,6 +138,7 @@ func partitionFolders(folders []string, numPartitions int) ([][]string, int) {
 // already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
 // the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
 // sub-directory.
+//nolint:funlen
 func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, threads int) error {
 	interrupt := newInterruptOps([]os.Signal{os.Interrupt})
 	defer interrupt.deregister()
@@ -162,11 +163,11 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 		errs.add(mainOps.logout(true))
 		return errs.err()
 	}
-	if threads == 0 {
+	if threads <= 0 {
 		threads = len(availableFolders)
 	}
 	folders = expandFolders(folders, availableFolders)
-	partitions, threads := partitionFolders(folders, threads)
+	partitions := partitionFolders(folders, threads)
 
 	var wg sync.WaitGroup
 

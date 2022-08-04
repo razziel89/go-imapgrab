@@ -78,7 +78,6 @@ func (d downloader) streamingDelivery(
 func downloadMissingEmailsToFolder(
 	ops downloadOps, maildirPath maildirPathT, oldmailName string, sig interruptOps,
 ) (err error) {
-	logError("DL")
 	oldmails, oldmailPath, err := initMaildir(oldmailName, maildirPath)
 	var mbox *imap.MailboxStatus
 	if err == nil {
