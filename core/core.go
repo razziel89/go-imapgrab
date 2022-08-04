@@ -207,6 +207,8 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 			}()
 		} else {
 			errs.add(fmt.Errorf("stopping download threads due to user interrupt or error"))
+			// Special case logout handling if we didn't start the goroutine.
+			errs.add(ops.logout(errs.bad()))
 			break
 		}
 	}
