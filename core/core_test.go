@@ -52,6 +52,15 @@ func (m *mockImapgrabber) downloadMissingEmailsToFolder(
 	return args.Error(0)
 }
 
+func setUpCoreTest(t *testing.T, m *mockImapgrabber) {
+	orgNewImapgrabOps := NewImapgrabOps
+	t.Cleanup(func() { NewImapgrabOps = orgNewImapgrabOps })
+
+	NewImapgrabOps = func() ImapgrabOps {
+		return m
+	}
+}
+
 // Tests for Imapgrabber test the bare minimum.
 
 func TestImapgrabberAuthenticate(t *testing.T) {
@@ -127,7 +136,9 @@ func TestGetAllFolders(t *testing.T) {
 	mock.On("getFolderList").Return(folders, nil)
 	mock.On("logout", false).Return(fmt.Errorf("some error"))
 
-	actualFolders, err := GetAllFolders(cfg, mock)
+	setUpCoreTest(t, mock)
+
+	actualFolders, err := GetAllFolders(cfg)
 
 	assert.Error(t, err)
 	assert.Equal(t, "some error", err.Error())
@@ -153,7 +164,9 @@ func TestDownloadFolder(t *testing.T) {
 	mock.On("logout", false).Return(fmt.Errorf("some error"))
 	mock.On("downloadMissingEmailsToFolder", maildirPathF1, oldmailF1).Return(nil)
 
-	err := DownloadFolder(cfg, folders, maildir, mock)
+	setUpCoreTest(t, mock)
+
+	err := DownloadFolder(cfg, folders, maildir, 0)
 
 	assert.Error(t, err)
 	assert.Equal(t, "some error", err.Error())
@@ -182,7 +195,9 @@ func TestDownloadFolderDownloadErr(t *testing.T) {
 	mock.On("downloadMissingEmailsToFolder", maildirPathF2, oldmailF2).
 		Return(fmt.Errorf("download error"))
 
-	err := DownloadFolder(cfg, folders, maildir, mock)
+	setUpCoreTest(t, mock)
+
+	err := DownloadFolder(cfg, folders, maildir, 0)
 
 	assert.Error(t, err)
 	// When there is an error during download and logout, the former takes precedence.

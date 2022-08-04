@@ -95,7 +95,7 @@ func (ig *Imapgrabber) downloadMissingEmailsToFolder(
 }
 
 // NewImapgrabOps creates a new instance of the default implementation of ImapgrabOps.
-func NewImapgrabOps() ImapgrabOps {
+var NewImapgrabOps = func() ImapgrabOps {
 	return &Imapgrabber{}
 }
 
