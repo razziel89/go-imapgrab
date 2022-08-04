@@ -100,7 +100,8 @@ func NewImapgrabOps() ImapgrabOps {
 }
 
 // GetAllFolders retrieves a list of all folders in a mailbox.
-func GetAllFolders(cfg IMAPConfig, ops ImapgrabOps) (folders []string, err error) {
+func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
+	ops := NewImapgrabOps()
 	err = ops.authenticateClient(cfg)
 	if err == nil {
 		// Make sure to log out in the end if we logged in successfully.
