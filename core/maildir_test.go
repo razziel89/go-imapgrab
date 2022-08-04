@@ -45,12 +45,12 @@ func TestNewUniqueNameSuccess(t *testing.T) {
 	assert.NoError(t, err)
 
 	for i := 0; i < 100; i++ {
-		currentDeliveryCount := deliveryCount
+		currentDeliveryCount := deliveryCount.get()
 
 		newName, err := newUniqueName("")
 
 		assert.NoError(t, err)
-		assert.Greater(t, deliveryCount, currentDeliveryCount)
+		assert.Greater(t, deliveryCount.get(), currentDeliveryCount)
 		assert.NotContains(t, set, newName)
 		assert.Contains(t, newName, hostname)
 
@@ -59,21 +59,21 @@ func TestNewUniqueNameSuccess(t *testing.T) {
 }
 
 func TestNewUniqueNameFailure(t *testing.T) {
-	currentDeliveryCount := deliveryCount
+	currentDeliveryCount := deliveryCount.get()
 
 	_, err := newUniqueName("hostname with space breaks function")
 
 	assert.Error(t, err)
-	assert.Greater(t, deliveryCount, currentDeliveryCount)
+	assert.Greater(t, deliveryCount.get(), currentDeliveryCount)
 }
 
 func TestNewUniqueNameBrokenNameFixes(t *testing.T) {
-	currentDeliveryCount := deliveryCount
+	currentDeliveryCount := deliveryCount.get()
 
 	newName, err := newUniqueName("BrokenHostname/withSlash")
 
 	assert.NoError(t, err)
-	assert.Greater(t, deliveryCount, currentDeliveryCount)
+	assert.Greater(t, deliveryCount.get(), currentDeliveryCount)
 	assert.Contains(t, newName, "BrokenHostname\\057withSlash")
 }
 

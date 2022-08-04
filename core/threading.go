@@ -66,3 +66,9 @@ func (t *threadSafeCounter) inc() int {
 	t.count++
 	return t.count
 }
+
+func (t *threadSafeCounter) get() int {
+	t.Lock()
+	defer t.Unlock()
+	return t.count
+}
