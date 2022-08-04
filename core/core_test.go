@@ -91,6 +91,11 @@ func TestImapgrabberDownloadMissingEmails(t *testing.T) {
 	m := setUpMockClient(t, nil, nil, nil)
 	ig.imapOps = m
 
+	mi := &mockInterrupter{}
+	mi.On("interrupted").Return(false)
+	defer mi.AssertExpectations(t)
+	ig.interruptOps = mi
+
 	err := ig.downloadMissingEmailsToFolder(maildirPathT{}, "")
 
 	assert.Error(t, err)
@@ -104,6 +109,11 @@ func TestImapgrabberLogout(t *testing.T) {
 	m.On("Logout").Return(fmt.Errorf("some error"))
 	ig.imapOps = m
 
+	mi := &mockInterrupter{}
+	mi.On("deregister").Return()
+	defer mi.AssertExpectations(t)
+	ig.interruptOps = mi
+
 	err := ig.logout(false)
 
 	assert.Error(t, err)
@@ -116,6 +126,11 @@ func TestImapgrabberTerminate(t *testing.T) {
 	m := setUpMockClient(t, nil, nil, nil)
 	m.On("Terminate").Return(fmt.Errorf("some error"))
 	ig.imapOps = m
+
+	mi := &mockInterrupter{}
+	mi.On("deregister").Return()
+	defer mi.AssertExpectations(t)
+	ig.interruptOps = mi
 
 	err := ig.logout(true)
 
@@ -169,7 +184,7 @@ func TestDownloadFolder(t *testing.T) {
 	err := DownloadFolder(cfg, folders, maildir, 0)
 
 	assert.Error(t, err)
-	assert.Equal(t, "some error", err.Error())
+	assert.Contains(t, err.Error(), "some error")
 	mock.AssertExpectations(t)
 }
 
@@ -200,7 +215,8 @@ func TestDownloadFolderDownloadErr(t *testing.T) {
 	err := DownloadFolder(cfg, folders, maildir, 0)
 
 	assert.Error(t, err)
-	// When there is an error during download and logout, the former takes precedence.
-	assert.Equal(t, "download error", err.Error())
+	// We receive all errors concatenated.
+	assert.Contains(t, err.Error(), "download error")
+	assert.Contains(t, err.Error(), "some error")
 	mock.AssertExpectations(t)
 }

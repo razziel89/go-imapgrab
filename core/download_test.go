@@ -130,7 +130,6 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	deliveredChan := make(chan oldmail)
 	var inDeliveredChan <-chan oldmail = deliveredChan
 	var deliverErrCount int
-
 	var oldmailErrCount int
 
 	m := &mockDownloader{
@@ -141,16 +140,16 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 		deliveredChan: deliveredChan,
 	}
 
-	interrupt := make(interruptT)
 	mi := &mockInterrupter{}
-	mi.On("register").Return(mi.deregister)
-	mi.On("deregister").Return()
-	mi.On("interrupt").Return(interrupt)
+	mi.On("interrupted").Return(false)
 
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
-	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything, interrupt).
-		Return(messageChan, &fetchErrCount, nil)
+	m.On("streamingRetrieval",
+		mbox, missingIDRanges, mock.Anything, mock.Anything,
+		// We cannot use functions in expectations. Thus use this construct instead.
+		mock.AnythingOfType("func() bool"),
+	).Return(messageChan, &fetchErrCount, nil)
 	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
@@ -179,9 +178,7 @@ func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 	m.On("selectFolder", "some-folder").Return(mbox, fmt.Errorf("some error"))
 
 	mi := &mockInterrupter{}
-	mi.On("register").Return(mi.deregister)
-	mi.On("deregister").Return()
-	mi.On("interrupt").Return(make(interruptT))
+	mi.On("interrupted").Return(false)
 
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
@@ -209,9 +206,7 @@ func TestDownloadMissingEmailsToFolderPreparationNoNewEmails(t *testing.T) {
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
 
 	mi := &mockInterrupter{}
-	mi.On("register").Return(mi.deregister)
-	mi.On("deregister").Return()
-	mi.On("interrupt").Return(make(interruptT))
+	mi.On("interrupted").Return(false)
 
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
@@ -257,16 +252,15 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 		deliveredChan: deliveredChan,
 	}
 
-	interrupt := make(interruptT)
 	mi := &mockInterrupter{}
-	mi.On("register").Return(mi.deregister)
-	mi.On("deregister").Return()
-	mi.On("interrupt").Return(interrupt)
+	mi.On("interrupted").Return(false)
 
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
-	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything, interrupt).
-		Return(messageChan, &fetchErrCount, nil)
+	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything,
+		// We cannot use functions in expectations. Thus use this construct instead.
+		mock.AnythingOfType("func() bool"),
+	).Return(messageChan, &fetchErrCount, nil)
 	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
