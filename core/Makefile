@@ -18,9 +18,9 @@ test:
 	SKIP_INTEGRATION_TESTS=1 $(MAKE) .test.log
 
 .test.log: go.* *.go
-	set -o pipefail && \
-		go test ./... | tee .test.log || \
-		rm .test.log
+	trap "rm .test.log" EXIT && \
+		set -o pipefail && \
+		go test | tee .test.log
 
 coverage.html: go.* *.go
 	go test -covermode=count -coverprofile=coverage.out
