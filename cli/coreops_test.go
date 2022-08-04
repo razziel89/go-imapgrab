@@ -18,7 +18,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"testing"
+
 	"github.com/razziel89/go-imapgrab/core"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -36,4 +39,23 @@ func (m *mockCoreOps) downloadFolder(
 ) error {
 	args := m.Called(cfg, folders, maildirBase, threads)
 	return args.Error(0)
+}
+
+func TestCoreOpsGetAllFolders(t *testing.T) {
+	ops := corer{}
+	cfg := core.IMAPConfig{}
+
+	folders, err := ops.getAllFolders(cfg)
+
+	assert.Zero(t, len(folders))
+	assert.Error(t, err)
+}
+
+func TestCoreOpsDownloadFolder(t *testing.T) {
+	ops := corer{}
+	cfg := core.IMAPConfig{}
+
+	err := ops.downloadFolder(cfg, []string{}, "", 0)
+
+	assert.Error(t, err)
 }

@@ -178,12 +178,12 @@ func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 	m.On("selectFolder", "some-folder").Return(mbox, fmt.Errorf("some error"))
 
 	mi := &mockInterrupter{}
-	mi.On("interrupted").Return(false)
+	mi.On("interrupted").Return(true) // Simulate an interrupt.
 
 	err := downloadMissingEmailsToFolder(m, maildirPath, oldmailFileName, mi)
 
 	assert.Error(t, err)
-	assert.Equal(t, "some error", err.Error())
+	assert.Equal(t, "aborting due to user interrupt", err.Error())
 	m.AssertExpectations(t)
 }
 

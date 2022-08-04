@@ -23,12 +23,8 @@ import (
 	"sync"
 )
 
-type interruptT <-chan os.Signal
-
 type interruptOps interface {
-	register() func()
 	deregister()
-	interrupt() interruptT
 	interrupted() bool
 }
 
@@ -61,11 +57,6 @@ func (i *interrupter) deregisterNoLock() {
 func (i *interrupter) deregister() {
 	defer i.lock()()
 	i.deregisterNoLock()
-}
-
-func (i *interrupter) interrupt() interruptT {
-	defer i.lock()()
-	return i.channel
 }
 
 func (i *interrupter) interrupted() bool {

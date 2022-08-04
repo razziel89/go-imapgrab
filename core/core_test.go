@@ -101,6 +101,20 @@ func TestImapgrabberDownloadMissingEmails(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestImapgrabberDowloadMissingEmailsSkipIfInterrupted(t *testing.T) {
+	ig, ok := NewImapgrabOps().(*Imapgrabber)
+	assert.True(t, ok)
+
+	mi := &mockInterrupter{}
+	mi.On("interrupted").Return(true)
+	defer mi.AssertExpectations(t)
+	ig.interruptOps = mi
+
+	err := ig.downloadMissingEmailsToFolder(maildirPathT{}, "")
+
+	assert.Error(t, err)
+}
+
 func TestImapgrabberLogout(t *testing.T) {
 	ig, ok := NewImapgrabOps().(*Imapgrabber)
 	assert.True(t, ok)
@@ -195,7 +209,7 @@ func TestDownloadFolderDownloadErr(t *testing.T) {
 		User:     "some_user",
 		Password: "this is very secret",
 	}
-	folders := []string{"f1", "f2"}
+	folders := []string{"f1", "f2", "f3"}
 	maildir := "/some/dir"
 	maildirPathF1 := maildirPathT{base: maildir, folder: "f1"}
 	maildirPathF2 := maildirPathT{base: maildir, folder: "f2"}
@@ -203,12 +217,42 @@ func TestDownloadFolderDownloadErr(t *testing.T) {
 	oldmailF2 := "oldmail-some-server-42-some_user-f2"
 
 	mock := &mockImapgrabber{}
-	mock.On("authenticateClient", cfg).Return(nil)
+	// Only one of the logins will fail, the others will succeed. That means one goroutine will
+	// download successfully while the other one will not.
+	mock.On("authenticateClient", cfg).Twice().Return(nil)
+	mock.On("authenticateClient", cfg).Once().Return(fmt.Errorf("some auth error"))
 	mock.On("getFolderList").Return(folders, nil)
-	mock.On("logout", true).Return(fmt.Errorf("some error"))
+	mock.On("logout", true).Return(fmt.Errorf("some logout error"))
 	mock.On("downloadMissingEmailsToFolder", maildirPathF1, oldmailF1).Return(nil)
 	mock.On("downloadMissingEmailsToFolder", maildirPathF2, oldmailF2).
-		Return(fmt.Errorf("download error"))
+		Return(fmt.Errorf("some download error"))
+
+	setUpCoreTest(t, mock)
+
+	// We download with three goroutines. The first one succeeds apart from logout. The second one
+	// fails at the download step. The third one doesn't even manage to authenticate.
+	err := DownloadFolder(cfg, folders, maildir, 3)
+
+	assert.Error(t, err)
+	// We receive all errors concatenated.
+	assert.Contains(t, err.Error(), "some download error")
+	assert.Contains(t, err.Error(), "some logout error")
+	assert.Contains(t, err.Error(), "some auth error")
+	mock.AssertExpectations(t)
+}
+
+func TestDownloadFolderAuthErr(t *testing.T) {
+	cfg := IMAPConfig{
+		Server:   "some-server",
+		Port:     42,
+		User:     "some_user",
+		Password: "this is very secret",
+	}
+	folders := []string{"f1", "f2"}
+	maildir := "/some/random/dir"
+
+	mock := &mockImapgrabber{}
+	mock.On("authenticateClient", cfg).Return(fmt.Errorf("some auth error"))
 
 	setUpCoreTest(t, mock)
 
@@ -216,8 +260,26 @@ func TestDownloadFolderDownloadErr(t *testing.T) {
 	err := DownloadFolder(cfg, folders, maildir, 1)
 
 	assert.Error(t, err)
-	// We receive all errors concatenated.
-	assert.Contains(t, err.Error(), "download error")
-	assert.Contains(t, err.Error(), "some error")
+	assert.Contains(t, err.Error(), "some auth error")
 	mock.AssertExpectations(t)
+}
+
+func TestPartitionFolders(t *testing.T) {
+	inFolders := []string{"f1", "f2", "f3", "f4"}
+	threads := 3
+	expectedPartitions := [][]string{{"f1", "f4"}, {"f2"}, {"f3"}}
+
+	outPartitions := partitionFolders(inFolders, threads)
+
+	assert.Equal(t, expectedPartitions, outPartitions)
+}
+
+func TestPartitionFoldersMoreThreadsThanFolders(t *testing.T) {
+	inFolders := []string{"f1"}
+	threads := 3
+	expectedPartitions := [][]string{{"f1"}}
+
+	outPartitions := partitionFolders(inFolders, threads)
+
+	assert.Equal(t, expectedPartitions, outPartitions)
 }
