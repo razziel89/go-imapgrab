@@ -40,8 +40,7 @@ func getListCmd(
 				User:     rootConf.username,
 				Password: rootConf.password,
 			}
-			imapgrabOps := core.NewImapgrabOps()
-			folders, err := ops.getAllFolders(cfg, imapgrabOps)
+			folders, err := ops.getAllFolders(cfg)
 
 			sort.Strings(folders)
 			fmt.Println(strings.Join(folders, "\n"))

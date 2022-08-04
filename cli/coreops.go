@@ -20,14 +20,14 @@ package main
 import "github.com/razziel89/go-imapgrab/core"
 
 type coreOps interface {
-	getAllFolders(cfg core.IMAPConfig, ops core.ImapgrabOps) ([]string, error)
+	getAllFolders(cfg core.IMAPConfig) ([]string, error)
 	downloadFolder(cfg core.IMAPConfig, folders []string, maildirBase string, threads int) error
 }
 
 type corer struct{}
 
-func (c *corer) getAllFolders(cfg core.IMAPConfig, ops core.ImapgrabOps) ([]string, error) {
-	return core.GetAllFolders(cfg, ops)
+func (c *corer) getAllFolders(cfg core.IMAPConfig) ([]string, error) {
+	return core.GetAllFolders(cfg)
 }
 
 func (c *corer) downloadFolder(

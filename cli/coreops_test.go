@@ -18,25 +18,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"fmt"
-	"testing"
-
+	"github.com/razziel89/go-imapgrab/core"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestListCommand(t *testing.T) {
-	mockOps := mockCoreOps{}
-	mockOps.On("getAllFolders", mock.Anything).Return([]string{}, fmt.Errorf("some error"))
-	defer mockOps.AssertExpectations(t)
-
-	doTestOfDownloadOrList(t, getListCmd, &mockOps)
+type mockCoreOps struct {
+	mock.Mock
 }
 
-func TestListCommandNoKeyringProdRun(t *testing.T) {
-	mockOps := mockCoreOps{}
-	// Nothing will be called because the keyring cannot be initialised and the password is not
-	// given via an env var.
-	defer mockOps.AssertExpectations(t)
+func (m *mockCoreOps) getAllFolders(cfg core.IMAPConfig) ([]string, error) {
+	args := m.Called(cfg)
+	return args.Get(0).([]string), args.Error(1)
+}
 
-	doTestOfDownloadOrListNoKeyringProdRun(t, getDownloadCmd, &mockOps)
+func (m *mockCoreOps) downloadFolder(
+	cfg core.IMAPConfig, folders []string, maildirBase string, threads int,
+) error {
+	args := m.Called(cfg, folders, maildirBase, threads)
+	return args.Error(0)
 }
