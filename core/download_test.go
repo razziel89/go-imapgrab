@@ -175,7 +175,7 @@ func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 
 	m := &mockDownloader{t: t}
 
-	m.On("selectFolder", "some-folder").Return(mbox, fmt.Errorf("some error"))
+	m.On("selectFolder", "some-folder").Return(mbox, nil)
 
 	mi := &mockInterrupter{}
 	mi.On("interrupted").Return(true) // Simulate an interrupt.

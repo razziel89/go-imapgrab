@@ -30,12 +30,12 @@ type threadSafeErrors struct {
 }
 
 func (t *threadSafeErrors) add(err error) {
+	t.Lock()
+	defer t.Unlock()
 	if err != nil {
 		if t.verbose {
 			logError(err.Error())
 		}
-		t.Lock()
-		defer t.Unlock()
 		t.errs = append(t.errs, err.Error())
 	}
 }

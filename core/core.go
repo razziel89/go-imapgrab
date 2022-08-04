@@ -119,7 +119,7 @@ func GetAllFolders(cfg IMAPConfig) (folders []string, err error) {
 
 func partitionFolders(folders []string, numPartitions int) [][]string {
 	// Never spawn more threads than there are folders.
-	if numPartitions > len(folders) {
+	if numPartitions > len(folders) || numPartitions <= 0 {
 		numPartitions = len(folders)
 	}
 
@@ -155,26 +155,20 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 	// Actually retrieve folder list and partition across threads.
 	availableFolders, listErr := mainOps.getFolderList()
 	errs.add(listErr)
-	if threads <= 0 {
-		threads = len(availableFolders)
-	}
 	partitions := partitionFolders(expandFolders(folders, availableFolders), threads)
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for idx := range partitions {
-		partition := partitions[idx] // Avoid closing over loop variables.
+		partition, threadIdx := partitions[idx], idx // Avoid closing over loop variables.
 		var ops ImapgrabOps
-		if idx > 0 {
+		if threadIdx > 0 {
 			// The first goroutine will use the "ops" we alread have. Every other goroutine will get
 			// its own "ops". This way, the mutex implicit in the interrupt handler does not cause
 			// deadlocks or slowdowns because each gorutine has its own one.
 			// After this call, the interrupt signal handler hidden in "ops" will be registered.
 			ops = NewImapgrabOps()
 			errs.add(ops.authenticateClient(cfg))
-			if !errs.bad() {
-				defer func() { errs.add(ops.logout(errs.bad())) }() // Make sure to log out again.
-			}
 		} else {
 			ops = mainOps
 		}
@@ -184,6 +178,9 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+				if threadIdx > 0 { // We segfault for logouts of all but first outside a goroutine.
+					defer func() { errs.add(ops.logout(errs.bad())) }()
+				}
 				for _, folder := range partition {
 					oldmailFilePath := oldmailFileName(cfg, folder)
 					maildirPath := maildirPathT{base: maildirBase, folder: folder}
@@ -193,10 +190,10 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 				}
 			}()
 		} else {
+			errs.add(ops.logout(errs.bad())) // Special case logout on error or interrupt.
 			errs.add(fmt.Errorf("stopping download threads due to user interrupt or error"))
 			break
 		}
 	}
-
 	return
 }

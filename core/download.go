@@ -87,7 +87,7 @@ func downloadMissingEmailsToFolder(
 	// are missing when comparing against those on disk.
 	var uidvalidity int
 	var uids []uid
-	if sig.interrupted() {
+	if err == nil && sig.interrupted() {
 		err = fmt.Errorf("aborting due to user interrupt")
 	}
 	if err == nil {
