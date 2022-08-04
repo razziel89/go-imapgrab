@@ -212,7 +212,8 @@ func TestDownloadFolderDownloadErr(t *testing.T) {
 
 	setUpCoreTest(t, mock)
 
-	err := DownloadFolder(cfg, folders, maildir, 0)
+	// Ensure sequential download to trigger the error reliably.
+	err := DownloadFolder(cfg, folders, maildir, 1)
 
 	assert.Error(t, err)
 	// We receive all errors concatenated.

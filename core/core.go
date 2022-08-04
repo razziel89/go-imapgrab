@@ -138,52 +138,43 @@ func partitionFolders(folders []string, numPartitions int) [][]string {
 // already been downloaded. According to the [maildir specs](https://cr.yp.to/proto/maildir.html),
 // the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
 // sub-directory.
-//nolint:funlen
-func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, threads int) error {
+func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, threads int) (err error) {
 	interrupt := newInterruptOps([]os.Signal{os.Interrupt})
 	defer interrupt.deregister()
 
 	errs := threadSafeErrors{verbose: true}
+	defer func() { err = errs.err() }() // Make sure to return all errors in the end.
 
-	// The logout happens in each goroutine that uses the ImapgrabOps to download. This one will be
-	// used by the first downloading goroutine.
 	mainOps := NewImapgrabOps()
-	// Authenticate against the remote server.
 	errs.add(mainOps.authenticateClient(cfg))
-
-	var availableFolders []string
-	if !errs.bad() {
-		// Actually retrieve folder list.
-		var err error
-		availableFolders, err = mainOps.getFolderList()
-		errs.add(err)
-	}
 	if errs.bad() {
-		// Special case handling for logout in error case.
-		errs.add(mainOps.logout(true))
-		return errs.err()
+		return
 	}
+	defer func() { errs.add(mainOps.logout(errs.bad())) }() // Make sure to log out in the end.
+
+	// Actually retrieve folder list and partition across threads.
+	availableFolders, listErr := mainOps.getFolderList()
+	errs.add(listErr)
 	if threads <= 0 {
 		threads = len(availableFolders)
 	}
-	folders = expandFolders(folders, availableFolders)
-	partitions := partitionFolders(folders, threads)
+	partitions := partitionFolders(expandFolders(folders, availableFolders), threads)
 
 	var wg sync.WaitGroup
-
+	defer wg.Wait()
 	for idx := range partitions {
-		// We must not close over loop variables in Go. Otherwise, the second iteration will
-		// overwrite the partition used in the first iteration's goroutine.
-		partition := partitions[idx]
+		partition := partitions[idx] // Avoid closing over loop variables.
 		var ops ImapgrabOps
 		if idx > 0 {
 			// The first goroutine will use the "ops" we alread have. Every other goroutine will get
 			// its own "ops". This way, the mutex implicit in the interrupt handler does not cause
-			// deadlocks or slowdowns beocause each gorutine has its own one.
+			// deadlocks or slowdowns because each gorutine has its own one.
 			// After this call, the interrupt signal handler hidden in "ops" will be registered.
 			ops = NewImapgrabOps()
-			// Authenticate against the remote server.
 			errs.add(ops.authenticateClient(cfg))
+			if !errs.bad() {
+				defer func() { errs.add(ops.logout(errs.bad())) }() // Make sure to log out again.
+			}
 		} else {
 			ops = mainOps
 		}
@@ -193,10 +184,6 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				// Make sure to log out in the end if we logged in successfully.
-				defer func() {
-					errs.add(ops.logout(errs.bad()))
-				}()
 				for _, folder := range partition {
 					oldmailFilePath := oldmailFileName(cfg, folder)
 					maildirPath := maildirPathT{base: maildirBase, folder: folder}
@@ -207,15 +194,9 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 			}()
 		} else {
 			errs.add(fmt.Errorf("stopping download threads due to user interrupt or error"))
-			// Special case logout handling if we didn't start the goroutine.
-			errs.add(ops.logout(errs.bad()))
 			break
 		}
 	}
 
-	// Wait here instead of deferring the wait. Deferred functions are executed after computing the
-	// return value, but we want to return the actual error. Thus, wait until all goroutines have
-	// finished and return the error value then.
-	wg.Wait()
-	return errs.err()
+	return
 }
