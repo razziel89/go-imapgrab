@@ -33,16 +33,16 @@ func SetVerboseLogs(verb bool) {
 
 func logInfo(msg string) {
 	if verbose {
-		log.Println(": INFO", msg)
+		log.Println("INFO", msg)
 	}
 }
 
 func logWarning(msg string) {
 	// Always log warning.
-	log.Println(": WARNING", msg)
+	log.Println("WARNING", msg)
 }
 
 func logError(msg string) {
 	// Always log errors.
-	log.Println(": ERROR", msg)
+	log.Println("ERROR", msg)
 }
