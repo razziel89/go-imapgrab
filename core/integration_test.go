@@ -20,7 +20,6 @@ package core
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -98,9 +97,9 @@ func TestIntegrationDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 
 	// Check whether emails have actually been downloaded and whether hte oldmail file has been
 	// updated.
-	oldmailContent, err := ioutil.ReadFile(filepath.Join(mockPath, "some-oldmail")) // nolint: gosec
+	oldmailContent, err := os.ReadFile(filepath.Join(mockPath, "some-oldmail")) // nolint: gosec
 	assert.NoError(t, err)
-	downloadedMessages, err := ioutil.ReadDir(filepath.Join(mockPath, "some-folder", "new"))
+	downloadedMessages, err := os.ReadDir(filepath.Join(mockPath, "some-folder", "new"))
 	assert.NoError(t, err)
 	// Oldmail file contains three lines.
 	assert.Equal(t, 3, bytes.Count(oldmailContent, []byte("\n")))
@@ -189,9 +188,9 @@ func TestIntegrationDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 
 	// Check whether we could still download all successfully that were delivered and whether that
 	// email's information has been added to the oldmail file.
-	oldmailContent, err := ioutil.ReadFile(filepath.Join(mockPath, "some-oldmail")) // nolint: gosec
+	oldmailContent, err := os.ReadFile(filepath.Join(mockPath, "some-oldmail")) // nolint: gosec
 	assert.NoError(t, err)
-	downloadedMessages, err := ioutil.ReadDir(filepath.Join(mockPath, "some-folder", "new"))
+	downloadedMessages, err := os.ReadDir(filepath.Join(mockPath, "some-folder", "new"))
 	assert.NoError(t, err)
 	// Oldmail file contains two lines.
 	assert.Equal(t, 2, bytes.Count(oldmailContent, []byte("\n")))

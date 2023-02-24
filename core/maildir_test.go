@@ -18,7 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -178,7 +177,7 @@ func TestDeliverMessage(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check that the correct content was written to the only file in the "new" directory.
-	files, err := ioutil.ReadDir(filepath.Join(basepath, "new"))
+	files, err := os.ReadDir(filepath.Join(basepath, "new"))
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(files))
 
@@ -188,11 +187,11 @@ func TestDeliverMessage(t *testing.T) {
 
 	// The other directories "cur" and "tmp" need to be empty.
 	// cur
-	files, err = ioutil.ReadDir(filepath.Join(basepath, "cur"))
+	files, err = os.ReadDir(filepath.Join(basepath, "cur"))
 	assert.NoError(t, err)
 	assert.Empty(t, files)
 	// tmp
-	files, err = ioutil.ReadDir(filepath.Join(basepath, "tmp"))
+	files, err = os.ReadDir(filepath.Join(basepath, "tmp"))
 	assert.NoError(t, err)
 	assert.Empty(t, files)
 }
