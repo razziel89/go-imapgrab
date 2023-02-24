@@ -13,16 +13,13 @@ linters-settings:
 linters:
   disable-all: true
   enable:
-    - deadcode
     - errcheck
     - gosimple
     - govet
     - ineffassign
     - staticcheck
-    - structcheck
     - typecheck
     - unused
-    - varcheck
     - exhaustive
     - funlen
     - goconst
@@ -40,4 +37,5 @@ linters:
     - dupl
     - makezero
     - stylecheck
+    - unused
   fast: false
