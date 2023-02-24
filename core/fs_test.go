@@ -30,7 +30,7 @@ func TestIsFile(t *testing.T) {
 	tmpFile := filepath.Join(tmp, "file")
 	missingFile := filepath.Join(tmp, "missing_file")
 
-	err := os.WriteFile(tmpFile, []byte{}, 0444)
+	err := os.WriteFile(tmpFile, []byte{}, 0400)
 	assert.NoError(t, err)
 
 	assert.True(t, isFile(tmpFile))
@@ -43,7 +43,7 @@ func TestIsDir(t *testing.T) {
 	tmpFile := filepath.Join(tmp, "file")
 	missingDir := filepath.Join(tmp, "missing_dir")
 
-	err := os.WriteFile(tmpFile, []byte{}, 0444)
+	err := os.WriteFile(tmpFile, []byte{}, 0400)
 	assert.NoError(t, err)
 
 	assert.False(t, isDir(tmpFile))

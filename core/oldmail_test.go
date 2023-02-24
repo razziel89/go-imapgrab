@@ -119,7 +119,7 @@ func TestOldmailRead(t *testing.T) {
 	tmp := t.TempDir()
 	tmpFile := filepath.Join(tmp, "tmpfile")
 
-	err := os.WriteFile(tmpFile, oldmailContent, 0444)
+	err := os.WriteFile(tmpFile, oldmailContent, 0400)
 	assert.NoError(t, err)
 
 	oldmails, err := readOldmail(tmpFile)
@@ -194,7 +194,7 @@ func TestOldmailReadCannotRead(t *testing.T) {
 	tmp := t.TempDir()
 	tmpFile := filepath.Join(tmp, "tmpfile")
 
-	err := os.WriteFile(tmpFile, []byte{}, 0444)
+	err := os.WriteFile(tmpFile, []byte{}, 0400)
 	assert.NoError(t, err)
 
 	err = os.Chmod(tmpFile, 0000)
@@ -260,7 +260,7 @@ func TestOldmailWriteoutCannotWriteToFile(t *testing.T) {
 	tmpPath := filepath.Join(tmp, "tmpfile")
 
 	// Trigger an error below by having a directory where a file was expected.
-	err := os.Mkdir(tmpPath, 0555)
+	err := os.Mkdir(tmpPath, 0500)
 	assert.NoError(t, err)
 
 	oldmailChan := make(chan oldmail)
