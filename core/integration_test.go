@@ -66,7 +66,7 @@ func TestIntegrationDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 
 	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
 
-	boxes := []*imap.MailboxInfo{&imap.MailboxInfo{Name: "some-folder"}}
+	boxes := []*imap.MailboxInfo{{Name: "some-folder"}}
 	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 3}
 	messages := []*imap.Message{
 		buildFakeImapMessage(t, 1, "some text"),
@@ -118,7 +118,7 @@ func TestIntegrationDownloadMissingEmailsToFolderPreparationError(t *testing.T) 
 
 	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
 
-	boxes := []*imap.MailboxInfo{&imap.MailboxInfo{Name: "some-folder"}}
+	boxes := []*imap.MailboxInfo{{Name: "some-folder"}}
 	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 0}
 	// No emails, thus nothing to be downloaded.
 	messages := []*imap.Message{}
@@ -148,14 +148,14 @@ func TestIntegrationDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 
 	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
 
-	boxes := []*imap.MailboxInfo{&imap.MailboxInfo{Name: "some-folder"}}
+	boxes := []*imap.MailboxInfo{{Name: "some-folder"}}
 	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 3}
 	messages := []*imap.Message{
 		buildFakeImapMessage(t, 1, "some text"),
 		buildFakeImapMessage(t, 2, "some more text"),
 		// One of the messages does not contain the information we need, which will cause an error
 		// in the streaming email delivery that will be logged.
-		&imap.Message{},
+		{},
 	}
 
 	seqSet := &imap.SeqSet{}

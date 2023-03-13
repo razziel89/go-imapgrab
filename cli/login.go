@@ -29,7 +29,6 @@ import (
 func getLoginCmd(
 	rootConf *rootConfigT, keyring keyringOps, readPasswordFn func(int) ([]byte, error),
 ) *cobra.Command {
-
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Store credentials in your system's keyring.",
@@ -49,12 +48,10 @@ func getLoginCmd(
 				err = addToKeyring(*rootConf, string(password), keyring)
 			}
 			return err
-
 		},
 	}
 
 	return cmd
-
 }
 
 var loginCmd = getLoginCmd(&rootConf, defaultKeyring, term.ReadPassword)

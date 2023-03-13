@@ -234,15 +234,15 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	messages := []*mockEmail{{uid: 1}, {uid: 2}, {uid: 3}}
 	messageChan := make(chan emailOps)
 	var inMessageChan <-chan emailOps = messageChan
-	var fetchErrCount = 1
+	fetchErrCount := 1
 
 	delivered := []oldmail{
 		{uidValidity: 42, uid: 1}, {uidValidity: 42, uid: 2}, {uidValidity: 42, uid: 3},
 	}
 	deliveredChan := make(chan oldmail)
 	var inDeliveredChan <-chan oldmail = deliveredChan
-	var deliverErrCount = 1
-	var oldmailErrCount = 1
+	deliverErrCount := 1
+	oldmailErrCount := 1
 
 	m := &mockDownloader{
 		t:             t,

@@ -203,7 +203,6 @@ func (u uid) String() string {
 func getAllMessageUUIDs(
 	mbox *imap.MailboxStatus, imapClient imapOps,
 ) (uids []uid, err error) {
-
 	logInfo("retrieving information about emails stored on server")
 	uids = make([]uid, 0, mbox.Messages)
 

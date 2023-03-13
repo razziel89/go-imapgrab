@@ -152,9 +152,9 @@ func TestAuthenticateClientWrongCredentials(t *testing.T) {
 
 func TestGetFolderListSuccess(t *testing.T) {
 	boxes := []*imap.MailboxInfo{
-		&imap.MailboxInfo{Name: "b1"},
-		&imap.MailboxInfo{Name: "b2"},
-		&imap.MailboxInfo{Name: "b3"},
+		{Name: "b1"},
+		{Name: "b2"},
+		{Name: "b3"},
 	}
 	m := setUpMockClient(t, boxes, nil, nil)
 	m.On("List", "", "*", mock.Anything).Return(nil)
@@ -168,7 +168,7 @@ func TestGetFolderListSuccess(t *testing.T) {
 func TestGetFolderListError(t *testing.T) {
 	listErr := fmt.Errorf("list error")
 	boxes := []*imap.MailboxInfo{
-		&imap.MailboxInfo{Name: "b1"},
+		{Name: "b1"},
 	}
 	m := setUpMockClient(t, boxes, nil, nil)
 	m.On("List", "", "*", mock.Anything).Return(listErr)
@@ -201,9 +201,9 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 		{start: 16, end: 17},
 	}
 	messages := []*imap.Message{
-		&imap.Message{Uid: 10},
-		&imap.Message{Uid: 12},
-		&imap.Message{Uid: 16},
+		{Uid: 10},
+		{Uid: 12},
+		{Uid: 16},
 	}
 
 	expectedSeqSet := &imap.SeqSet{}
@@ -318,13 +318,13 @@ func TestGetAllMessageUUIDsSuccess(t *testing.T) {
 		UidValidity: 42,
 	}
 	messages := []*imap.Message{
-		&imap.Message{Uid: 10},
+		{Uid: 10},
 		// There are no guarantees the server does not return nil. Thus, we make sure to ignore such
 		// values.
 		nil,
-		&imap.Message{Uid: 12},
+		{Uid: 12},
 		nil,
-		&imap.Message{Uid: 16},
+		{Uid: 16},
 	}
 
 	expectedSeqSet := &imap.SeqSet{}

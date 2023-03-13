@@ -32,7 +32,6 @@ func getVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print the version number of this executable.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			version := versionString
 			if len(version) == 0 {
 				version = devVersionString
