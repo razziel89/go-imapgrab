@@ -248,10 +248,12 @@ func TestInitCredentialsNoPasswordFromKeyring(t *testing.T) {
 
 func TestDefaultKeyringGet(t *testing.T) {
 	dk := defaultKeyringImpl{}
-	_, _ = dk.Get("", "")
+	_, err := dk.Get("", "")
+	assert.NoError(t, err)
 }
 
 func TestDefaultKeyringSet(t *testing.T) {
 	dk := defaultKeyringImpl{}
-	_ = dk.Set("", "", "")
+	err := dk.Set("", "", "")
+	assert.NoError(t, err)
 }
