@@ -43,8 +43,8 @@ func isDir(path string) bool {
 	return stat.IsDir()
 }
 
-func touch(path string, perm int) error {
-	return os.WriteFile(path, []byte{}, filePerm)
+func touch(path string, perm fs.FileMode) error {
+	return os.WriteFile(path, []byte{}, perm)
 }
 
 type fileOps interface {
