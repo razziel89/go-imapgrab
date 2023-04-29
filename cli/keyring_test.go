@@ -251,7 +251,7 @@ func TestDefaultKeyringGet(t *testing.T) {
 	// Ignore unused error value. This function will always error out in the CI pipeline without an
 	// elaborate setup for a keyring.
 	//nolint:typecheck
-	_, _ := dk.Get("", "")
+	_, _ = dk.Get("", "")
 }
 
 func TestDefaultKeyringSet(t *testing.T) {
@@ -259,5 +259,5 @@ func TestDefaultKeyringSet(t *testing.T) {
 	// Ignore unused error value. This function will always error out in the CI pipeline without an
 	// elaborate setup for a keyring.
 	//nolint:typecheck
-	_ := dk.Set("", "", "")
+	_ = dk.Set("", "", "")
 }
