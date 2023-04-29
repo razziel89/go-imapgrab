@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// Package main contains the implementation of the CLI that is consuming the associated core
+// library.
 package main
 
 import "github.com/razziel89/go-imapgrab/core"

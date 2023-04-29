@@ -246,12 +246,18 @@ func TestInitCredentialsNoPasswordFromKeyring(t *testing.T) {
 	mk.AssertExpectations(t)
 }
 
-func TestDefaultKeyringGet(t *testing.T) {
+func TestDefaultKeyringGet(_ *testing.T) {
 	dk := defaultKeyringImpl{}
+	// Ignore unused error value. This function will always error out in the CI pipeline without an
+	// elaborate setup for a keyring.
+	//nolint:typecheck
 	_, _ = dk.Get("", "")
 }
 
-func TestDefaultKeyringSet(t *testing.T) {
+func TestDefaultKeyringSet(_ *testing.T) {
 	dk := defaultKeyringImpl{}
+	// Ignore unused error value. This function will always error out in the CI pipeline without an
+	// elaborate setup for a keyring.
+	//nolint:typecheck
 	_ = dk.Set("", "", "")
 }
