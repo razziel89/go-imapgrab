@@ -38,7 +38,12 @@ type downloadConfigT struct {
 }
 
 func getDownloadCmd(
-	rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
+	rootConf *rootConfigT,
+	downloadConf *downloadConfigT,
+	keyring keyringOps,
+	prodRun bool,
+	ops coreOps,
+	lockFn lockFn,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "download",
@@ -53,7 +58,7 @@ func getDownloadCmd(
 			}
 			lockfile := filepath.Join(downloadConf.path, lockfileName)
 			lockTimeout := time.Duration(downloadConf.timeoutSeconds) * time.Second
-			unlock, err := lock(lockfile, lockTimeout)
+			unlock, err := lockFn(lockfile, lockTimeout)
 			if err != nil {
 				return fmt.Errorf(
 					"cannot get lock on download folder, another process might be downloading: %s",
@@ -76,7 +81,7 @@ func getDownloadCmd(
 	return cmd
 }
 
-var downloadCmd = getDownloadCmd(&rootConf, defaultKeyring, true, &corer{})
+var downloadCmd = getDownloadCmd(&rootConf, &downloadConf, defaultKeyring, true, &corer{}, lock)
 
 func init() {
 	initDownloadFlags(downloadCmd)
