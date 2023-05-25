@@ -8,10 +8,12 @@ It is a command line application that can be used to make a local backup of your
 IMAP mailboxes.
 See [below](#how-to-use) for how to use.
 
-This software is in beta state but has been used by the main author to backup
-quite a few mailboxes already.
+This software is in a stable state and has been used by the main author to back
+up quite a few mailboxes already.
 Development started in early 2022.
 Contributions are very welcome (see below)!
+Features will be added on occasion and dependencies will be kept up to date as
+needed, especially in the case of known vulnerabilities.
 
 ## Notable features
 
