@@ -6,6 +6,7 @@ replace github.com/razziel89/go-imapgrab/core => ../core
 
 require (
 	github.com/razziel89/go-imapgrab/core v0.0.0-20230313202000-bc375372818b
+	github.com/rogpeppe/go-internal v1.10.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.7.1
 	github.com/zalando/go-keyring v0.2.2

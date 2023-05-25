@@ -18,16 +18,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"fmt"
+	"path/filepath"
+	"time"
+
 	"github.com/razziel89/go-imapgrab/core"
 	"github.com/spf13/cobra"
 )
 
+const defaultTimeoutSeconds = 1
+
 var downloadConf downloadConfigT
 
 type downloadConfigT struct {
-	folders []string
-	path    string
-	threads int
+	folders        []string
+	path           string
+	threads        int
+	timeoutSeconds int
 }
 
 func getDownloadCmd(
@@ -44,6 +51,16 @@ func getDownloadCmd(
 				User:     rootConf.username,
 				Password: rootConf.password,
 			}
+			lockfile := filepath.Join(downloadConf.path, lockfileName)
+			lockTimeout := time.Duration(downloadConf.timeoutSeconds) * time.Second
+			unlock, err := lock(lockfile, lockTimeout)
+			if err != nil {
+				return fmt.Errorf(
+					"cannot get lock on download folder, another process might be downloading: %s",
+					err.Error(),
+				)
+			}
+			defer unlock()
 			return ops.downloadFolder(
 				cfg, downloadConf.folders, downloadConf.path, downloadConf.threads,
 			)
@@ -81,5 +98,9 @@ func initDownloadFlags(downloadCmd *cobra.Command) {
 	pflags.IntVarP(
 		&downloadConf.threads, "threads", "t", 0,
 		"number of download threads to use, one per folder by default",
+	)
+	pflags.IntVar(
+		&downloadConf.timeoutSeconds, "timeout", defaultTimeoutSeconds,
+		"time in seconds to wait for acquiring a lock on the download folder",
 	)
 }
