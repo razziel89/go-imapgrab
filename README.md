@@ -1,3 +1,18 @@
+## Back up your IMAP mailboxes with ease!
+
+* [General](#general)
+    * [Notable features](#notable-features)
+    * [Currently absent features](#currently-absent-features)
+* [Why a re-implementation](#why-a-re-implementation)
+* [How to use](#how-to-use)
+    * [Store password in keyring](#store-password-in-keyring)
+    * [List folders](#list-folders)
+    * [Download](#download)
+* [Installation](#installation)
+    * [Tab completion](#tab-completion)
+* [How to contribute](#how-to-contribute)
+* [Licence](#licence)
+
 # General
 ![Core_Coverage](https://img.shields.io/badge/Core_Coverage-100.0%25-brightgreen)
 ![CLI_Coverage](https://img.shields.io/badge/CLI_Coverage-100.0%25-brightgreen)
