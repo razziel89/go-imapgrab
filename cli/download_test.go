@@ -22,36 +22,33 @@ import (
 	"os"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func doTestOfDownloadOrList(
-	t *testing.T,
-	getCmdFn func(
-		rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
-	) *cobra.Command,
-	ops coreOps,
-) {
+func TestDownloadCommand(t *testing.T) {
+	mockOps := mockCoreOps{}
+	mockOps.On("downloadFolder", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(fmt.Errorf("some error"))
+	defer mockOps.AssertExpectations(t)
+
 	t.Setenv("IGRAB_PASSWORD", "some password")
 
 	mk := &mockKeyring{}
 
 	rootConf := rootConfigT{}
-	cmd := getCmdFn(&rootConf, mk, false, ops)
+	cmd := getDownloadCmd(&rootConf, mk, false, &mockOps)
 
 	err := cmd.Execute()
 	assert.Error(t, err)
 }
 
-func doTestOfDownloadOrListNoKeyringProdRun(
-	t *testing.T,
-	getCmdFn func(
-		rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
-	) *cobra.Command,
-	ops coreOps,
-) {
+func TestDownloadCommandNoKeyringProdRun(t *testing.T) {
+	mockOps := mockCoreOps{}
+	// Nothing will be called because the keyring cannot be initialised and the password is not
+	// given via an env var.
+	defer mockOps.AssertExpectations(t)
+
 	if orgVal, found := os.LookupEnv("IGRAB_PASSWORD"); found {
 		defer func() {
 			err := os.Setenv("IGRAB_PASSWORD", orgVal)
@@ -64,7 +61,7 @@ func doTestOfDownloadOrListNoKeyringProdRun(
 	mk := &mockKeyring{}
 
 	rootConf := rootConfigT{}
-	cmd := getCmdFn(&rootConf, mk, true, ops)
+	cmd := getDownloadCmd(&rootConf, mk, true, &mockOps)
 
 	// The keyring is disabled via user flags, which are evaluated after the command has been
 	// constructed.
@@ -76,20 +73,20 @@ func doTestOfDownloadOrListNoKeyringProdRun(
 	assert.Error(t, err)
 }
 
-func TestDownloadCommand(t *testing.T) {
-	mockOps := mockCoreOps{}
-	mockOps.On("downloadFolder", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(fmt.Errorf("some error"))
-	defer mockOps.AssertExpectations(t)
-
-	doTestOfDownloadOrList(t, getDownloadCmd, &mockOps)
-}
-
-func TestDownloadCommandNoKeyringProdRun(t *testing.T) {
-	mockOps := mockCoreOps{}
-	// Nothing will be called because the keyring cannot be initialised and the password is not
-	// given via an env var.
-	defer mockOps.AssertExpectations(t)
-
-	doTestOfDownloadOrListNoKeyringProdRun(t, getDownloadCmd, &mockOps)
-}
+// func TestDownloadCommandLockConflict(
+//     t *testing.T,
+//     getCmdFn func(
+//         rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
+//     ) *cobra.Command,
+//     ops coreOps,
+// ) {
+//     t.Setenv("IGRAB_PASSWORD", "some password")
+//
+//     mk := &mockKeyring{}
+//
+//     rootConf := rootConfigT{}
+//     cmd := getCmdFn(&rootConf, mk, false, ops)
+//
+//     err := cmd.Execute()
+//     assert.Error(t, err)
+// }

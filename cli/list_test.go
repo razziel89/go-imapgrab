@@ -19,8 +19,10 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -29,7 +31,15 @@ func TestListCommand(t *testing.T) {
 	mockOps.On("getAllFolders", mock.Anything).Return([]string{}, fmt.Errorf("some error"))
 	defer mockOps.AssertExpectations(t)
 
-	doTestOfDownloadOrList(t, getListCmd, &mockOps)
+	t.Setenv("IGRAB_PASSWORD", "some password")
+
+	mk := &mockKeyring{}
+
+	rootConf := rootConfigT{}
+	cmd := getListCmd(&rootConf, mk, false, &mockOps)
+
+	err := cmd.Execute()
+	assert.Error(t, err)
 }
 
 func TestListCommandNoKeyringProdRun(t *testing.T) {
@@ -38,5 +48,26 @@ func TestListCommandNoKeyringProdRun(t *testing.T) {
 	// given via an env var.
 	defer mockOps.AssertExpectations(t)
 
-	doTestOfDownloadOrListNoKeyringProdRun(t, getDownloadCmd, &mockOps)
+	if orgVal, found := os.LookupEnv("IGRAB_PASSWORD"); found {
+		defer func() {
+			err := os.Setenv("IGRAB_PASSWORD", orgVal)
+			assert.NoError(t, err)
+		}()
+	}
+	err := os.Unsetenv("IGRAB_PASSWORD")
+	assert.NoError(t, err)
+
+	mk := &mockKeyring{}
+
+	rootConf := rootConfigT{}
+	cmd := getListCmd(&rootConf, mk, true, &mockOps)
+
+	// The keyring is disabled via user flags, which are evaluated after the command has been
+	// constructed.
+	orgNoKeyring := noKeyring
+	noKeyring = true
+	t.Cleanup(func() { noKeyring = orgNoKeyring })
+
+	err = cmd.Execute()
+	assert.Error(t, err)
 }
