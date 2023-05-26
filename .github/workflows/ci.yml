@@ -39,14 +39,14 @@ jobs:
       run: make build
 
     - name: Lint project, core part
-      uses: golangci/golangci-lint-action@v2
+      uses: golangci/golangci-lint-action@v3
       with:
         working-directory: core
         version: latest
         skip-go-installation: true
 
     - name: Lint project, cli part
-      uses: golangci/golangci-lint-action@v2
+      uses: golangci/golangci-lint-action@v3
       with:
         working-directory: cli
         version: latest
