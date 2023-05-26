@@ -8,8 +8,6 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    # permissions:
-    #  contents: write # Needed to update the coverage badge.
 
     steps:
     - name: Checkout repository
