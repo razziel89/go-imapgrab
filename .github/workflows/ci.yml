@@ -54,7 +54,7 @@ jobs:
 
     - name: Build all release binaries on main
       uses: goreleaser/goreleaser-action@v4
-      if: ${{ github.ref == 'refs/main' }}
+      if: ${{ github.ref == 'refs/heads/main' }}
       with:
         # The snapshot flag is needed since we do not want to require a tag just
         # for building this.
