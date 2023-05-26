@@ -19,18 +19,11 @@ package core
 
 import "fmt"
 
-// Determine the indices of emails that have not yet been downloaded. The download process
-// indentifies emails by their indices and not by their UIDs. Thus, we need to take the server-side
-// information as is and not sort it in any way.
-// This means there can be a race condition where go-imapgrab retrieves data about emails, then some
-// emails are removed remotely, and them go-imapgrab downloads emails. This would result in
-// doenloading emails that are already on disk. This race condition cannot be avoided due to the way
-// IMAP servers work (if it can, please tell me :) ).
-func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err error) {
-	ranges = []rangeT{}
+// Determine the UIDs of emails that have not yet been downloaded.
+func determineMissingUIDs(oldmails []oldmail, uids []uid) (missingUIDs []int, err error) {
 	// Check special cases such as an empty mailbox or uidvalidities that do not agree.
 	if len(uids) == 0 {
-		return []rangeT{}, nil
+		return nil, nil
 	}
 	uidvalidity := uids[0].Mbox
 	for _, msg := range uids {
@@ -53,30 +46,12 @@ func determineMissingIDs(oldmails []oldmail, uids []uid) (ranges []rangeT, err e
 		oldmailUIDs[msg.uid] = struct{}{}
 	}
 
-	// Determine which UIDs are missing on disk. The resulting structure will already be sorted.
-	missingIDs := []int{}
-	for msgIdx, msg := range uids {
+	// Determine which UIDs are missing on disk.
+	for _, msg := range uids {
 		if _, found := oldmailUIDs[msg.Message]; !found {
-			missingIDs = append(missingIDs, msgIdx+1) // Emails are identified starting at 1.
+			missingUIDs = append(missingUIDs, msg.Message)
 		}
 	}
-	if len(missingIDs) == 0 {
-		// All's well, everything is already on disk.
-		return
-	}
 
-	// Extract consecutive ranges of UIDs from the missing UIDs, which speeds up downloading. That
-	// way, we avoid retrieving messages one at a time.
-	start := missingIDs[0]
-	last := start
-	for _, mis := range missingIDs {
-		if mis-last > 1 {
-			ranges = append(ranges, rangeT{start: start, end: last + 1})
-			start = mis
-		}
-		last = mis
-	}
-	ranges = append(ranges, rangeT{start: start, end: last + 1})
-
-	return ranges, nil
+	return missingUIDs, nil
 }

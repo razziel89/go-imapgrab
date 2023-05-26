@@ -65,9 +65,9 @@ func (m *mockDownloader) streamingOldmailWriteout(
 }
 
 func (m *mockDownloader) streamingRetrieval(
-	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup, in func() bool,
+	mbox *imap.MailboxStatus, missingUIDs []int, wg, startWg *sync.WaitGroup, in func() bool,
 ) (<-chan emailOps, *int, error) {
-	args := m.Called(mbox, missingIDRanges, wg, startWg, in)
+	args := m.Called(mbox, missingUIDs, wg, startWg, in)
 	wg.Add(1)
 	go func() {
 		startWg.Wait()

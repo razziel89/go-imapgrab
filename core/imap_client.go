@@ -41,6 +41,7 @@ type imapOps interface {
 	List(ref string, name string, ch chan *imap.MailboxInfo) error
 	Select(name string, readOnly bool) (*imap.MailboxStatus, error)
 	Fetch(seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message) error
+	UidFetch(seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message) error
 	Logout() error
 	Terminate() error
 }
@@ -128,21 +129,21 @@ func newOnce(hook func()) *once {
 func streamingRetrieval(
 	mbox *imap.MailboxStatus,
 	imapClient imapOps,
-	indices []rangeT,
+	uids []int,
 	wg, startWg *sync.WaitGroup,
 	interrupted func() bool,
 ) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
-	// Make sure there are enough messages in this mailbox and we are not requesting a non-positive
-	// index.
-	indices, err = canonicalizeRanges(indices, 1, int(mbox.Messages)+1)
-	if err != nil {
-		return nil, nil, err
+	// Make sure all UIDs are >0.
+	for _, uid := range uids {
+		if uid < 0 {
+			return nil, nil, fmt.Errorf("detected a UID<=0, abording")
+		}
 	}
 
 	// Emails will be retrieved via a SeqSet, which can contain a set of messages.
 	seqset := new(imap.SeqSet)
-	for _, r := range indices {
-		seqset.AddRange(uint32(r.start), uint32(r.end-1))
+	for _, uid := range uids {
+		seqset.AddNum(uint32(uid))
 	}
 
 	wg.Add(1)
@@ -154,7 +155,7 @@ func streamingRetrieval(
 	go func() {
 		// Do not start before the entire pipeline has been set up.
 		startWg.Wait()
-		err := imapClient.Fetch(
+		err := imapClient.UidFetch(
 			seqset,
 			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822},
 			orgMessageChan,

@@ -27,7 +27,7 @@ func TestDetermineMissingIDsEmptyData(t *testing.T) {
 	oldmails := []oldmail{}
 	uids := []uid{}
 
-	ranges, err := determineMissingIDs(oldmails, uids)
+	ranges, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
 	assert.Equal(t, []rangeT{}, ranges)
@@ -52,7 +52,7 @@ func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
 	orgUIDs := make([]uid, len(uids))
 	_ = copy(orgUIDs, uids)
 
-	ranges, err := determineMissingIDs(oldmails, uids)
+	ranges, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
 	assert.Equal(t, orgUIDs, uids)
@@ -74,7 +74,7 @@ func TestDetermineMissingIDsSomeMissing(t *testing.T) {
 	orgUIDs := make([]uid, len(uids))
 	_ = copy(orgUIDs, uids)
 
-	ranges, err := determineMissingIDs(oldmails, uids)
+	ranges, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
 	assert.Equal(t, orgUIDs, uids)
@@ -92,7 +92,7 @@ func TestDetermineMissingIDsMismatchesInRemoteData(t *testing.T) {
 	}
 
 	// UIDs are not consistent in uids slice.
-	_, err := determineMissingIDs([]oldmail{}, uids)
+	_, err := determineMissingUIDs([]oldmail{}, uids)
 	assert.Error(t, err)
 }
 
@@ -105,7 +105,7 @@ func TestDetermineMissingIDsMismatches(t *testing.T) {
 	}
 
 	// UIDs are not consistent between uid and oldmails slices.
-	_, err := determineMissingIDs(oldmails, uids)
+	_, err := determineMissingUIDs(oldmails, uids)
 	assert.Error(t, err)
 }
 
@@ -125,7 +125,7 @@ func TestDetermineMissingIDsSomeMissingNonconsecutiveRanges(t *testing.T) {
 		{Mbox: 0, Message: 6},
 	}
 
-	ranges, err := determineMissingIDs(oldmails, uids)
+	ranges, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
 	assert.Equal(t, []rangeT{{start: 2, end: 3}, {start: 5, end: 6}}, ranges)

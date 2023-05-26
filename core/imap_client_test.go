@@ -65,6 +65,19 @@ func (mc *mockClient) Fetch(
 	return args.Error(0)
 }
 
+// UidFetch has to have that name because it implements an interface htat follows an external
+// dependency. Thus, disable linter warnings about the name.
+func (mc *mockClient) UidFetch( //nolint:revive,stylecheck
+	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
+) error {
+	defer close(ch)
+	args := mc.Called(seqset, items, ch)
+	for _, msg := range mc.messages {
+		ch <- msg
+	}
+	return args.Error(0)
+}
+
 func (mc *mockClient) Logout() error {
 	args := mc.Called()
 	return args.Error(0)
@@ -195,11 +208,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 		Messages:    16,
 		UidValidity: 42,
 	}
-	ranges := []rangeT{
-		{start: 10, end: 11},
-		{start: 12, end: 13},
-		{start: 16, end: 17},
-	}
+	uids := []int{10, 12, 16}
 	messages := []*imap.Message{
 		{Uid: 10},
 		{Uid: 12},
@@ -221,7 +230,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 	stwg.Add(1)
 	interrupted := func() bool { return false }
 
-	emailChan, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupted)
+	emailChan, errPtr, err := streamingRetrieval(status, m, uids, &wg, &stwg, interrupted)
 
 	assert.NoError(t, err)
 	assert.Zero(t, *errPtr)
@@ -253,16 +262,14 @@ func TestStreamingRetrievalError(t *testing.T) {
 	status := &imap.MailboxStatus{}
 	m := setUpMockClient(t, nil, nil, nil)
 
-	// These ranges trigger an initial error.
-	ranges := []rangeT{
-		{start: 20, end: 10},
-	}
+	// These uids trigger an initial error.
+	uids := []int{-1, 0, 1}
 
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
 	interrupted := func() bool { return false }
 
-	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupted)
+	_, _, err := streamingRetrieval(status, m, uids, &wg, &stwg, interrupted)
 
 	assert.Error(t, err)
 }
@@ -272,7 +279,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 		Messages:    16,
 		UidValidity: 42,
 	}
-	ranges := []rangeT{{start: 10, end: 11}}
+	uids := []int{10}
 	messages := []*imap.Message{}
 
 	m := &mockClient{messages: messages}
@@ -292,7 +299,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 	// interrupt case. Interrupts are handled preferentially compared to message conversion.
 	interrupted := func() bool { return true }
 
-	_, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupted)
+	_, errPtr, err := streamingRetrieval(status, m, uids, &wg, &stwg, interrupted)
 
 	assert.NoError(t, err)
 
