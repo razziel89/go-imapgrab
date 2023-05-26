@@ -34,7 +34,7 @@ type downloadOps interface {
 	getAllMessageUUIDs(*imap.MailboxStatus) ([]uid, error)
 	streamingOldmailWriteout(<-chan oldmail, string, *sync.WaitGroup, *sync.WaitGroup) (*int, error)
 	streamingRetrieval(
-		*imap.MailboxStatus, []int, *sync.WaitGroup, *sync.WaitGroup, func() bool,
+		[]int, *sync.WaitGroup, *sync.WaitGroup, func() bool,
 	) (<-chan emailOps, *int, error)
 	streamingDelivery(
 		<-chan emailOps, string, int, *sync.WaitGroup, *sync.WaitGroup,
@@ -61,12 +61,11 @@ func (d downloader) streamingOldmailWriteout(
 }
 
 func (d downloader) streamingRetrieval(
-	mbox *imap.MailboxStatus,
 	missingUIDs []int,
 	wg, startWg *sync.WaitGroup,
 	interrupted func() bool,
 ) (<-chan emailOps, *int, error) {
-	return streamingRetrieval(mbox, d.imapOps, missingUIDs, wg, startWg, interrupted)
+	return streamingRetrieval(d.imapOps, missingUIDs, wg, startWg, interrupted)
 }
 
 func (d downloader) streamingDelivery(
@@ -108,7 +107,7 @@ func downloadMissingEmailsToFolder(
 	startWg.Add(1) // startWg is used to defer operations until the pipeline is set up.
 	// Retrieve email information. This does not download the emails themselves yet.
 	messageChan, fetchErrCount, err := ops.streamingRetrieval(
-		mbox, missingUIDs, &wg, &startWg, sig.interrupted,
+		missingUIDs, &wg, &startWg, sig.interrupted,
 	)
 	var deliveredChan <-chan oldmail
 	var deliverErrCount, oldmailErrCount *int

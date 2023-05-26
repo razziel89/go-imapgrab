@@ -204,10 +204,6 @@ func TestSelectFolderSuccess(t *testing.T) {
 }
 
 func TestStreamingRetrievalSuccess(t *testing.T) {
-	status := &imap.MailboxStatus{
-		Messages:    16,
-		UidValidity: 42,
-	}
 	uids := []int{10, 12, 16}
 	messages := []*imap.Message{
 		{Uid: 10},
@@ -230,7 +226,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 	stwg.Add(1)
 	interrupted := func() bool { return false }
 
-	emailChan, errPtr, err := streamingRetrieval(status, m, uids, &wg, &stwg, interrupted)
+	emailChan, errPtr, err := streamingRetrieval(m, uids, &wg, &stwg, interrupted)
 
 	assert.NoError(t, err)
 	assert.Zero(t, *errPtr)
@@ -259,7 +255,6 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 }
 
 func TestStreamingRetrievalError(t *testing.T) {
-	status := &imap.MailboxStatus{}
 	m := setUpMockClient(t, nil, nil, nil)
 
 	// These uids trigger an initial error.
@@ -269,16 +264,12 @@ func TestStreamingRetrievalError(t *testing.T) {
 	stwg.Add(1)
 	interrupted := func() bool { return false }
 
-	_, _, err := streamingRetrieval(status, m, uids, &wg, &stwg, interrupted)
+	_, _, err := streamingRetrieval(m, uids, &wg, &stwg, interrupted)
 
 	assert.Error(t, err)
 }
 
 func TestStreamingRetrievalInterrupt(t *testing.T) {
-	status := &imap.MailboxStatus{
-		Messages:    16,
-		UidValidity: 42,
-	}
 	uids := []int{10}
 	messages := []*imap.Message{}
 
@@ -299,7 +290,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 	// interrupt case. Interrupts are handled preferentially compared to message conversion.
 	interrupted := func() bool { return true }
 
-	_, errPtr, err := streamingRetrieval(status, m, uids, &wg, &stwg, interrupted)
+	_, errPtr, err := streamingRetrieval(m, uids, &wg, &stwg, interrupted)
 
 	assert.NoError(t, err)
 

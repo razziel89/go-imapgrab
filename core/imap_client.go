@@ -127,7 +127,6 @@ func newOnce(hook func()) *once {
 // a separate, second goroutine translating between the two. This second goroutine also handles
 // interrupts.
 func streamingRetrieval(
-	mbox *imap.MailboxStatus,
 	imapClient imapOps,
 	uids []int,
 	wg, startWg *sync.WaitGroup,
