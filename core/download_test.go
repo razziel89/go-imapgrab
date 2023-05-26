@@ -115,7 +115,7 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	uids := []uid{
 		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
 	}
-	missingIDRanges := []rangeT{{start: 1, end: 4}}
+	missingUIDs := []int{1, 2, 3}
 
 	messages := []*mockEmail{
 		{uid: 1}, {uid: 2}, {uid: 3},
@@ -146,7 +146,7 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
 	m.On("streamingRetrieval",
-		mbox, missingIDRanges, mock.Anything, mock.Anything,
+		missingUIDs, mock.Anything, mock.Anything,
 		// We cannot use functions in expectations. Thus use this construct instead.
 		mock.AnythingOfType("func() bool"),
 	).Return(messageChan, &fetchErrCount, nil)
@@ -229,7 +229,7 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	uids := []uid{
 		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
 	}
-	missingIDRanges := []rangeT{{start: 1, end: 4}}
+	missingUIDs := []int{1, 2, 3}
 
 	messages := []*mockEmail{{uid: 1}, {uid: 2}, {uid: 3}}
 	messageChan := make(chan emailOps)
@@ -257,7 +257,7 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
-	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything,
+	m.On("streamingRetrieval", missingUIDs, mock.Anything, mock.Anything,
 		// We cannot use functions in expectations. Thus use this construct instead.
 		mock.AnythingOfType("func() bool"),
 	).Return(messageChan, &fetchErrCount, nil)
