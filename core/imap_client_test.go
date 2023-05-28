@@ -218,7 +218,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 	}
 
 	m := setUpMockClient(t, nil, messages, nil)
-	m.On("Fetch", expectedSeqSet, expectedFetchRequest, mock.Anything).Return(
+	m.On("UidFetch", expectedSeqSet, expectedFetchRequest, mock.Anything).Return(
 		fmt.Errorf("retrieval error"),
 	)
 
@@ -274,7 +274,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 	messages := []*imap.Message{}
 
 	m := &mockClient{messages: messages}
-	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	defer m.AssertExpectations(t)
 
 	// This code was taken from setUpMockClient because we do not want to assert expectations here.
 	orgClientGetter := newImapClient
