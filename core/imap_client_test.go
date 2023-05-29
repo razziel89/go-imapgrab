@@ -274,9 +274,11 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 	messages := []*imap.Message{}
 
 	m := &mockClient{messages: messages}
-	defer m.AssertExpectations(t)
+	m.On("UidFetch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// This code was taken from setUpMockClient because we do not want to assert expectations here.
+	// The reason is that the call to streamingRetrieval will use 2 goroutines and we cannot
+	// guarantee that UidFetch will have been called.
 	orgClientGetter := newImapClient
 	newImapClient = func(addr string) (imapOps, error) {
 		return m, nil

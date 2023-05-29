@@ -318,7 +318,7 @@ func TestDownloaderStreamingOldmailWriteout(t *testing.T) {
 
 func TestDownloaderStreamingRetrieval(t *testing.T) {
 	m := &mockClient{}
-	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
+	m.On("UidFetch", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
 	dl := &downloader{
 		imapOps:    m,
 		deliverOps: nil,

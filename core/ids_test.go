@@ -27,10 +27,10 @@ func TestDetermineMissingIDsEmptyData(t *testing.T) {
 	oldmails := []oldmail{}
 	uids := []uid{}
 
-	ranges, err := determineMissingUIDs(oldmails, uids)
+	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
-	assert.Equal(t, []rangeT{}, ranges)
+	assert.Equal(t, []int{}, missingIDs)
 }
 
 func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
@@ -52,11 +52,11 @@ func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
 	orgUIDs := make([]uid, len(uids))
 	_ = copy(orgUIDs, uids)
 
-	ranges, err := determineMissingUIDs(oldmails, uids)
+	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
 	assert.Equal(t, orgUIDs, uids)
-	assert.Equal(t, []rangeT{}, ranges)
+	assert.Equal(t, []int{}, missingIDs)
 }
 
 func TestDetermineMissingIDsSomeMissing(t *testing.T) {
@@ -74,14 +74,14 @@ func TestDetermineMissingIDsSomeMissing(t *testing.T) {
 	orgUIDs := make([]uid, len(uids))
 	_ = copy(orgUIDs, uids)
 
-	ranges, err := determineMissingUIDs(oldmails, uids)
+	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
 	assert.Equal(t, orgUIDs, uids)
 	// This means that the emails that are located in the index interval [2, 4) in the "uids" slice
 	// are not on disk. As common in maths, [ denotes a closed interval while ) denotes an open
 	// interval. That is, missing data is `uids[2:4]`.
-	assert.Equal(t, []rangeT{{start: 2, end: 4}}, ranges)
+	assert.Equal(t, []int{5, 6}, missingIDs)
 }
 
 func TestDetermineMissingIDsMismatchesInRemoteData(t *testing.T) {
@@ -125,8 +125,8 @@ func TestDetermineMissingIDsSomeMissingNonconsecutiveRanges(t *testing.T) {
 		{Mbox: 0, Message: 6},
 	}
 
-	ranges, err := determineMissingUIDs(oldmails, uids)
+	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
-	assert.Equal(t, []rangeT{{start: 2, end: 3}, {start: 5, end: 6}}, ranges)
+	assert.Equal(t, []int{2, 5}, missingIDs)
 }
