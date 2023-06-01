@@ -18,9 +18,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +34,42 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var defaultExpectedTestLogs = []string{
+	"INFO connected",
+	"INFO connecting to server 127.0.0.1",
+	"INFO logged in",
+	"INFO logging in as username with provided password",
+	"INFO logging out",
+	"INFO retrieved 1 folders",
+	"INFO retrieving folders",
+	"password taken from env var IGRAB_PASSWORD",
+	"WARNING using insecure connection to locahost",
+}
+
+var defaultExpectedDownloadTestLogs = []string{
+	"INFO all sub-directories found",
+	"INFO appending to oldmail file",
+	"INFO available folders are",
+	"INFO checking for and reading oldmail file of possible maildir",
+	"INFO checking for sub-directories of possible maildir",
+	"INFO creating path to maildir",
+	"INFO downloaded email",
+	"INFO expanded to folders",
+	"INFO expanding folder spec",
+	"INFO found and read oldmail file",
+	"INFO initializing maildir",
+	"INFO moving email to permanent storage location",
+	"INFO reading oldmail file",
+	"INFO received information for 1 emails",
+	"INFO retrieving information about emails stored on disk",
+	"INFO retrieving information about emails stored on server",
+	"INFO selected folder contains 1 emails",
+	"INFO selecting folder:INBOX",
+	"INFO there were 0/0/0 errors while: retrieving/delivering/remembering mail",
+	"INFO will download 1 new emails",
+	"INFO writing new email to file",
+}
 
 func catchStdoutStderr(t *testing.T) func() (string, string) {
 	t.Helper()
@@ -129,8 +168,6 @@ func setUpFakeServerAndCommand(
 
 	var cmd *cobra.Command
 	switch args[0] {
-	case "root":
-		cmd = getRootCmd()
 	case "list":
 		// Always disable the keyring by making this a test run.
 		cmd = getListCmd(&rootConf, nil, false, &corer{})
@@ -165,25 +202,26 @@ func TestSystemListSuccess(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "password")
 
 	args := []string{"list", "--server=127.0.0.1", "--port=30218", "--user=username", "-v"}
-
 	execute, stdouterr := setUpFakeServerAndCommand(t, args)
 
 	err := execute()
+
 	assert.NoError(t, err)
 	stdout, stderr := stdouterr()
 	assert.Equal(t, "INBOX\n", stdout)
-	assert.Contains(t, stderr, "INFO retrieving folders")
-	assert.Contains(t, stderr, "INFO retrieved 1 folders")
+	for _, msg := range defaultExpectedTestLogs {
+		assert.Contains(t, stderr, msg)
+	}
 }
 
 func TestSystemListAuthError(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "password")
 
 	args := []string{"list", "--server=127.0.0.1", "--port=30218", "--user=something-else", "-v"}
-
 	execute, stdouterr := setUpFakeServerAndCommand(t, args)
 
 	err := execute()
+
 	assert.ErrorContains(t, err, "Bad username or password")
 	stdout, stderr := stdouterr()
 	assert.Equal(t, "\n", stdout)
@@ -192,21 +230,62 @@ func TestSystemListAuthError(t *testing.T) {
 
 func TestSystemDownloadSuccess(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "password")
+
 	maildir := t.TempDir()
-
 	args := []string{
-		"download", "--server=127.0.0.1", "--port=30218", "--user=username", "-v", "--folder=_ALL_",
-		"--path", maildir,
+		"download", "--server=127.0.0.1", "--port=30218", "--user=username", "--verbose",
+		"--folder=_ALL_", "--path", maildir,
 	}
-
 	execute, stdouterr := setUpFakeServerAndCommand(t, args)
 
 	err := execute()
+
 	assert.NoError(t, err)
-	stdout, stderr := stdouterr()
-	assert.Equal(t, "", stdout)
-	assert.Equal(t, "", stderr)
+	_, stderr := stdouterr()
 
 	// Ensure that the maildir looks as expected.
-	// TODO
+	actualFiles := []string{}
+	actualDirs := []string{}
+	host, err := os.Hostname()
+	require.NoError(t, err)
+
+	getFilesAndDirs := func(path string, d fs.DirEntry, err error) error {
+		// Return early on read errors.
+		if err != nil {
+			return err
+		}
+		// We treat all paths relative to the maildir.
+		path = strings.TrimPrefix(strings.TrimPrefix(path, maildir), string(os.PathSeparator))
+		fmt.Println(path, d.Name())
+		if d.IsDir() {
+			actualDirs = append(actualDirs, path)
+		} else {
+			if strings.HasSuffix(path, fmt.Sprintf(".%s", host)) {
+				// As the name of the actual email file woll be pretty random, we replace the name
+				// of the file by this placeholder, which is easier to check. This is a bit hacky
+				// but means we do not have to mock the generation of the name. The file is
+				// identified by ending on the hostname preceded by a dot.
+				path = filepath.Join(filepath.Dir(path), "email")
+			}
+			actualFiles = append(actualFiles, path)
+		}
+		return nil
+	}
+	err = filepath.WalkDir(maildir, getFilesAndDirs)
+	require.NoError(t, err)
+
+	expectedFiles := []string{
+		".go-imapgrab.lock", "INBOX/new/email", "oldmail-127.0.0.1-30218-username-INBOX",
+	}
+	assert.Equal(t, expectedFiles, actualFiles)
+
+	expectedDirs := []string{"", "INBOX", "INBOX/cur", "INBOX/new", "INBOX/tmp"}
+	assert.Equal(t, expectedDirs, actualDirs)
+
+	for _, msg := range defaultExpectedTestLogs {
+		assert.Contains(t, stderr, msg)
+	}
+	for _, msg := range defaultExpectedDownloadTestLogs {
+		assert.Contains(t, stderr, msg)
+	}
 }
