@@ -47,10 +47,6 @@ func logDebug(v ...interface{}) {
 	}
 }
 
-func logWarn(v ...interface{}) {
-	log.Println(v...)
-}
-
 func getRootCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "go-imapgrab",
