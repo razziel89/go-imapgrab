@@ -1,5 +1,5 @@
 /* A re-implementation of the amazing imapgrap in plain Golang.
-Copyright (C) 2022  Torsten Sachse
+Copyright (C) 2022  Torsten Long
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/emersion/go-imap"
@@ -30,10 +31,22 @@ const (
 	messageRetrievalBuffer = 20
 )
 
-// Make this a function pointer to simplify testing.
-var newImapClient = func(addr string) (imapOps, error) {
-	// Use automatic configuration of TLS options.
-	return client.DialTLS(addr, nil)
+// Make this a function pointer to simplify testing. Also takes a boolean to decide whether to use
+// secure auth nor not (i.e. TLS). This errors out if insecure auth is chossen but anything other
+// than "127.0.0.1" is passed as "addr".
+var newImapClient = func(addr string, insecure bool) (imap imapOps, err error) {
+	if !insecure {
+		// Use automatic configuration of TLS options.
+		imap, err = client.DialTLS(addr, nil)
+	} else if !strings.HasPrefix(addr, "127.0.0.1:") {
+		err = fmt.Errorf(
+			"not allowing insecure auth for non-localhost address %s, use 127.0.0.1", addr,
+		)
+	} else {
+		logWarning("using insecure connection to locahost")
+		imap, err = client.Dial(addr)
+	}
+	return
 }
 
 type imapOps interface {
@@ -55,7 +68,7 @@ func authenticateClient(config IMAPConfig) (imapClient imapOps, err error) {
 
 	logInfo(fmt.Sprintf("connecting to server %s", config.Server))
 	serverWithPort := fmt.Sprintf("%s:%d", config.Server, config.Port)
-	if imapClient, err = newImapClient(serverWithPort); err != nil {
+	if imapClient, err = newImapClient(serverWithPort, config.Insecure); err != nil {
 		logError("cannot connect")
 		return nil, err
 	}

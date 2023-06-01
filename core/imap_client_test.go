@@ -1,5 +1,5 @@
 /* A re-implementation of the amazing imapgrap in plain Golang.
-Copyright (C) 2022  Torsten Sachse
+Copyright (C) 2022  Torsten Long
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -96,7 +96,7 @@ func setUpMockClient(
 		messages:  messages,
 	}
 	orgClientGetter := newImapClient
-	newImapClient = func(addr string) (imapOps, error) {
+	newImapClient = func(addr string, _ bool) (imapOps, error) {
 		return mock, err
 	}
 	t.Cleanup(func() { newImapClient = orgClientGetter })
@@ -105,7 +105,17 @@ func setUpMockClient(
 }
 
 func TestAuthFailure(t *testing.T) {
-	_, err := newImapClient("")
+	_, err := newImapClient("", false)
+	assert.Error(t, err)
+}
+
+func TestDisallowInsecureRemoteAuth(t *testing.T) {
+	_, err := newImapClient("", true)
+	assert.Error(t, err, "not allowing insecure auth for non-localhost address")
+}
+
+func TestAllowInsecureLocalAuth(t *testing.T) {
+	_, err := newImapClient("127.0.0.1:1234", true)
 	assert.Error(t, err)
 }
 
@@ -280,7 +290,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 	// The reason is that the call to streamingRetrieval will use 2 goroutines and we cannot
 	// guarantee that UidFetch will have been called.
 	orgClientGetter := newImapClient
-	newImapClient = func(addr string) (imapOps, error) {
+	newImapClient = func(addr string, _ bool) (imapOps, error) {
 		return m, nil
 	}
 	t.Cleanup(func() { newImapClient = orgClientGetter })

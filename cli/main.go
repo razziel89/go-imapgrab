@@ -1,5 +1,5 @@
 /* A re-implementation of the amazing imapgrap in plain Golang.
-Copyright (C) 2022  Torsten Sachse
+Copyright (C) 2022  Torsten Long
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,6 +20,8 @@ package main
 import (
 	"log"
 )
+
+const localhost = "127.0.0.1"
 
 var logFatal = log.Fatal
 
