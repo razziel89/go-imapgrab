@@ -34,11 +34,14 @@ func getListCmd(
 		Short: "Print all folders in your inbox.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
+			// Allow insecure auth for local server for testing.
+			insecure := rootConf.server == "127.0.0.1"
 			cfg := core.IMAPConfig{
 				Server:   rootConf.server,
 				Port:     rootConf.port,
 				User:     rootConf.username,
 				Password: rootConf.password,
+				Insecure: insecure,
 			}
 			folders, err := ops.getAllFolders(cfg)
 
@@ -61,5 +64,6 @@ func getListCmd(
 var listCmd = getListCmd(&rootConf, defaultKeyring, true, &corer{})
 
 func init() {
+	initRootFlags(listCmd, &rootConf)
 	rootCmd.AddCommand(listCmd)
 }

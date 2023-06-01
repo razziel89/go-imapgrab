@@ -38,11 +38,12 @@ var newImapClient = func(addr string, insecure bool) (imap imapOps, err error) {
 	if !insecure {
 		// Use automatic configuration of TLS options.
 		imap, err = client.DialTLS(addr, nil)
-	} else if strings.HasPrefix(addr, "127.0.0.1:") {
+	} else if !strings.HasPrefix(addr, "127.0.0.1:") {
 		err = fmt.Errorf(
 			"not allowing insecure auth for non-localhost address %s, use 127.0.0.1", addr,
 		)
 	} else {
+		logWarning("using insecure connection to locahost")
 		imap, err = client.Dial(addr)
 	}
 	return
