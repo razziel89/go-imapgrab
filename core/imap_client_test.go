@@ -83,7 +83,7 @@ func setUpMockClient(
 		messages:  messages,
 	}
 	orgClientGetter := newImapClient
-	newImapClient = func(addr string) (imapOps, error) {
+	newImapClient = func(addr string, _ bool) (imapOps, error) {
 		return mock, err
 	}
 	t.Cleanup(func() { newImapClient = orgClientGetter })
@@ -92,7 +92,17 @@ func setUpMockClient(
 }
 
 func TestAuthFailure(t *testing.T) {
-	_, err := newImapClient("")
+	_, err := newImapClient("", false)
+	assert.Error(t, err)
+}
+
+func TestDisallowInsecureRemoteAuth(t *testing.T) {
+	_, err := newImapClient("", true)
+	assert.Error(t, err, "not allowing insecure auth for non-localhost address")
+}
+
+func TestAllowInsecureLocalAuth(t *testing.T) {
+	_, err := newImapClient("127.0.0.1:1234", true)
 	assert.Error(t, err)
 }
 
@@ -280,7 +290,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 
 	// This code was taken from setUpMockClient because we do not want to assert expectations here.
 	orgClientGetter := newImapClient
-	newImapClient = func(addr string) (imapOps, error) {
+	newImapClient = func(addr string, _ bool) (imapOps, error) {
 		return m, nil
 	}
 	t.Cleanup(func() { newImapClient = orgClientGetter })

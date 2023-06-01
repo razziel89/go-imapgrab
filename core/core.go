@@ -30,6 +30,7 @@ type IMAPConfig struct {
 	Port     int
 	User     string
 	Password string
+	Insecure bool
 }
 
 // ImapgrabOps provides functionality for interacting with the basic imapgrab functionality such as

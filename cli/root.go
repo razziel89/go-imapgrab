@@ -60,15 +60,15 @@ func getRootCmd() *cobra.Command {
 var rootCmd = getRootCmd()
 
 func init() {
-	initRootFlags(rootCmd)
+	initRootFlags(rootCmd, &rootConf)
 }
 
-func initRootFlags(rootCmd *cobra.Command) {
-	pflags := rootCmd.PersistentFlags()
+func initRootFlags(rootCmd *cobra.Command, rootConf *rootConfigT) {
+	flags := rootCmd.Flags()
 
-	pflags.StringVarP(&rootConf.server, "server", "s", "", "address of imap server")
-	pflags.IntVarP(&rootConf.port, "port", "p", defaultPort, "login port for imap server")
-	pflags.StringVarP(&rootConf.username, "user", "u", "", "login user name")
-	pflags.BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	pflags.BoolVarP(&noKeyring, "no-keyring", "k", false, "do not use the system keyring")
+	flags.StringVarP(&rootConf.server, "server", "s", "", "address of imap server")
+	flags.IntVarP(&rootConf.port, "port", "p", defaultPort, "login port for imap server")
+	flags.StringVarP(&rootConf.username, "user", "u", "", "login user name")
+	flags.BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	flags.BoolVarP(&noKeyring, "no-keyring", "k", false, "do not use the system keyring")
 }

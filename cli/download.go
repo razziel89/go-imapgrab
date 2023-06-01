@@ -50,11 +50,14 @@ func getDownloadCmd(
 		Short: "Download all not yet downloaded emails from a folder to a maildir.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
+			// Allow insecure auth for local server for testing.
+			insecure := rootConf.server == localhost
 			cfg := core.IMAPConfig{
 				Server:   rootConf.server,
 				Port:     rootConf.port,
 				User:     rootConf.username,
 				Password: rootConf.password,
+				Insecure: insecure,
 			}
 			lockfile := filepath.Join(downloadConf.path, lockfileName)
 			lockTimeout := time.Duration(downloadConf.timeoutSeconds) * time.Second
@@ -84,14 +87,15 @@ func getDownloadCmd(
 var downloadCmd = getDownloadCmd(&rootConf, &downloadConf, defaultKeyring, true, &corer{}, lock)
 
 func init() {
-	initDownloadFlags(downloadCmd)
+	initDownloadFlags(downloadCmd, &downloadConf)
+	initRootFlags(downloadCmd, &rootConf)
 	rootCmd.AddCommand(downloadCmd)
 }
 
-func initDownloadFlags(downloadCmd *cobra.Command) {
-	pflags := downloadCmd.PersistentFlags()
+func initDownloadFlags(downloadCmd *cobra.Command, downloadConf *downloadConfigT) {
+	flags := downloadCmd.Flags()
 
-	pflags.StringSliceVarP(
+	flags.StringSliceVarP(
 		&downloadConf.folders,
 		"folder", "f", []string{},
 		"a folder spec specifying something to download (can be a folder name,\n"+
@@ -99,12 +103,12 @@ func initDownloadFlags(downloadCmd *cobra.Command) {
 			"flag multiple times for multiple specs, prepend a minus '-' to any\n"+
 			"spec to deselect instead, specs are interpreted in order)\n",
 	)
-	pflags.StringVar(&downloadConf.path, "path", "", "the local path to your maildir's parent dir")
-	pflags.IntVarP(
+	flags.StringVar(&downloadConf.path, "path", "", "the local path to your maildir's parent dir")
+	flags.IntVarP(
 		&downloadConf.threads, "threads", "t", 0,
 		"number of download threads to use, one per folder by default",
 	)
-	pflags.IntVar(
+	flags.IntVar(
 		&downloadConf.timeoutSeconds, "timeout", defaultTimeoutSeconds,
 		"time in seconds to wait for acquiring a lock on the download folder",
 	)

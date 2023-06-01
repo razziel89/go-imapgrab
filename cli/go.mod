@@ -5,6 +5,7 @@ go 1.17
 replace github.com/razziel89/go-imapgrab/core => ../core
 
 require (
+	github.com/emersion/go-imap v1.2.1
 	github.com/razziel89/go-imapgrab/core v0.0.0-20230313202000-bc375372818b
 	github.com/rogpeppe/go-internal v1.10.0
 	github.com/spf13/cobra v1.7.0
@@ -17,8 +18,9 @@ require (
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/emersion/go-imap v1.2.1 // indirect
+	github.com/emersion/go-message v0.15.0 // indirect
 	github.com/emersion/go-sasl v0.0.0-20220912192320-0145f2c60ead // indirect
+	github.com/emersion/go-textwrapper v0.0.0-20200911093747-65d896831594 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
