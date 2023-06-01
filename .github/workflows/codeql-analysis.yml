@@ -20,6 +20,11 @@ on:
   schedule:
     - cron: '34 15 * * 3'
 
+# Ensure there is only ever one workflow of this kind running at a time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze
