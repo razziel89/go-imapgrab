@@ -51,7 +51,7 @@ func getDownloadCmd(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
 			// Allow insecure auth for local server for testing.
-			insecure := rootConf.server == "127.0.0.1"
+			insecure := rootConf.server == localhost
 			cfg := core.IMAPConfig{
 				Server:   rootConf.server,
 				Port:     rootConf.port,

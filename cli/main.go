@@ -21,6 +21,8 @@ import (
 	"log"
 )
 
+const localhost = "127.0.0.1"
+
 var logFatal = log.Fatal
 
 func main() {
