@@ -140,9 +140,7 @@ func waitUntilConnected(t *testing.T, addr string) bool {
 
 // Set up a fake, in-memory mail server that has exactly one mailbox "INBOX" for a user with user
 // name "username" and password "password". That one mailbox contains exactly one email.
-func setUpFakeServerAndCommand(
-	t *testing.T, args []string,
-) func() error {
+func setUpFakeServerAndCommand(t *testing.T, args []string) func() error {
 	t.Helper()
 	server := server.New(memory.New())
 	// Allow unauthenticated connections for testing.
@@ -160,9 +158,7 @@ func setUpFakeServerAndCommand(
 		serverErr = server.ListenAndServe()
 		syncChan <- true
 	}()
-	if !waitUntilConnected(t, server.Addr) {
-		t.Fatal("cannot connect to the fake server in time")
-	}
+	require.True(t, waitUntilConnected(t, server.Addr), "cannot connect to test server in time")
 
 	var rootConf rootConfigT
 	var downloadConf downloadConfigT
