@@ -85,14 +85,15 @@ func catchStdoutStderr(t *testing.T) func() (string, string) {
 		log.SetOutput(orgStderr)
 	})
 
+	tmpdir := t.TempDir()
 	// Create a temporary file that will contain the new stdout and redirect.
-	fakeStdout := filepath.Join(t.TempDir(), "stdout")
+	fakeStdout := filepath.Join(tmpdir, "stdout")
 	stdout, err := os.Create(fakeStdout) //nolint:gosec
 	require.NoError(t, err)
 	os.Stdout = stdout
 
 	// Create a temporary file that will contain the new stderr and redirect.
-	fakeStderr := filepath.Join(t.TempDir(), "stderr")
+	fakeStderr := filepath.Join(tmpdir, "stderr")
 	stderr, err := os.Create(fakeStderr) //nolint:gosec
 	require.NoError(t, err)
 	os.Stderr = stderr
@@ -141,7 +142,7 @@ func waitUntilConnected(t *testing.T, addr string) bool {
 // name "username" and password "password". That one mailbox contains exactly one email.
 func setUpFakeServerAndCommand(
 	t *testing.T, args []string,
-) (func() error, func() (string, string)) {
+) func() error {
 	t.Helper()
 	server := server.New(memory.New())
 	// Allow unauthenticated connections for testing.
@@ -183,26 +184,24 @@ func setUpFakeServerAndCommand(
 	err := cmd.ParseFlags(args)
 	require.NoError(t, err)
 
-	stdouterrGetter := catchStdoutStderr(t)
-
-	cleanup := func() {
+	t.Cleanup(func() {
 		err := server.Close()
 		require.NoError(t, err)
 		<-syncChan
 		if serverErr != nil {
 			require.ErrorContains(t, serverErr, "use of closed network connection")
 		}
-	}
-	t.Cleanup(cleanup)
+	})
 
-	return cmd.Execute, stdouterrGetter
+	return cmd.Execute
 }
 
 func TestSystemListSuccess(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "password")
 
 	args := []string{"list", "--server=127.0.0.1", "--port=30218", "--user=username", "-v"}
-	execute, stdouterr := setUpFakeServerAndCommand(t, args)
+	stdouterr := catchStdoutStderr(t)
+	execute := setUpFakeServerAndCommand(t, args)
 
 	err := execute()
 
@@ -218,7 +217,8 @@ func TestSystemListAuthError(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "password")
 
 	args := []string{"list", "--server=127.0.0.1", "--port=30218", "--user=something-else", "-v"}
-	execute, stdouterr := setUpFakeServerAndCommand(t, args)
+	stdouterr := catchStdoutStderr(t)
+	execute := setUpFakeServerAndCommand(t, args)
 
 	err := execute()
 
@@ -226,6 +226,42 @@ func TestSystemListAuthError(t *testing.T) {
 	stdout, stderr := stdouterr()
 	assert.Equal(t, "\n", stdout)
 	assert.Contains(t, stderr, "ERROR cannot log in")
+}
+
+func scanDirReplacingEmails(t *testing.T, dir string) (files []string, dirs []string) {
+	host, err := os.Hostname()
+	require.NoError(t, err)
+
+	emailCount := 0
+
+	getFilesAndDirs := func(path string, d fs.DirEntry, err error) error {
+		// Return early on read errors.
+		if err != nil {
+			return err
+		}
+		// We treat all paths relative to the maildir.
+		path = strings.TrimPrefix(strings.TrimPrefix(path, dir), string(os.PathSeparator))
+		fmt.Println(path, d.Name())
+		if d.IsDir() {
+			dirs = append(dirs, path)
+		} else {
+			if strings.HasSuffix(path, fmt.Sprintf(".%s", host)) {
+				// As the name of the actual email file will be pretty random, we replace the name
+				// of the file by this placeholder, which is easier to check. This is a bit hacky
+				// but means we do not have to mock the generation of the name. The file is
+				// identified by ending on the hostname preceded by a dot.
+				path = filepath.Join(filepath.Dir(path), fmt.Sprintf("email.%d", emailCount))
+				emailCount++
+			}
+			files = append(files, path)
+		}
+		return nil
+	}
+
+	err = filepath.WalkDir(dir, getFilesAndDirs)
+	require.NoError(t, err)
+
+	return
 }
 
 func TestSystemDownloadSuccess(t *testing.T) {
@@ -236,7 +272,8 @@ func TestSystemDownloadSuccess(t *testing.T) {
 		"download", "--server=127.0.0.1", "--port=30218", "--user=username", "--verbose",
 		"--folder=_ALL_", "--path", maildir,
 	}
-	execute, stdouterr := setUpFakeServerAndCommand(t, args)
+	stdouterr := catchStdoutStderr(t)
+	execute := setUpFakeServerAndCommand(t, args)
 
 	err := execute()
 
@@ -244,38 +281,10 @@ func TestSystemDownloadSuccess(t *testing.T) {
 	_, stderr := stdouterr()
 
 	// Ensure that the maildir looks as expected.
-	actualFiles := []string{}
-	actualDirs := []string{}
-	host, err := os.Hostname()
-	require.NoError(t, err)
-
-	getFilesAndDirs := func(path string, d fs.DirEntry, err error) error {
-		// Return early on read errors.
-		if err != nil {
-			return err
-		}
-		// We treat all paths relative to the maildir.
-		path = strings.TrimPrefix(strings.TrimPrefix(path, maildir), string(os.PathSeparator))
-		fmt.Println(path, d.Name())
-		if d.IsDir() {
-			actualDirs = append(actualDirs, path)
-		} else {
-			if strings.HasSuffix(path, fmt.Sprintf(".%s", host)) {
-				// As the name of the actual email file woll be pretty random, we replace the name
-				// of the file by this placeholder, which is easier to check. This is a bit hacky
-				// but means we do not have to mock the generation of the name. The file is
-				// identified by ending on the hostname preceded by a dot.
-				path = filepath.Join(filepath.Dir(path), "email")
-			}
-			actualFiles = append(actualFiles, path)
-		}
-		return nil
-	}
-	err = filepath.WalkDir(maildir, getFilesAndDirs)
-	require.NoError(t, err)
+	actualFiles, actualDirs := scanDirReplacingEmails(t, maildir)
 
 	expectedFiles := []string{
-		".go-imapgrab.lock", "INBOX/new/email", "oldmail-127.0.0.1-30218-username-INBOX",
+		".go-imapgrab.lock", "INBOX/new/email.0", "oldmail-127.0.0.1-30218-username-INBOX",
 	}
 	assert.Equal(t, expectedFiles, actualFiles)
 
