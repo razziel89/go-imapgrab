@@ -116,7 +116,7 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 		Messages:    3,
 	}
 	uids := []uidExt{
-		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
+		{folder: 42, msg: 1}, {folder: 42, msg: 2}, {folder: 42, msg: 3},
 	}
 	missingUIDs := []uid{1, 2, 3}
 
@@ -231,7 +231,7 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 		Name: "some-folder", UidValidity: 42, Messages: 3,
 	}
 	uids := []uidExt{
-		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
+		{folder: 42, msg: 1}, {folder: 42, msg: 2}, {folder: 42, msg: 3},
 	}
 	missingUIDs := []uid{1, 2, 3}
 

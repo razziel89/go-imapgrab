@@ -316,7 +316,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 }
 
 func TestUIDToStrng(t *testing.T) {
-	u := uidExt{Mbox: 42, Message: 10}
+	u := uidExt{folder: 42, msg: 10}
 	str := "42/10"
 
 	assert.Equal(t, str, fmt.Sprint(u))
@@ -340,9 +340,9 @@ func TestGetAllMessageUUIDsSuccess(t *testing.T) {
 	expectedSeqSet := &imap.SeqSet{}
 	expectedSeqSet.AddRange(1, 3)
 	expectedUUIDs := []uidExt{
-		{Mbox: 42, Message: 10},
-		{Mbox: 42, Message: 12},
-		{Mbox: 42, Message: 16},
+		{folder: 42, msg: 10},
+		{folder: 42, msg: 12},
+		{folder: 42, msg: 16},
 	}
 	expectedFetchRequest := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
 

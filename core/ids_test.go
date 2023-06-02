@@ -45,9 +45,9 @@ func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
 		{uidValidity: 0, uid: 3, timestamp: 0},
 	}
 	uids := []uidExt{
-		{Mbox: 0, Message: 1},
-		{Mbox: 0, Message: 3}, // 3 and 2 swapped deliberately.
-		{Mbox: 0, Message: 2},
+		{folder: 0, msg: 1},
+		{folder: 0, msg: 3}, // 3 and 2 swapped deliberately.
+		{folder: 0, msg: 2},
 	}
 	orgUIDs := make([]uidExt, len(uids))
 	_ = copy(orgUIDs, uids)
@@ -67,9 +67,9 @@ func TestDetermineMissingIDsSomeMissing(t *testing.T) {
 		{uidValidity: 0, uid: 4, timestamp: 0},
 	}
 	uids := []uidExt{
-		{Mbox: 0, Message: 1},
-		{Mbox: 0, Message: 5},
-		{Mbox: 0, Message: 6},
+		{folder: 0, msg: 1},
+		{folder: 0, msg: 5},
+		{folder: 0, msg: 6},
 	}
 	orgUIDs := make([]uidExt, len(uids))
 	_ = copy(orgUIDs, uids)
@@ -86,9 +86,9 @@ func TestDetermineMissingIDsSomeMissing(t *testing.T) {
 
 func TestDetermineMissingIDsMismatchesInRemoteData(t *testing.T) {
 	uids := []uidExt{
-		{Mbox: 1, Message: 1},
-		{Mbox: 0, Message: 5},
-		{Mbox: 0, Message: 6},
+		{folder: 1, msg: 1},
+		{folder: 0, msg: 5},
+		{folder: 0, msg: 6},
 	}
 
 	// UIDs are not consistent in uids slice.
@@ -101,7 +101,7 @@ func TestDetermineMissingIDsMismatches(t *testing.T) {
 		{uidValidity: 1, uid: 1, timestamp: 0},
 	}
 	uids := []uidExt{
-		{Mbox: 0, Message: 1},
+		{folder: 0, msg: 1},
 	}
 
 	// UIDs are not consistent between uid and oldmails slices.
@@ -117,12 +117,12 @@ func TestDetermineMissingIDsSomeMissingNonconsecutiveRanges(t *testing.T) {
 		{uidValidity: 0, uid: 6, timestamp: 0},
 	}
 	uids := []uidExt{
-		{Mbox: 0, Message: 1},
-		{Mbox: 0, Message: 2},
-		{Mbox: 0, Message: 3},
-		{Mbox: 0, Message: 4},
-		{Mbox: 0, Message: 5},
-		{Mbox: 0, Message: 6},
+		{folder: 0, msg: 1},
+		{folder: 0, msg: 2},
+		{folder: 0, msg: 3},
+		{folder: 0, msg: 4},
+		{folder: 0, msg: 5},
+		{folder: 0, msg: 6},
 	}
 
 	missingIDs, err := determineMissingUIDs(oldmails, uids)

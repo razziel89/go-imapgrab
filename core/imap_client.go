@@ -211,13 +211,13 @@ type uidValidity int
 // consists of the unique identifier of the mailbox the message belongs to and a unique identifier
 // for a message within that mailbox.
 type uidExt struct {
-	Mbox    uidValidity
-	Message uid
+	folder uidValidity
+	msg    uid
 }
 
 // String provides a string representation for a message's unique identifier.
 func (u uidExt) String() string {
-	return fmt.Sprintf("%d/%d", u.Mbox, u.Message)
+	return fmt.Sprintf("%d/%d", u.folder, u.msg)
 }
 
 func getAllMessageUUIDs(
@@ -241,8 +241,8 @@ func getAllMessageUUIDs(
 	for m := range messageChannel {
 		if m != nil {
 			appUID := uidExt{
-				Mbox:    uidValidity(mbox.UidValidity),
-				Message: uid(m.Uid),
+				folder: uidValidity(mbox.UidValidity),
+				msg:    uid(m.Uid),
 			}
 			uids = append(uids, appUID)
 		}

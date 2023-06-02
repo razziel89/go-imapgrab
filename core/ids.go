@@ -25,9 +25,9 @@ func determineMissingUIDs(oldmails []oldmail, uids []uidExt) ([]uid, error) {
 	if len(uids) == 0 {
 		return []uid{}, nil
 	}
-	uidvalidity := uids[0].Mbox
+	uidvalidity := uids[0].folder
 	for _, msg := range uids {
-		if msg.Mbox != uidvalidity {
+		if msg.folder != uidvalidity {
 			err := fmt.Errorf("inconsistent UID validity on retrieved data")
 			return []uid{}, err
 		}
@@ -49,8 +49,8 @@ func determineMissingUIDs(oldmails []oldmail, uids []uidExt) ([]uid, error) {
 	missingUIDs := []uid{}
 	// Determine which UIDs are missing on disk.
 	for _, msg := range uids {
-		if _, found := oldmailUIDs[msg.Message]; !found {
-			missingUIDs = append(missingUIDs, msg.Message)
+		if _, found := oldmailUIDs[msg.msg]; !found {
+			missingUIDs = append(missingUIDs, msg.msg)
 		}
 	}
 
