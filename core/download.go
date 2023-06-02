@@ -37,7 +37,7 @@ type downloadOps interface {
 		[]uid, *sync.WaitGroup, *sync.WaitGroup, func() bool,
 	) (<-chan emailOps, *int, error)
 	streamingDelivery(
-		<-chan emailOps, string, int, *sync.WaitGroup, *sync.WaitGroup,
+		<-chan emailOps, string, uidValidity, *sync.WaitGroup, *sync.WaitGroup,
 	) (<-chan oldmail, *int)
 }
 
@@ -69,7 +69,10 @@ func (d downloader) streamingRetrieval(
 }
 
 func (d downloader) streamingDelivery(
-	messageChan <-chan emailOps, maildirPath string, uidvalidity int, wg, startWg *sync.WaitGroup,
+	messageChan <-chan emailOps,
+	maildirPath string,
+	uidvalidity uidValidity,
+	wg, startWg *sync.WaitGroup,
 ) (<-chan oldmail, *int) {
 	return streamingDelivery(d.deliverOps, messageChan, maildirPath, uidvalidity, wg, startWg)
 }
@@ -84,13 +87,13 @@ func downloadMissingEmailsToFolder(
 	}
 	// Retrieve information about which emails are present on the remote system and check which ones
 	// are missing when comparing against those on disk.
-	var uidvalidity int
+	var uidvalidity uidValidity
 	var uids []uidExt
 	if err == nil && sig.interrupted() {
 		err = fmt.Errorf("aborting due to user interrupt")
 	}
 	if err == nil {
-		uidvalidity = int(mbox.UidValidity)
+		uidvalidity = uidValidity(mbox.UidValidity)
 		uids, err = ops.getAllMessageUUIDs(mbox)
 	}
 	var missingUIDs []uid

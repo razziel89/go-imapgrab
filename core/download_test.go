@@ -82,7 +82,10 @@ func (m *mockDownloader) streamingRetrieval(
 }
 
 func (m *mockDownloader) streamingDelivery(
-	messageChan <-chan emailOps, maildirPath string, uidvalidity int, wg, startWg *sync.WaitGroup,
+	messageChan <-chan emailOps,
+	maildirPath string,
+	uidvalidity uidValidity,
+	wg, startWg *sync.WaitGroup,
 ) (<-chan oldmail, *int) {
 	args := m.Called(messageChan, maildirPath, uidvalidity, wg, startWg)
 	wg.Add(1)
@@ -150,7 +153,8 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 		// We cannot use functions in expectations. Thus use this construct instead.
 		mock.AnythingOfType("func() bool"),
 	).Return(messageChan, &fetchErrCount, nil)
-	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
+	uidvalidity := uidValidity(42)
+	m.On("streamingDelivery", inMessageChan, folderPath, uidvalidity, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
 		Return(&oldmailErrCount, nil)
@@ -261,7 +265,8 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 		// We cannot use functions in expectations. Thus use this construct instead.
 		mock.AnythingOfType("func() bool"),
 	).Return(messageChan, &fetchErrCount, nil)
-	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
+	uidvalidity := uidValidity(42)
+	m.On("streamingDelivery", inMessageChan, folderPath, uidvalidity, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
 		Return(&oldmailErrCount, nil)

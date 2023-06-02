@@ -37,7 +37,9 @@ func (m *mockDeliverer) deliverMessage(text string, maildirPath string) error {
 	return args.Error(0)
 }
 
-func (m *mockDeliverer) rfc822FromEmail(msg emailOps, uidvalidity int) (string, oldmail, error) {
+func (m *mockDeliverer) rfc822FromEmail(
+	msg emailOps, uidvalidity uidValidity,
+) (string, oldmail, error) {
 	args := m.Called(msg, uidvalidity)
 	return args.String(0), args.Get(1).(oldmail), args.Error(2)
 }
@@ -71,15 +73,15 @@ func TestStreamingDeliverySuccessDespiteOneError(t *testing.T) {
 		msg := &mockEmail{uid: i}
 		mockEmails = append(mockEmails, msg)
 		om := oldmail{
-			uidValidity: 42,
-			uid:         i,
+			uidValidity: uidValidity(42),
+			uid:         uid(i),
 			timestamp:   12345,
 		}
 		var formatErr error
 		if i == 5 {
 			formatErr = fmt.Errorf("some error")
 		}
-		m.On("rfc822FromEmail", msg, 42).Return("actual content", om, formatErr)
+		m.On("rfc822FromEmail", msg, uidValidity(42)).Return("actual content", om, formatErr)
 		if formatErr == nil {
 			m.On("deliverMessage", "actual content", "/some/path").Return(nil)
 		}
@@ -98,7 +100,7 @@ func TestStreamingDeliverySuccessDespiteOneError(t *testing.T) {
 	// Delay actual operations until the entire pipeline has been set up.
 	stwg.Add(1)
 
-	uidvalidity := 42
+	uidvalidity := uidValidity(42)
 	maildir := "/some/path"
 
 	oldmailChan, errCountPtr := streamingDelivery(m, msgChan, maildir, uidvalidity, &wg, &stwg)

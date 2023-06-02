@@ -35,7 +35,7 @@ type emailOps interface {
 
 // Type email contains the relevant information about an email.
 type email struct {
-	uid       int
+	uid       uid
 	timestamp time.Time
 	// rfc822 is the content of the email according to this RFC.
 	rfc822 string
@@ -57,7 +57,7 @@ func (e *email) set(value interface{}) error {
 		if e.setUID {
 			return fmt.Errorf("UID already set")
 		}
-		e.uid = int(concrete)
+		e.uid = uid(concrete)
 		e.setUID = true
 	case time.Time:
 		if e.setTimestamp {
@@ -103,7 +103,9 @@ func (e email) String() string {
 
 // Convert an imap.Message into its content according to rfc822. That content can then be stored in
 // a maildir as is.
-func rfc822FromEmail(msg emailOps, uidvalidity int) (text string, oldmailInfo oldmail, err error) {
+func rfc822FromEmail(
+	msg emailOps, uidvalidity uidValidity,
+) (text string, oldmailInfo oldmail, err error) {
 	fields := msg.Format()
 	if len(fields) != rfc822ExpectedNumFields {
 		return "", oldmail{}, fmt.Errorf("cannot extract required rfc822 fields from email")

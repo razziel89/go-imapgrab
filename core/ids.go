@@ -41,7 +41,7 @@ func determineMissingUIDs(oldmails []oldmail, uids []uidExt) ([]uid, error) {
 
 	// Add the UIDs of the oldmail data (the data stored on disk) to a map to simplify determining
 	// whether we've already downloaded some message.
-	oldmailUIDs := make(map[int]struct{}, len(oldmails))
+	oldmailUIDs := make(map[uid]struct{}, len(oldmails))
 	for _, msg := range oldmails {
 		oldmailUIDs[msg.uid] = struct{}{}
 	}
@@ -50,7 +50,7 @@ func determineMissingUIDs(oldmails []oldmail, uids []uidExt) ([]uid, error) {
 	// Determine which UIDs are missing on disk.
 	for _, msg := range uids {
 		if _, found := oldmailUIDs[msg.Message]; !found {
-			missingUIDs = append(missingUIDs, uid(msg.Message))
+			missingUIDs = append(missingUIDs, msg.Message)
 		}
 	}
 

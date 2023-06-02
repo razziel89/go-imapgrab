@@ -21,7 +21,7 @@ import "sync"
 
 type deliverOps interface {
 	deliverMessage(string, string) error
-	rfc822FromEmail(emailOps, int) (string, oldmail, error)
+	rfc822FromEmail(emailOps, uidValidity) (string, oldmail, error)
 }
 
 type deliverer struct{}
@@ -30,7 +30,7 @@ func (d deliverer) deliverMessage(text string, maildirPath string) error {
 	return deliverMessage(text, maildirPath)
 }
 
-func (d deliverer) rfc822FromEmail(msg emailOps, uidvalidity int) (string, oldmail, error) {
+func (d deliverer) rfc822FromEmail(msg emailOps, uidvalidity uidValidity) (string, oldmail, error) {
 	return rfc822FromEmail(msg, uidvalidity)
 }
 
@@ -38,7 +38,7 @@ func streamingDelivery(
 	ops deliverOps,
 	messageChan <-chan emailOps,
 	maildirPath string,
-	uidvalidity int,
+	uidvalidity uidValidity,
 	wg, stwg *sync.WaitGroup,
 ) (returnedChan <-chan oldmail, errCountPtr *int) {
 	var errCount int

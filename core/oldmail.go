@@ -37,8 +37,8 @@ var (
 )
 
 type oldmail struct {
-	uidValidity int
-	uid         int
+	uidValidity uidValidity
+	uid         uid
 	timestamp   int
 }
 

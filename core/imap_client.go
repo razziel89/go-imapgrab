@@ -201,16 +201,19 @@ func streamingRetrieval(
 	return translatedMessageChan, &errCount, nil
 }
 
+// Type uid describes a message. It is a type alias to prevent accidental mixups.
+type uid int
+
+// Type uidValidity describes a mailbox. It is a type alias to prevent accidental mixups.
+type uidValidity int
+
 // Type uidExt describes a unique identifier for a message as well as the associated mailbox. It
 // consists of the unique identifier of the mailbox the message belongs to and a unique identifier
 // for a message within that mailbox.
 type uidExt struct {
-	Mbox    int
-	Message int
+	Mbox    uidValidity
+	Message uid
 }
-
-// Type uid describes a message. It is a type alias to prevent accidental mixups.
-type uid int
 
 // String provides a string representation for a message's unique identifier.
 func (u uidExt) String() string {
@@ -238,8 +241,8 @@ func getAllMessageUUIDs(
 	for m := range messageChannel {
 		if m != nil {
 			appUID := uidExt{
-				Mbox:    int(mbox.UidValidity),
-				Message: int(m.Uid),
+				Mbox:    uidValidity(mbox.UidValidity),
+				Message: uid(m.Uid),
 			}
 			uids = append(uids, appUID)
 		}
