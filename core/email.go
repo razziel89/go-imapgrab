@@ -104,7 +104,7 @@ func (e email) String() string {
 // Convert an imap.Message into its content according to rfc822. That content can then be stored in
 // a maildir as is.
 func rfc822FromEmail(
-	msg emailOps, uidvalidity uidValidity,
+	msg emailOps, uidFolder uidFolder,
 ) (text string, oldmailInfo oldmail, err error) {
 	fields := msg.Format()
 	if len(fields) != rfc822ExpectedNumFields {
@@ -123,9 +123,9 @@ func rfc822FromEmail(
 
 	text = email.String()
 	oldmailInfo = oldmail{
-		uid:         email.uid,
-		uidValidity: uidvalidity,
-		timestamp:   int(email.timestamp.Unix()),
+		uid:       email.uid,
+		uidFolder: uidFolder,
+		timestamp: int(email.timestamp.Unix()),
 	}
 	logInfo(fmt.Sprintf("downloaded email %s", oldmailInfo))
 

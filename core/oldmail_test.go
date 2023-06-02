@@ -74,9 +74,9 @@ func setUpMockOldmailFile() (mockFile, func()) {
 
 func TestOldmailToString(t *testing.T) {
 	om := oldmail{
-		uidValidity: 100,
-		uid:         42,
-		timestamp:   12345,
+		uidFolder: 100,
+		uid:       42,
+		timestamp: 12345,
 	}
 	// Unix 12345 is equal to: Thu  1 Jan 03:25:45 UTC 1970
 	expectedOldmailFormat := "100/42 -> 1970-01-01 03:25:45 +0000 UTC"
@@ -100,11 +100,11 @@ func TestOldmailFileName(t *testing.T) {
 
 func TestOldmailRead(t *testing.T) {
 	expectedOldmails := []oldmail{
-		{uidValidity: 123, uid: 21, timestamp: 747},
-		{uidValidity: 123, uid: 42, timestamp: 447},
-		{uidValidity: 123, uid: 11, timestamp: 321},
-		{uidValidity: 123, uid: 15, timestamp: 898},
-		{uidValidity: 123, uid: 17, timestamp: 242},
+		{uidFolder: 123, uid: 21, timestamp: 747},
+		{uidFolder: 123, uid: 42, timestamp: 447},
+		{uidFolder: 123, uid: 11, timestamp: 321},
+		{uidFolder: 123, uid: 15, timestamp: 898},
+		{uidFolder: 123, uid: 17, timestamp: 242},
 	}
 	oldmailContent := []byte(
 		"123/21_747\n" +
@@ -207,11 +207,11 @@ func TestOldmailReadCannotRead(t *testing.T) {
 
 func TestOldmailWriteout(t *testing.T) {
 	oldmails := []oldmail{
-		{uidValidity: 123, uid: 21, timestamp: 747},
-		{uidValidity: 123, uid: 42, timestamp: 447},
-		{uidValidity: 123, uid: 11, timestamp: 321},
-		{uidValidity: 123, uid: 15, timestamp: 898},
-		{uidValidity: 123, uid: 17, timestamp: 242},
+		{uidFolder: 123, uid: 21, timestamp: 747},
+		{uidFolder: 123, uid: 42, timestamp: 447},
+		{uidFolder: 123, uid: 11, timestamp: 321},
+		{uidFolder: 123, uid: 15, timestamp: 898},
+		{uidFolder: 123, uid: 17, timestamp: 242},
 	}
 	expectedOldmailContent := []byte(
 		"123/21_747\n" +

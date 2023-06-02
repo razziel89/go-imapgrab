@@ -34,15 +34,11 @@ func TestDetermineMissingIDsEmptyData(t *testing.T) {
 }
 
 func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
-	// The fields uidValidity and Mbox mean the same thing. The fields uid and Message also mean the
-	// same thing. The remote server identifies messages by their position in uids instead of their
-	// actual unique identifiers. Thus, it is important that the uids slice is not rearranged in any
-	// way.
 	oldmails := []oldmail{
 		// Note that UIDs start at 1 according to the return values of IMAP servers.
-		{uidValidity: 0, uid: 1, timestamp: 0},
-		{uidValidity: 0, uid: 2, timestamp: 0},
-		{uidValidity: 0, uid: 3, timestamp: 0},
+		{uidFolder: 0, uid: 1, timestamp: 0},
+		{uidFolder: 0, uid: 2, timestamp: 0},
+		{uidFolder: 0, uid: 3, timestamp: 0},
 	}
 	uids := []uidExt{
 		{folder: 0, msg: 1},
@@ -61,10 +57,10 @@ func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
 
 func TestDetermineMissingIDsSomeMissing(t *testing.T) {
 	oldmails := []oldmail{
-		{uidValidity: 0, uid: 1, timestamp: 0},
-		{uidValidity: 0, uid: 2, timestamp: 0},
-		{uidValidity: 0, uid: 3, timestamp: 0},
-		{uidValidity: 0, uid: 4, timestamp: 0},
+		{uidFolder: 0, uid: 1, timestamp: 0},
+		{uidFolder: 0, uid: 2, timestamp: 0},
+		{uidFolder: 0, uid: 3, timestamp: 0},
+		{uidFolder: 0, uid: 4, timestamp: 0},
 	}
 	uids := []uidExt{
 		{folder: 0, msg: 1},
@@ -98,7 +94,7 @@ func TestDetermineMissingIDsMismatchesInRemoteData(t *testing.T) {
 
 func TestDetermineMissingIDsMismatches(t *testing.T) {
 	oldmails := []oldmail{
-		{uidValidity: 1, uid: 1, timestamp: 0},
+		{uidFolder: 1, uid: 1, timestamp: 0},
 	}
 	uids := []uidExt{
 		{folder: 0, msg: 1},
@@ -111,10 +107,10 @@ func TestDetermineMissingIDsMismatches(t *testing.T) {
 
 func TestDetermineMissingIDsSomeMissingNonconsecutiveRanges(t *testing.T) {
 	oldmails := []oldmail{
-		{uidValidity: 0, uid: 1, timestamp: 0},
-		{uidValidity: 0, uid: 3, timestamp: 0},
-		{uidValidity: 0, uid: 4, timestamp: 0},
-		{uidValidity: 0, uid: 6, timestamp: 0},
+		{uidFolder: 0, uid: 1, timestamp: 0},
+		{uidFolder: 0, uid: 3, timestamp: 0},
+		{uidFolder: 0, uid: 4, timestamp: 0},
+		{uidFolder: 0, uid: 6, timestamp: 0},
 	}
 	uids := []uidExt{
 		{folder: 0, msg: 1},

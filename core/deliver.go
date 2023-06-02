@@ -21,7 +21,7 @@ import "sync"
 
 type deliverOps interface {
 	deliverMessage(string, string) error
-	rfc822FromEmail(emailOps, uidValidity) (string, oldmail, error)
+	rfc822FromEmail(emailOps, uidFolder) (string, oldmail, error)
 }
 
 type deliverer struct{}
@@ -30,15 +30,15 @@ func (d deliverer) deliverMessage(text string, maildirPath string) error {
 	return deliverMessage(text, maildirPath)
 }
 
-func (d deliverer) rfc822FromEmail(msg emailOps, uidvalidity uidValidity) (string, oldmail, error) {
-	return rfc822FromEmail(msg, uidvalidity)
+func (d deliverer) rfc822FromEmail(msg emailOps, uidFolder uidFolder) (string, oldmail, error) {
+	return rfc822FromEmail(msg, uidFolder)
 }
 
 func streamingDelivery(
 	ops deliverOps,
 	messageChan <-chan emailOps,
 	maildirPath string,
-	uidvalidity uidValidity,
+	uidFolder uidFolder,
 	wg, stwg *sync.WaitGroup,
 ) (returnedChan <-chan oldmail, errCountPtr *int) {
 	var errCount int
@@ -51,7 +51,7 @@ func streamingDelivery(
 		stwg.Wait()
 		for msg := range messageChan {
 			// Deliver each email to the `tmp` directory and move them to the `new` directory.
-			text, oldmail, err := ops.rfc822FromEmail(msg, uidvalidity)
+			text, oldmail, err := ops.rfc822FromEmail(msg, uidFolder)
 			if err == nil {
 				err = ops.deliverMessage(text, maildirPath)
 			}

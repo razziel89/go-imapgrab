@@ -105,7 +105,7 @@ func TestRFCFromEmail(t *testing.T) {
 	content, om, err := rfc822FromEmail(&msg, 21)
 	assert.NoError(t, err)
 	assert.Equal(t, "actual content", content)
-	assert.Equal(t, oldmail{uidValidity: 21, uid: 1, timestamp: someTimestamp}, om)
+	assert.Equal(t, oldmail{uidFolder: 21, uid: 1, timestamp: someTimestamp}, om)
 	msg.AssertExpectations(t)
 }
 
