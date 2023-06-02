@@ -25,12 +25,12 @@ import (
 
 func TestDetermineMissingIDsEmptyData(t *testing.T) {
 	oldmails := []oldmail{}
-	uids := []uid{}
+	uids := []uidExt{}
 
 	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
-	assert.Equal(t, []int{}, missingIDs)
+	assert.Equal(t, []uid{}, missingIDs)
 }
 
 func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
@@ -44,19 +44,19 @@ func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
 		{uidValidity: 0, uid: 2, timestamp: 0},
 		{uidValidity: 0, uid: 3, timestamp: 0},
 	}
-	uids := []uid{
+	uids := []uidExt{
 		{Mbox: 0, Message: 1},
 		{Mbox: 0, Message: 3}, // 3 and 2 swapped deliberately.
 		{Mbox: 0, Message: 2},
 	}
-	orgUIDs := make([]uid, len(uids))
+	orgUIDs := make([]uidExt, len(uids))
 	_ = copy(orgUIDs, uids)
 
 	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
 	assert.Equal(t, orgUIDs, uids)
-	assert.Equal(t, []int{}, missingIDs)
+	assert.Equal(t, []uid{}, missingIDs)
 }
 
 func TestDetermineMissingIDsSomeMissing(t *testing.T) {
@@ -66,12 +66,12 @@ func TestDetermineMissingIDsSomeMissing(t *testing.T) {
 		{uidValidity: 0, uid: 3, timestamp: 0},
 		{uidValidity: 0, uid: 4, timestamp: 0},
 	}
-	uids := []uid{
+	uids := []uidExt{
 		{Mbox: 0, Message: 1},
 		{Mbox: 0, Message: 5},
 		{Mbox: 0, Message: 6},
 	}
-	orgUIDs := make([]uid, len(uids))
+	orgUIDs := make([]uidExt, len(uids))
 	_ = copy(orgUIDs, uids)
 
 	missingIDs, err := determineMissingUIDs(oldmails, uids)
@@ -81,11 +81,11 @@ func TestDetermineMissingIDsSomeMissing(t *testing.T) {
 	// This means that the emails that are located in the index interval [2, 4) in the "uids" slice
 	// are not on disk. As common in maths, [ denotes a closed interval while ) denotes an open
 	// interval. That is, missing data is `uids[2:4]`.
-	assert.Equal(t, []int{5, 6}, missingIDs)
+	assert.Equal(t, []uid{5, 6}, missingIDs)
 }
 
 func TestDetermineMissingIDsMismatchesInRemoteData(t *testing.T) {
-	uids := []uid{
+	uids := []uidExt{
 		{Mbox: 1, Message: 1},
 		{Mbox: 0, Message: 5},
 		{Mbox: 0, Message: 6},
@@ -100,7 +100,7 @@ func TestDetermineMissingIDsMismatches(t *testing.T) {
 	oldmails := []oldmail{
 		{uidValidity: 1, uid: 1, timestamp: 0},
 	}
-	uids := []uid{
+	uids := []uidExt{
 		{Mbox: 0, Message: 1},
 	}
 
@@ -116,7 +116,7 @@ func TestDetermineMissingIDsSomeMissingNonconsecutiveRanges(t *testing.T) {
 		{uidValidity: 0, uid: 4, timestamp: 0},
 		{uidValidity: 0, uid: 6, timestamp: 0},
 	}
-	uids := []uid{
+	uids := []uidExt{
 		{Mbox: 0, Message: 1},
 		{Mbox: 0, Message: 2},
 		{Mbox: 0, Message: 3},
@@ -128,5 +128,5 @@ func TestDetermineMissingIDsSomeMissingNonconsecutiveRanges(t *testing.T) {
 	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
-	assert.Equal(t, []int{2, 5}, missingIDs)
+	assert.Equal(t, []uid{2, 5}, missingIDs)
 }

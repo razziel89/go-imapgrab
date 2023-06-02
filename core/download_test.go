@@ -42,9 +42,9 @@ func (m *mockDownloader) selectFolder(folder string) (*imap.MailboxStatus, error
 	return args.Get(0).(*imap.MailboxStatus), args.Error(1)
 }
 
-func (m *mockDownloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uid, error) {
+func (m *mockDownloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uidExt, error) {
 	args := m.Called(mbox)
-	return args.Get(0).([]uid), args.Error(1)
+	return args.Get(0).([]uidExt), args.Error(1)
 }
 
 func (m *mockDownloader) streamingOldmailWriteout(
@@ -65,7 +65,7 @@ func (m *mockDownloader) streamingOldmailWriteout(
 }
 
 func (m *mockDownloader) streamingRetrieval(
-	missingUIDs []int, wg, startWg *sync.WaitGroup, in func() bool,
+	missingUIDs []uid, wg, startWg *sync.WaitGroup, in func() bool,
 ) (<-chan emailOps, *int, error) {
 	args := m.Called(missingUIDs, wg, startWg, in)
 	wg.Add(1)
@@ -112,10 +112,10 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 		UidValidity: 42,
 		Messages:    3,
 	}
-	uids := []uid{
+	uids := []uidExt{
 		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
 	}
-	missingUIDs := []int{1, 2, 3}
+	missingUIDs := []uid{1, 2, 3}
 
 	messages := []*mockEmail{
 		{uid: 1}, {uid: 2}, {uid: 3},
@@ -198,7 +198,7 @@ func TestDownloadMissingEmailsToFolderPreparationNoNewEmails(t *testing.T) {
 		Messages:    3,
 	}
 	// No emails so nothing will be downloaded.
-	uids := []uid{}
+	uids := []uidExt{}
 
 	m := &mockDownloader{t: t}
 
@@ -226,10 +226,10 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	mbox := &imap.MailboxStatus{
 		Name: "some-folder", UidValidity: 42, Messages: 3,
 	}
-	uids := []uid{
+	uids := []uidExt{
 		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
 	}
-	missingUIDs := []int{1, 2, 3}
+	missingUIDs := []uid{1, 2, 3}
 
 	messages := []*mockEmail{{uid: 1}, {uid: 2}, {uid: 3}}
 	messageChan := make(chan emailOps)

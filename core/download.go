@@ -31,10 +31,10 @@ const (
 
 type downloadOps interface {
 	selectFolder(folder string) (*imap.MailboxStatus, error)
-	getAllMessageUUIDs(*imap.MailboxStatus) ([]uid, error)
+	getAllMessageUUIDs(*imap.MailboxStatus) ([]uidExt, error)
 	streamingOldmailWriteout(<-chan oldmail, string, *sync.WaitGroup, *sync.WaitGroup) (*int, error)
 	streamingRetrieval(
-		[]int, *sync.WaitGroup, *sync.WaitGroup, func() bool,
+		[]uid, *sync.WaitGroup, *sync.WaitGroup, func() bool,
 	) (<-chan emailOps, *int, error)
 	streamingDelivery(
 		<-chan emailOps, string, int, *sync.WaitGroup, *sync.WaitGroup,
@@ -50,7 +50,7 @@ func (d downloader) selectFolder(folder string) (*imap.MailboxStatus, error) {
 	return selectFolder(d.imapOps, folder)
 }
 
-func (d downloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uid, error) {
+func (d downloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uidExt, error) {
 	return getAllMessageUUIDs(mbox, d.imapOps)
 }
 
@@ -61,7 +61,7 @@ func (d downloader) streamingOldmailWriteout(
 }
 
 func (d downloader) streamingRetrieval(
-	missingUIDs []int,
+	missingUIDs []uid,
 	wg, startWg *sync.WaitGroup,
 	interrupted func() bool,
 ) (<-chan emailOps, *int, error) {
@@ -85,7 +85,7 @@ func downloadMissingEmailsToFolder(
 	// Retrieve information about which emails are present on the remote system and check which ones
 	// are missing when comparing against those on disk.
 	var uidvalidity int
-	var uids []uid
+	var uids []uidExt
 	if err == nil && sig.interrupted() {
 		err = fmt.Errorf("aborting due to user interrupt")
 	}
@@ -93,7 +93,7 @@ func downloadMissingEmailsToFolder(
 		uidvalidity = int(mbox.UidValidity)
 		uids, err = ops.getAllMessageUUIDs(mbox)
 	}
-	var missingUIDs []int
+	var missingUIDs []uid
 	if err == nil {
 		missingUIDs, err = determineMissingUIDs(oldmails, uids)
 	}

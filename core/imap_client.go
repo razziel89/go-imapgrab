@@ -141,7 +141,7 @@ func newOnce(hook func()) *once {
 // interrupts.
 func streamingRetrieval(
 	imapClient imapOps,
-	uids []int,
+	uids []uid,
 	wg, startWg *sync.WaitGroup,
 	interrupted func() bool,
 ) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
@@ -201,23 +201,27 @@ func streamingRetrieval(
 	return translatedMessageChan, &errCount, nil
 }
 
-// Type uid describes a unique identifier for a message. It consists of the unique identifier of the
-// mailbox the message belongs to and a unique identifier for a message within that mailbox.
-type uid struct {
+// Type uidExt describes a unique identifier for a message as well as the associated mailbox. It
+// consists of the unique identifier of the mailbox the message belongs to and a unique identifier
+// for a message within that mailbox.
+type uidExt struct {
 	Mbox    int
 	Message int
 }
 
+// Type uid describes a message. It is a type alias to prevent accidental mixups.
+type uid int
+
 // String provides a string representation for a message's unique identifier.
-func (u uid) String() string {
+func (u uidExt) String() string {
 	return fmt.Sprintf("%d/%d", u.Mbox, u.Message)
 }
 
 func getAllMessageUUIDs(
 	mbox *imap.MailboxStatus, imapClient imapOps,
-) (uids []uid, err error) {
+) (uids []uidExt, err error) {
 	logInfo("retrieving information about emails stored on server")
-	uids = make([]uid, 0, mbox.Messages)
+	uids = make([]uidExt, 0, mbox.Messages)
 
 	// Retrieve information about all emails.
 	seqset := new(imap.SeqSet)
@@ -233,7 +237,7 @@ func getAllMessageUUIDs(
 	}()
 	for m := range messageChannel {
 		if m != nil {
-			appUID := uid{
+			appUID := uidExt{
 				Mbox:    int(mbox.UidValidity),
 				Message: int(m.Uid),
 			}

@@ -214,7 +214,7 @@ func TestSelectFolderSuccess(t *testing.T) {
 }
 
 func TestStreamingRetrievalSuccess(t *testing.T) {
-	uids := []int{10, 12, 16}
+	uids := []uid{10, 12, 16}
 	messages := []*imap.Message{
 		{Uid: 10},
 		{Uid: 12},
@@ -268,7 +268,7 @@ func TestStreamingRetrievalError(t *testing.T) {
 	m := setUpMockClient(t, nil, nil, nil)
 
 	// These uids trigger an initial error.
-	uids := []int{-1, 0, 1}
+	uids := []uid{-1, 0, 1}
 
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
@@ -280,7 +280,7 @@ func TestStreamingRetrievalError(t *testing.T) {
 }
 
 func TestStreamingRetrievalInterrupt(t *testing.T) {
-	uids := []int{10}
+	uids := []uid{10}
 	messages := []*imap.Message{}
 
 	m := &mockClient{messages: messages}
@@ -316,7 +316,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 }
 
 func TestUIDToStrng(t *testing.T) {
-	u := uid{Mbox: 42, Message: 10}
+	u := uidExt{Mbox: 42, Message: 10}
 	str := "42/10"
 
 	assert.Equal(t, str, fmt.Sprint(u))
@@ -339,7 +339,7 @@ func TestGetAllMessageUUIDsSuccess(t *testing.T) {
 
 	expectedSeqSet := &imap.SeqSet{}
 	expectedSeqSet.AddRange(1, 3)
-	expectedUUIDs := []uid{
+	expectedUUIDs := []uidExt{
 		{Mbox: 42, Message: 10},
 		{Mbox: 42, Message: 12},
 		{Mbox: 42, Message: 16},

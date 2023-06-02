@@ -20,22 +20,22 @@ package core
 import "fmt"
 
 // Determine the UIDs of emails that have not yet been downloaded.
-func determineMissingUIDs(oldmails []oldmail, uids []uid) ([]int, error) {
+func determineMissingUIDs(oldmails []oldmail, uids []uidExt) ([]uid, error) {
 	// Check special cases such as an empty mailbox or uidvalidities that do not agree.
 	if len(uids) == 0 {
-		return []int{}, nil
+		return []uid{}, nil
 	}
 	uidvalidity := uids[0].Mbox
 	for _, msg := range uids {
 		if msg.Mbox != uidvalidity {
 			err := fmt.Errorf("inconsistent UID validity on retrieved data")
-			return []int{}, err
+			return []uid{}, err
 		}
 	}
 	for _, msg := range oldmails {
 		if msg.uidValidity != uidvalidity {
 			err := fmt.Errorf("inconsistent UID validity on stored data")
-			return []int{}, err
+			return []uid{}, err
 		}
 	}
 
@@ -46,11 +46,11 @@ func determineMissingUIDs(oldmails []oldmail, uids []uid) ([]int, error) {
 		oldmailUIDs[msg.uid] = struct{}{}
 	}
 
-	missingUIDs := []int{}
+	missingUIDs := []uid{}
 	// Determine which UIDs are missing on disk.
 	for _, msg := range uids {
 		if _, found := oldmailUIDs[msg.Message]; !found {
-			missingUIDs = append(missingUIDs, msg.Message)
+			missingUIDs = append(missingUIDs, uid(msg.Message))
 		}
 	}
 
