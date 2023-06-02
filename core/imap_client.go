@@ -147,8 +147,8 @@ func streamingRetrieval(
 ) (returnedChan <-chan emailOps, errCountPtr *int, err error) {
 	// Make sure all UIDs are >0.
 	for _, uid := range uids {
-		if uid < 0 {
-			return nil, nil, fmt.Errorf("detected a UID<=0, abording")
+		if uid <= 0 {
+			return nil, nil, fmt.Errorf("detected a UID<=0, aborting")
 		}
 	}
 
