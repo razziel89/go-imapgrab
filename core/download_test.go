@@ -42,9 +42,9 @@ func (m *mockDownloader) selectFolder(folder string) (*imap.MailboxStatus, error
 	return args.Get(0).(*imap.MailboxStatus), args.Error(1)
 }
 
-func (m *mockDownloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uid, error) {
+func (m *mockDownloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uidExt, error) {
 	args := m.Called(mbox)
-	return args.Get(0).([]uid), args.Error(1)
+	return args.Get(0).([]uidExt), args.Error(1)
 }
 
 func (m *mockDownloader) streamingOldmailWriteout(
@@ -65,9 +65,9 @@ func (m *mockDownloader) streamingOldmailWriteout(
 }
 
 func (m *mockDownloader) streamingRetrieval(
-	mbox *imap.MailboxStatus, missingIDRanges []rangeT, wg, startWg *sync.WaitGroup, in func() bool,
+	missingUIDs []uid, wg, startWg *sync.WaitGroup, in func() bool,
 ) (<-chan emailOps, *int, error) {
-	args := m.Called(mbox, missingIDRanges, wg, startWg, in)
+	args := m.Called(missingUIDs, wg, startWg, in)
 	wg.Add(1)
 	go func() {
 		startWg.Wait()
@@ -82,9 +82,12 @@ func (m *mockDownloader) streamingRetrieval(
 }
 
 func (m *mockDownloader) streamingDelivery(
-	messageChan <-chan emailOps, maildirPath string, uidvalidity int, wg, startWg *sync.WaitGroup,
+	messageChan <-chan emailOps,
+	maildirPath string,
+	uidFolder uidFolder,
+	wg, startWg *sync.WaitGroup,
 ) (<-chan oldmail, *int) {
-	args := m.Called(messageChan, maildirPath, uidvalidity, wg, startWg)
+	args := m.Called(messageChan, maildirPath, uidFolder, wg, startWg)
 	wg.Add(1)
 	go func() {
 		startWg.Wait()
@@ -112,10 +115,10 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 		UidValidity: 42,
 		Messages:    3,
 	}
-	uids := []uid{
-		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
+	uids := []uidExt{
+		{folder: 42, msg: 1}, {folder: 42, msg: 2}, {folder: 42, msg: 3},
 	}
-	missingIDRanges := []rangeT{{start: 1, end: 4}}
+	missingUIDs := []uid{1, 2, 3}
 
 	messages := []*mockEmail{
 		{uid: 1}, {uid: 2}, {uid: 3},
@@ -125,7 +128,7 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	var fetchErrCount int
 
 	delivered := []oldmail{
-		{uidValidity: 42, uid: 1}, {uidValidity: 42, uid: 2}, {uidValidity: 42, uid: 3},
+		{uidFolder: 42, uid: 1}, {uidFolder: 42, uid: 2}, {uidFolder: 42, uid: 3},
 	}
 	deliveredChan := make(chan oldmail)
 	var inDeliveredChan <-chan oldmail = deliveredChan
@@ -146,11 +149,12 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
 	m.On("streamingRetrieval",
-		mbox, missingIDRanges, mock.Anything, mock.Anything,
+		missingUIDs, mock.Anything, mock.Anything,
 		// We cannot use functions in expectations. Thus use this construct instead.
 		mock.AnythingOfType("func() bool"),
 	).Return(messageChan, &fetchErrCount, nil)
-	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
+	uidFolder := uidFolder(42)
+	m.On("streamingDelivery", inMessageChan, folderPath, uidFolder, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
 		Return(&oldmailErrCount, nil)
@@ -198,7 +202,7 @@ func TestDownloadMissingEmailsToFolderPreparationNoNewEmails(t *testing.T) {
 		Messages:    3,
 	}
 	// No emails so nothing will be downloaded.
-	uids := []uid{}
+	uids := []uidExt{}
 
 	m := &mockDownloader{t: t}
 
@@ -226,10 +230,10 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	mbox := &imap.MailboxStatus{
 		Name: "some-folder", UidValidity: 42, Messages: 3,
 	}
-	uids := []uid{
-		{Mbox: 42, Message: 1}, {Mbox: 42, Message: 2}, {Mbox: 42, Message: 3},
+	uids := []uidExt{
+		{folder: 42, msg: 1}, {folder: 42, msg: 2}, {folder: 42, msg: 3},
 	}
-	missingIDRanges := []rangeT{{start: 1, end: 4}}
+	missingUIDs := []uid{1, 2, 3}
 
 	messages := []*mockEmail{{uid: 1}, {uid: 2}, {uid: 3}}
 	messageChan := make(chan emailOps)
@@ -237,7 +241,7 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	fetchErrCount := 1
 
 	delivered := []oldmail{
-		{uidValidity: 42, uid: 1}, {uidValidity: 42, uid: 2}, {uidValidity: 42, uid: 3},
+		{uidFolder: 42, uid: 1}, {uidFolder: 42, uid: 2}, {uidFolder: 42, uid: 3},
 	}
 	deliveredChan := make(chan oldmail)
 	var inDeliveredChan <-chan oldmail = deliveredChan
@@ -257,11 +261,12 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 
 	m.On("selectFolder", "some-folder").Return(mbox, nil)
 	m.On("getAllMessageUUIDs", mbox).Return(uids, nil)
-	m.On("streamingRetrieval", mbox, missingIDRanges, mock.Anything, mock.Anything,
+	m.On("streamingRetrieval", missingUIDs, mock.Anything, mock.Anything,
 		// We cannot use functions in expectations. Thus use this construct instead.
 		mock.AnythingOfType("func() bool"),
 	).Return(messageChan, &fetchErrCount, nil)
-	m.On("streamingDelivery", inMessageChan, folderPath, 42, mock.Anything, mock.Anything).
+	uidFolder := uidFolder(42)
+	m.On("streamingDelivery", inMessageChan, folderPath, uidFolder, mock.Anything, mock.Anything).
 		Return(deliveredChan, &deliverErrCount)
 	m.On("streamingOldmailWriteout", inDeliveredChan, oldmailPath, mock.Anything, mock.Anything).
 		Return(&oldmailErrCount, nil)
@@ -317,11 +322,8 @@ func TestDownloaderStreamingOldmailWriteout(t *testing.T) {
 }
 
 func TestDownloaderStreamingRetrieval(t *testing.T) {
-	mbox := &imap.MailboxStatus{
-		Messages: 0,
-	}
 	m := &mockClient{}
-	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
+	m.On("UidFetch", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
 	dl := &downloader{
 		imapOps:    m,
 		deliverOps: nil,
@@ -329,7 +331,7 @@ func TestDownloaderStreamingRetrieval(t *testing.T) {
 	var wg, startWg sync.WaitGroup
 	interrupted := func() bool { return false }
 
-	_, errPtr, err := dl.streamingRetrieval(mbox, nil, &wg, &startWg, interrupted)
+	_, errPtr, err := dl.streamingRetrieval(nil, &wg, &startWg, interrupted)
 
 	assert.NoError(t, err)
 	wg.Wait()

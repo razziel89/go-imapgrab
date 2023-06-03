@@ -31,13 +31,13 @@ const (
 
 type downloadOps interface {
 	selectFolder(folder string) (*imap.MailboxStatus, error)
-	getAllMessageUUIDs(*imap.MailboxStatus) ([]uid, error)
+	getAllMessageUUIDs(*imap.MailboxStatus) ([]uidExt, error)
 	streamingOldmailWriteout(<-chan oldmail, string, *sync.WaitGroup, *sync.WaitGroup) (*int, error)
 	streamingRetrieval(
-		*imap.MailboxStatus, []rangeT, *sync.WaitGroup, *sync.WaitGroup, func() bool,
+		[]uid, *sync.WaitGroup, *sync.WaitGroup, func() bool,
 	) (<-chan emailOps, *int, error)
 	streamingDelivery(
-		<-chan emailOps, string, int, *sync.WaitGroup, *sync.WaitGroup,
+		<-chan emailOps, string, uidFolder, *sync.WaitGroup, *sync.WaitGroup,
 	) (<-chan oldmail, *int)
 }
 
@@ -50,7 +50,7 @@ func (d downloader) selectFolder(folder string) (*imap.MailboxStatus, error) {
 	return selectFolder(d.imapOps, folder)
 }
 
-func (d downloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uid, error) {
+func (d downloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uidExt, error) {
 	return getAllMessageUUIDs(mbox, d.imapOps)
 }
 
@@ -61,18 +61,20 @@ func (d downloader) streamingOldmailWriteout(
 }
 
 func (d downloader) streamingRetrieval(
-	mbox *imap.MailboxStatus,
-	missingIDRanges []rangeT,
+	missingUIDs []uid,
 	wg, startWg *sync.WaitGroup,
 	interrupted func() bool,
 ) (<-chan emailOps, *int, error) {
-	return streamingRetrieval(mbox, d.imapOps, missingIDRanges, wg, startWg, interrupted)
+	return streamingRetrieval(d.imapOps, missingUIDs, wg, startWg, interrupted)
 }
 
 func (d downloader) streamingDelivery(
-	messageChan <-chan emailOps, maildirPath string, uidvalidity int, wg, startWg *sync.WaitGroup,
+	messageChan <-chan emailOps,
+	maildirPath string,
+	uidFolder uidFolder,
+	wg, startWg *sync.WaitGroup,
 ) (<-chan oldmail, *int) {
-	return streamingDelivery(d.deliverOps, messageChan, maildirPath, uidvalidity, wg, startWg)
+	return streamingDelivery(d.deliverOps, messageChan, maildirPath, uidFolder, wg, startWg)
 }
 
 func downloadMissingEmailsToFolder(
@@ -85,20 +87,20 @@ func downloadMissingEmailsToFolder(
 	}
 	// Retrieve information about which emails are present on the remote system and check which ones
 	// are missing when comparing against those on disk.
-	var uidvalidity int
-	var uids []uid
+	var uidFold uidFolder
+	var uids []uidExt
 	if err == nil && sig.interrupted() {
 		err = fmt.Errorf("aborting due to user interrupt")
 	}
 	if err == nil {
-		uidvalidity = int(mbox.UidValidity)
+		uidFold = uidFolder(mbox.UidValidity)
 		uids, err = ops.getAllMessageUUIDs(mbox)
 	}
-	var missingIDRanges []rangeT
+	var missingUIDs []uid
 	if err == nil {
-		missingIDRanges, err = determineMissingIDs(oldmails, uids)
+		missingUIDs, err = determineMissingUIDs(oldmails, uids)
 	}
-	total := accumulateRanges(missingIDRanges)
+	total := len(missingUIDs)
 	logInfo(fmt.Sprintf("will download %d new emails", total))
 	if err != nil || total == 0 {
 		return err
@@ -108,14 +110,14 @@ func downloadMissingEmailsToFolder(
 	startWg.Add(1) // startWg is used to defer operations until the pipeline is set up.
 	// Retrieve email information. This does not download the emails themselves yet.
 	messageChan, fetchErrCount, err := ops.streamingRetrieval(
-		mbox, missingIDRanges, &wg, &startWg, sig.interrupted,
+		missingUIDs, &wg, &startWg, sig.interrupted,
 	)
 	var deliveredChan <-chan oldmail
 	var deliverErrCount, oldmailErrCount *int
 	if err == nil {
 		// Download missing emails and store them on disk.
 		deliveredChan, deliverErrCount = ops.streamingDelivery(
-			messageChan, maildirPath.folderPath(), uidvalidity, &wg, &startWg,
+			messageChan, maildirPath.folderPath(), uidFold, &wg, &startWg,
 		)
 		// Retrieve and write out information about all emails.
 		oldmailErrCount, err = ops.streamingOldmailWriteout(

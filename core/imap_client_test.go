@@ -65,6 +65,19 @@ func (mc *mockClient) Fetch(
 	return args.Error(0)
 }
 
+// UidFetch has to have that name because it implements an interface htat follows an external
+// dependency. Thus, disable linter warnings about the name.
+func (mc *mockClient) UidFetch( //nolint:revive,stylecheck
+	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
+) error {
+	defer close(ch)
+	args := mc.Called(seqset, items, ch)
+	for _, msg := range mc.messages {
+		ch <- msg
+	}
+	return args.Error(0)
+}
+
 func (mc *mockClient) Logout() error {
 	args := mc.Called()
 	return args.Error(0)
@@ -201,15 +214,7 @@ func TestSelectFolderSuccess(t *testing.T) {
 }
 
 func TestStreamingRetrievalSuccess(t *testing.T) {
-	status := &imap.MailboxStatus{
-		Messages:    16,
-		UidValidity: 42,
-	}
-	ranges := []rangeT{
-		{start: 10, end: 11},
-		{start: 12, end: 13},
-		{start: 16, end: 17},
-	}
+	uids := []uid{10, 12, 16}
 	messages := []*imap.Message{
 		{Uid: 10},
 		{Uid: 12},
@@ -223,7 +228,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 	}
 
 	m := setUpMockClient(t, nil, messages, nil)
-	m.On("Fetch", expectedSeqSet, expectedFetchRequest, mock.Anything).Return(
+	m.On("UidFetch", expectedSeqSet, expectedFetchRequest, mock.Anything).Return(
 		fmt.Errorf("retrieval error"),
 	)
 
@@ -231,7 +236,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 	stwg.Add(1)
 	interrupted := func() bool { return false }
 
-	emailChan, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupted)
+	emailChan, errPtr, err := streamingRetrieval(m, uids, &wg, &stwg, interrupted)
 
 	assert.NoError(t, err)
 	assert.Zero(t, *errPtr)
@@ -260,35 +265,30 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 }
 
 func TestStreamingRetrievalError(t *testing.T) {
-	status := &imap.MailboxStatus{}
 	m := setUpMockClient(t, nil, nil, nil)
 
-	// These ranges trigger an initial error.
-	ranges := []rangeT{
-		{start: 20, end: 10},
-	}
+	// These uids trigger an initial error.
+	uids := []uid{-1, 0, 1}
 
 	var wg, stwg sync.WaitGroup
 	stwg.Add(1)
 	interrupted := func() bool { return false }
 
-	_, _, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupted)
+	_, _, err := streamingRetrieval(m, uids, &wg, &stwg, interrupted)
 
 	assert.Error(t, err)
 }
 
 func TestStreamingRetrievalInterrupt(t *testing.T) {
-	status := &imap.MailboxStatus{
-		Messages:    16,
-		UidValidity: 42,
-	}
-	ranges := []rangeT{{start: 10, end: 11}}
+	uids := []uid{10}
 	messages := []*imap.Message{}
 
 	m := &mockClient{messages: messages}
-	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	m.On("UidFetch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// This code was taken from setUpMockClient because we do not want to assert expectations here.
+	// The reason is that the call to streamingRetrieval will use 2 goroutines and we cannot
+	// guarantee that UidFetch will have been called.
 	orgClientGetter := newImapClient
 	newImapClient = func(addr string, _ bool) (imapOps, error) {
 		return m, nil
@@ -302,7 +302,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 	// interrupt case. Interrupts are handled preferentially compared to message conversion.
 	interrupted := func() bool { return true }
 
-	_, errPtr, err := streamingRetrieval(status, m, ranges, &wg, &stwg, interrupted)
+	_, errPtr, err := streamingRetrieval(m, uids, &wg, &stwg, interrupted)
 
 	assert.NoError(t, err)
 
@@ -316,7 +316,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 }
 
 func TestUIDToStrng(t *testing.T) {
-	u := uid{Mbox: 42, Message: 10}
+	u := uidExt{folder: 42, msg: 10}
 	str := "42/10"
 
 	assert.Equal(t, str, fmt.Sprint(u))
@@ -339,10 +339,10 @@ func TestGetAllMessageUUIDsSuccess(t *testing.T) {
 
 	expectedSeqSet := &imap.SeqSet{}
 	expectedSeqSet.AddRange(1, 3)
-	expectedUUIDs := []uid{
-		{Mbox: 42, Message: 10},
-		{Mbox: 42, Message: 12},
-		{Mbox: 42, Message: 16},
+	expectedUUIDs := []uidExt{
+		{folder: 42, msg: 10},
+		{folder: 42, msg: 12},
+		{folder: 42, msg: 16},
 	}
 	expectedFetchRequest := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
 

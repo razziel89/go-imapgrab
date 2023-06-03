@@ -37,15 +37,15 @@ var (
 )
 
 type oldmail struct {
-	uidValidity int
-	uid         int
-	timestamp   int
+	uidFolder uidFolder
+	uid       uid
+	timestamp int
 }
 
 // Provide a string representation for oldmail information.
 func (om oldmail) String() string {
 	timeStr := time.Unix(int64(om.timestamp), 0).UTC().String()
-	return fmt.Sprintf("%d/%d -> %s", om.uidValidity, om.uid, timeStr)
+	return fmt.Sprintf("%d/%d -> %s", om.uidFolder, om.uid, timeStr)
 }
 
 func oldmailFileName(cfg IMAPConfig, folder string) string {
@@ -92,7 +92,7 @@ func readOldmail(oldmailPath string) (oldmails []oldmail, err error) {
 		// Parse the line.
 		om := oldmail{}
 		var scanned int
-		scanned, err = fmt.Sscanf(line, oldmailFormat, &om.uidValidity, &om.uid, &om.timestamp)
+		scanned, err = fmt.Sscanf(line, oldmailFormat, &om.uidFolder, &om.uid, &om.timestamp)
 		if scanned != oldmailFields {
 			err = fmt.Errorf("too few fields in line %s", line)
 		}
@@ -142,7 +142,7 @@ func streamingOldmailWriteout(
 			// I don't expect many write-out errors in real life, though. Most failure
 			// cases will be caught when opening the file above. Still, a fix would be nice.
 			if err == nil {
-				line := fmt.Sprintf(oldmailFormat, om.uidValidity, om.uid, om.timestamp)
+				line := fmt.Sprintf(oldmailFormat, om.uidFolder, om.uid, om.timestamp)
 				// Undo the replacement done when reading the file. See readOldmail for details.
 				lineAsBytes := bytes.ReplaceAll([]byte(line), oldmailSepReplace, oldmailFormatSep)
 				byteCount, err = handle.Write(lineAsBytes)

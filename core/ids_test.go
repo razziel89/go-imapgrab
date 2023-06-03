@@ -25,108 +25,104 @@ import (
 
 func TestDetermineMissingIDsEmptyData(t *testing.T) {
 	oldmails := []oldmail{}
-	uids := []uid{}
+	uids := []uidExt{}
 
-	ranges, err := determineMissingIDs(oldmails, uids)
+	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
-	assert.Equal(t, []rangeT{}, ranges)
+	assert.Equal(t, []uid{}, missingIDs)
 }
 
 func TestDetermineMissingIDsEverythingDownloaded(t *testing.T) {
-	// The fields uidValidity and Mbox mean the same thing. The fields uid and Message also mean the
-	// same thing. The remote server identifies messages by their position in uids instead of their
-	// actual unique identifiers. Thus, it is important that the uids slice is not rearranged in any
-	// way.
 	oldmails := []oldmail{
 		// Note that UIDs start at 1 according to the return values of IMAP servers.
-		{uidValidity: 0, uid: 1, timestamp: 0},
-		{uidValidity: 0, uid: 2, timestamp: 0},
-		{uidValidity: 0, uid: 3, timestamp: 0},
+		{uidFolder: 0, uid: 1, timestamp: 0},
+		{uidFolder: 0, uid: 2, timestamp: 0},
+		{uidFolder: 0, uid: 3, timestamp: 0},
 	}
-	uids := []uid{
-		{Mbox: 0, Message: 1},
-		{Mbox: 0, Message: 3}, // 3 and 2 swapped deliberately.
-		{Mbox: 0, Message: 2},
+	uids := []uidExt{
+		{folder: 0, msg: 1},
+		{folder: 0, msg: 3}, // 3 and 2 swapped deliberately.
+		{folder: 0, msg: 2},
 	}
-	orgUIDs := make([]uid, len(uids))
+	orgUIDs := make([]uidExt, len(uids))
 	_ = copy(orgUIDs, uids)
 
-	ranges, err := determineMissingIDs(oldmails, uids)
+	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
 	assert.Equal(t, orgUIDs, uids)
-	assert.Equal(t, []rangeT{}, ranges)
+	assert.Equal(t, []uid{}, missingIDs)
 }
 
 func TestDetermineMissingIDsSomeMissing(t *testing.T) {
 	oldmails := []oldmail{
-		{uidValidity: 0, uid: 1, timestamp: 0},
-		{uidValidity: 0, uid: 2, timestamp: 0},
-		{uidValidity: 0, uid: 3, timestamp: 0},
-		{uidValidity: 0, uid: 4, timestamp: 0},
+		{uidFolder: 0, uid: 1, timestamp: 0},
+		{uidFolder: 0, uid: 2, timestamp: 0},
+		{uidFolder: 0, uid: 3, timestamp: 0},
+		{uidFolder: 0, uid: 4, timestamp: 0},
 	}
-	uids := []uid{
-		{Mbox: 0, Message: 1},
-		{Mbox: 0, Message: 5},
-		{Mbox: 0, Message: 6},
+	uids := []uidExt{
+		{folder: 0, msg: 1},
+		{folder: 0, msg: 5},
+		{folder: 0, msg: 6},
 	}
-	orgUIDs := make([]uid, len(uids))
+	orgUIDs := make([]uidExt, len(uids))
 	_ = copy(orgUIDs, uids)
 
-	ranges, err := determineMissingIDs(oldmails, uids)
+	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
 	assert.Equal(t, orgUIDs, uids)
 	// This means that the emails that are located in the index interval [2, 4) in the "uids" slice
 	// are not on disk. As common in maths, [ denotes a closed interval while ) denotes an open
 	// interval. That is, missing data is `uids[2:4]`.
-	assert.Equal(t, []rangeT{{start: 2, end: 4}}, ranges)
+	assert.Equal(t, []uid{5, 6}, missingIDs)
 }
 
 func TestDetermineMissingIDsMismatchesInRemoteData(t *testing.T) {
-	uids := []uid{
-		{Mbox: 1, Message: 1},
-		{Mbox: 0, Message: 5},
-		{Mbox: 0, Message: 6},
+	uids := []uidExt{
+		{folder: 1, msg: 1},
+		{folder: 0, msg: 5},
+		{folder: 0, msg: 6},
 	}
 
 	// UIDs are not consistent in uids slice.
-	_, err := determineMissingIDs([]oldmail{}, uids)
+	_, err := determineMissingUIDs([]oldmail{}, uids)
 	assert.Error(t, err)
 }
 
 func TestDetermineMissingIDsMismatches(t *testing.T) {
 	oldmails := []oldmail{
-		{uidValidity: 1, uid: 1, timestamp: 0},
+		{uidFolder: 1, uid: 1, timestamp: 0},
 	}
-	uids := []uid{
-		{Mbox: 0, Message: 1},
+	uids := []uidExt{
+		{folder: 0, msg: 1},
 	}
 
 	// UIDs are not consistent between uid and oldmails slices.
-	_, err := determineMissingIDs(oldmails, uids)
+	_, err := determineMissingUIDs(oldmails, uids)
 	assert.Error(t, err)
 }
 
 func TestDetermineMissingIDsSomeMissingNonconsecutiveRanges(t *testing.T) {
 	oldmails := []oldmail{
-		{uidValidity: 0, uid: 1, timestamp: 0},
-		{uidValidity: 0, uid: 3, timestamp: 0},
-		{uidValidity: 0, uid: 4, timestamp: 0},
-		{uidValidity: 0, uid: 6, timestamp: 0},
+		{uidFolder: 0, uid: 1, timestamp: 0},
+		{uidFolder: 0, uid: 3, timestamp: 0},
+		{uidFolder: 0, uid: 4, timestamp: 0},
+		{uidFolder: 0, uid: 6, timestamp: 0},
 	}
-	uids := []uid{
-		{Mbox: 0, Message: 1},
-		{Mbox: 0, Message: 2},
-		{Mbox: 0, Message: 3},
-		{Mbox: 0, Message: 4},
-		{Mbox: 0, Message: 5},
-		{Mbox: 0, Message: 6},
+	uids := []uidExt{
+		{folder: 0, msg: 1},
+		{folder: 0, msg: 2},
+		{folder: 0, msg: 3},
+		{folder: 0, msg: 4},
+		{folder: 0, msg: 5},
+		{folder: 0, msg: 6},
 	}
 
-	ranges, err := determineMissingIDs(oldmails, uids)
+	missingIDs, err := determineMissingUIDs(oldmails, uids)
 
 	assert.NoError(t, err)
-	assert.Equal(t, []rangeT{{start: 2, end: 3}, {start: 5, end: 6}}, ranges)
+	assert.Equal(t, []uid{2, 5}, missingIDs)
 }
