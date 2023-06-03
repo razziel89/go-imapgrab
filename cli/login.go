@@ -57,5 +57,6 @@ func getLoginCmd(
 var loginCmd = getLoginCmd(&rootConf, defaultKeyring, term.ReadPassword)
 
 func init() {
+	initRootFlags(loginCmd, &rootConf)
 	rootCmd.AddCommand(loginCmd)
 }
