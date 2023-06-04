@@ -171,10 +171,7 @@ func setUpFakeServerAndCommand(t *testing.T, args []string) func() error {
 	case "download":
 		// Always disable the keyring by making this a test run.
 		cmd = getDownloadCmd(&rootConf, &downloadConf, nil, false, &corer{}, lock)
-		initDownloadFlags(cmd, &downloadConf)
 	}
-	// All commands use the root flags.
-	initRootFlags(cmd, &rootConf)
 
 	// Make sure the arguments used for the test run are known to the command.
 	err := cmd.ParseFlags(args)

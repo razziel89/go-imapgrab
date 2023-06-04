@@ -80,15 +80,14 @@ func getDownloadCmd(
 			return initCredentials(rootConf, disableKeyring, keyring)
 		},
 	}
-
+	initDownloadFlags(cmd, downloadConf)
+	initRootFlags(cmd, rootConf)
 	return cmd
 }
 
 var downloadCmd = getDownloadCmd(&rootConf, &downloadConf, defaultKeyring, true, &corer{}, lock)
 
 func init() {
-	initDownloadFlags(downloadCmd, &downloadConf)
-	initRootFlags(downloadCmd, &rootConf)
 	rootCmd.AddCommand(downloadCmd)
 }
 

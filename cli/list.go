@@ -57,13 +57,12 @@ func getListCmd(
 			return initCredentials(rootConf, disableKeyring, keyring)
 		},
 	}
-
+	initRootFlags(cmd, rootConf)
 	return cmd
 }
 
 var listCmd = getListCmd(&rootConf, defaultKeyring, true, &corer{})
 
 func init() {
-	initRootFlags(listCmd, &rootConf)
 	rootCmd.AddCommand(listCmd)
 }
