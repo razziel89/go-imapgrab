@@ -68,3 +68,21 @@ func TestLoginInterrupt(t *testing.T) {
 	assert.Equal(t, "some error", err.Error())
 	assert.True(t, calledReadPassword)
 }
+
+func TestLoginCmdUseWithArgsWithSpaces(t *testing.T) {
+	args := []string{
+		"go-imapgrab", "command", "--flag", "arg w spaces", "--another-flag", "arg_wo_spaces",
+	}
+	rootConf := rootConfigT{
+		server: "server w spaces", username: "username", port: 123, password: "not echoed",
+	}
+
+	helptext := loginCmdUse(&rootConf, args)
+
+	assert.Contains(
+		t, helptext, "go-imapgrab login --server \"server w spaces\" --port 123 --user username",
+	)
+	assert.Contains(
+		t, helptext, "go-imapgrab command --flag \"arg w spaces\" --another-flag arg_wo_spaces",
+	)
+}

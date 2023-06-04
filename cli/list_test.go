@@ -20,10 +20,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"github.com/zalando/go-keyring"
 )
 
 func TestListCommand(t *testing.T) {
@@ -70,4 +73,22 @@ func TestListCommandNoKeyringProdRun(t *testing.T) {
 
 	err = cmd.Execute()
 	assert.Error(t, err)
+}
+
+func TestListCommandNoCredentialsInKeyring(t *testing.T) {
+	mockOps := mockCoreOps{}
+	defer mockOps.AssertExpectations(t)
+
+	user, err := user.Current()
+	require.NoError(t, err)
+
+	mk := &mockKeyring{}
+	mk.On("Get", "go-imapgrab/@:993", user.Username).Return("", keyring.ErrNotFound)
+	defer mk.AssertExpectations(t)
+
+	rootConf := rootConfigT{}
+	cmd := getListCmd(&rootConf, mk, true, &mockOps)
+
+	err = cmd.Execute()
+	assert.ErrorContains(t, err, "secret not found in keyring")
 }

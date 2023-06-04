@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -104,4 +105,10 @@ func initCredentials(rootConf *rootConfigT, noKeyring bool, keyring keyringOps) 
 	var err error
 	rootConf.password, err = retrieveFromKeyring(*rootConf, keyring)
 	return err
+}
+
+// Function credentialsNotFound determines whether the error you get when retrieving credentials
+// indicates that the credentials could not be found.
+func credentialsNotFound(err error) bool {
+	return err != nil && errors.Is(err, keyring.ErrNotFound)
 }

@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -37,6 +38,8 @@ type downloadConfigT struct {
 	timeoutSeconds int
 }
 
+const shortDownloadHelp = "Download all not yet downloaded emails from a folder to a maildir."
+
 func getDownloadCmd(
 	rootConf *rootConfigT,
 	downloadConf *downloadConfigT,
@@ -47,7 +50,8 @@ func getDownloadCmd(
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "download",
-		Short: "Download all not yet downloaded emails from a folder to a maildir.",
+		Long:  shortDownloadHelp + "\n\n" + typicalFlowHelp,
+		Short: shortDownloadHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
 			// Allow insecure auth for local server for testing.
@@ -77,7 +81,11 @@ func getDownloadCmd(
 			// Do not use the keyring if it has been disabled globally or if this is a test run,
 			// i.e. no prod run.
 			disableKeyring := noKeyring || !prodRun
-			return initCredentials(rootConf, disableKeyring, keyring)
+			err := initCredentials(rootConf, disableKeyring, keyring)
+			if credentialsNotFound(err) {
+				err = fmt.Errorf("%s\n\n%s", err.Error(), loginCmdUse(rootConf, os.Args))
+			}
+			return err
 		},
 	}
 	initDownloadFlags(cmd, downloadConf)

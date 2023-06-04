@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -26,12 +27,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const shortListHelp = "Print all folders in your inbox."
+
 func getListCmd(
 	rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Print all folders in your inbox.",
+		Long:  shortListHelp + "\n\n" + typicalFlowHelp,
+		Short: shortListHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
 			// Allow insecure auth for local server for testing.
@@ -54,7 +58,11 @@ func getListCmd(
 			// Do not use the keyring if it has been disabled globally or if this is a test run,
 			// i.e. no prod run.
 			disableKeyring := noKeyring || !prodRun
-			return initCredentials(rootConf, disableKeyring, keyring)
+			err := initCredentials(rootConf, disableKeyring, keyring)
+			if credentialsNotFound(err) {
+				err = fmt.Errorf("%s\n\n%s", err.Error(), loginCmdUse(rootConf, os.Args))
+			}
+			return err
 		},
 	}
 	initRootFlags(cmd, rootConf)

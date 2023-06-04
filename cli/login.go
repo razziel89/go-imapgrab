@@ -19,19 +19,60 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"syscall"
+	"unicode"
 
 	"github.com/razziel89/go-imapgrab/core"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
+func quote(args []string) []string {
+	quoted := make([]string, 0, len(args))
+	for _, arg := range args {
+		hasWhitespace := false
+		for _, char := range arg {
+			if unicode.IsSpace(char) {
+				hasWhitespace = true
+				break
+			}
+		}
+		if hasWhitespace {
+			arg = fmt.Sprintf("\"%s\"", arg)
+		}
+		quoted = append(quoted, arg)
+	}
+	return quoted
+}
+
+func loginCmdUse(rootConf *rootConfigT, args []string) string {
+	// Quote arguments that contain spaces.
+	quoted := quote(args)
+
+	// Construct an equivalent command line with only the command name replaced by "login".
+	loginEquivalent := quote([]string{
+		args[0], "login", "--server", rootConf.server, "--port", fmt.Sprint(rootConf.port),
+		"--user", rootConf.username,
+	})
+
+	return fmt.Sprintf(
+		"To store credentials in your system keyring, run\n\n  %s\n\n"+
+			"Then enter your password at the prompt. Afterwards, run\n\n  %s\n\n"+
+			"again and go-imapgrab will take the password from the keyring.\n",
+		strings.Join(loginEquivalent, " "), strings.Join(quoted, " "),
+	)
+}
+
+const shortLoginHelp = "Store credentials in your system's keyring."
+
 func getLoginCmd(
 	rootConf *rootConfigT, keyring keyringOps, readPasswordFn func(int) ([]byte, error),
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Store credentials in your system's keyring.",
+		Long:  shortLoginHelp + "\n\n" + typicalFlowHelp,
+		Short: shortLoginHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
 

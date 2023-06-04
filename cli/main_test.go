@@ -37,9 +37,9 @@ func TestMain(t *testing.T) {
 	}
 
 	calledLogFatal := false
-	orgLogFatal := logFatal
-	t.Cleanup(func() { logFatal = orgLogFatal })
-	logFatal = func(_ ...interface{}) {
+	orgExitFn := exitFn
+	t.Cleanup(func() { exitFn = orgExitFn })
+	exitFn = func(int) {
 		calledLogFatal = true
 	}
 

@@ -20,11 +20,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"github.com/zalando/go-keyring"
 )
 
 func TestDownloadCommand(t *testing.T) {
@@ -120,4 +123,27 @@ func TestDownloadCommandCannotGetLock(t *testing.T) {
 	assert.True(t, lockCalled)
 	// The release function is not called if we could not even obtain the lock.
 	assert.False(t, releaseCalled)
+}
+
+func TestDownloadCommandNoCredentialsInKeyring(t *testing.T) {
+	mockOps := mockCoreOps{}
+	defer mockOps.AssertExpectations(t)
+
+	mockLock := func(_ string, _ time.Duration) (func(), error) {
+		t.Log("lock function should not be called")
+		t.FailNow()
+		return nil, fmt.Errorf("this should not be called")
+	}
+
+	user, err := user.Current()
+	require.NoError(t, err)
+
+	mk := &mockKeyring{}
+	mk.On("Get", "go-imapgrab/@:993", user.Username).Return("", keyring.ErrNotFound)
+	defer mk.AssertExpectations(t)
+
+	cmd := getDownloadCmd(&rootConfigT{}, &downloadConfigT{}, mk, true, &mockOps, mockLock)
+
+	err = cmd.Execute()
+	assert.ErrorContains(t, err, "secret not found in keyring")
 }
