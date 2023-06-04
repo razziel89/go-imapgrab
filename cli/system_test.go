@@ -186,9 +186,7 @@ func setUpFakeServerAndCommand(t *testing.T, args []string) func() error {
 		t.FailNow()
 	}
 
-	// Make sure the arguments used for the test run are known to the command.
-	err := cmd.ParseFlags(args)
-	require.NoError(t, err)
+	cmd.SetArgs(args)
 
 	t.Cleanup(func() {
 		err := server.Close()
