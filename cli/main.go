@@ -18,16 +18,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"log"
 	"os"
 )
 
 const localhost = "127.0.0.1"
 
-var logFatal = log.Fatal
+var exitFn = os.Exit
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+		exitFn(1)
 	}
 }
