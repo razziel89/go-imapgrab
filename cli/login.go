@@ -21,25 +21,40 @@ import (
 	"fmt"
 	"strings"
 	"syscall"
+	"unicode"
 
 	"github.com/razziel89/go-imapgrab/core"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
-func loginCmdUse(args []string) string {
-	// Quote arguments that contain spaces.
+func quote(args []string) []string {
 	quoted := make([]string, 0, len(args))
 	for _, arg := range args {
-		if strings.Contains(arg, " ") {
+		hasWhitespace := false
+		for _, char := range arg {
+			if unicode.IsSpace(char) {
+				hasWhitespace = true
+				break
+			}
+		}
+		if hasWhitespace {
 			arg = fmt.Sprintf("\"%s\"", arg)
 		}
 		quoted = append(quoted, arg)
 	}
+	return quoted
+}
+
+func loginCmdUse(rootConf *rootConfigT, args []string) string {
+	// Quote arguments that contain spaces.
+	quoted := quote(args)
 
 	// Construct an equivalent command line with only the command name replaced by "login".
-	loginEquivalent := append([]string{}, quoted...)
-	loginEquivalent[1] = "login"
+	loginEquivalent := quote([]string{
+		args[0], "login", "--server", rootConf.server, "--port", fmt.Sprint(rootConf.port),
+		"--user", rootConf.username,
+	})
 
 	return fmt.Sprintf(
 		"To store credentials in your system keyring, run\n\n  %s\n\n"+

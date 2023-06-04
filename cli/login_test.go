@@ -73,11 +73,14 @@ func TestLoginCmdUseWithArgsWithSpaces(t *testing.T) {
 	args := []string{
 		"go-imapgrab", "command", "--flag", "arg w spaces", "--another-flag", "arg_wo_spaces",
 	}
+	rootConf := rootConfigT{
+		server: "server w spaces", username: "username", port: 123, password: "not echoed",
+	}
 
-	helptext := loginCmdUse(args)
+	helptext := loginCmdUse(&rootConf, args)
 
 	assert.Contains(
-		t, helptext, "go-imapgrab login --flag \"arg w spaces\" --another-flag arg_wo_spaces",
+		t, helptext, "go-imapgrab login --server \"server w spaces\" --port 123 --user username",
 	)
 	assert.Contains(
 		t, helptext, "go-imapgrab command --flag \"arg w spaces\" --another-flag arg_wo_spaces",

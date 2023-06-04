@@ -60,7 +60,7 @@ func getListCmd(
 			disableKeyring := noKeyring || !prodRun
 			err := initCredentials(rootConf, disableKeyring, keyring)
 			if credentialsNotFound(err) {
-				err = fmt.Errorf("%s\n\n%s", err.Error(), loginCmdUse(os.Args))
+				err = fmt.Errorf("%s\n\n%s", err.Error(), loginCmdUse(rootConf, os.Args))
 			}
 			return err
 		},
