@@ -49,12 +49,15 @@ func loginCmdUse(args []string) string {
 	)
 }
 
+const shortLoginHelp = "Store credentials in your system's keyring."
+
 func getLoginCmd(
 	rootConf *rootConfigT, keyring keyringOps, readPasswordFn func(int) ([]byte, error),
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Store credentials in your system's keyring.",
+		Long:  shortLoginHelp + "\n\n" + typicalFlowHelp,
+		Short: shortLoginHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
 

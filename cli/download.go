@@ -38,6 +38,8 @@ type downloadConfigT struct {
 	timeoutSeconds int
 }
 
+const shortDownloadHelp = "Download all not yet downloaded emails from a folder to a maildir."
+
 func getDownloadCmd(
 	rootConf *rootConfigT,
 	downloadConf *downloadConfigT,
@@ -48,7 +50,8 @@ func getDownloadCmd(
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "download",
-		Short: "Download all not yet downloaded emails from a folder to a maildir.",
+		Long:  shortDownloadHelp + "\n\n" + typicalFlowHelp,
+		Short: shortDownloadHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
 			// Allow insecure auth for local server for testing.

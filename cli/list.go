@@ -27,12 +27,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const shortListHelp = "Print all folders in your inbox."
+
 func getListCmd(
 	rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Print all folders in your inbox.",
+		Long:  shortListHelp + "\n\n" + typicalFlowHelp,
+		Short: shortListHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
 			// Allow insecure auth for local server for testing.
