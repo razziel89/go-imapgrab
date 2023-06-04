@@ -176,7 +176,7 @@ func setUpFakeServerAndCommand(t *testing.T, args []string) func() error {
 		user, err := user.Current()
 		require.NoError(t, err)
 		mk := &mockKeyring{}
-		mk.On("Set", "go-imapgrab/username@127.0.0.1:30218", user.Name, "password").Return(nil)
+		mk.On("Set", "go-imapgrab/username@127.0.0.1:30218", user.Username, "password").Return(nil)
 		t.Cleanup(func() { mk.AssertExpectations(t) })
 		cmd = getLoginCmd(
 			&rootConf, mk, func(int) ([]byte, error) { return []byte("password"), nil },
