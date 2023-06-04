@@ -25,7 +25,6 @@ import (
 
 func TestRootCommand(t *testing.T) {
 	rootCmd := getRootCmd()
-	initRootFlags(rootCmd, &rootConfigT{})
 	err := rootCmd.Execute()
 	assert.NoError(t, err)
 }

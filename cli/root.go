@@ -48,20 +48,17 @@ func logDebug(v ...interface{}) {
 }
 
 func getRootCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "go-imapgrab",
 		Short: "Backup your IMAP-based email accounts with ease.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
 	}
+	return cmd
 }
 
 var rootCmd = getRootCmd()
-
-func init() {
-	initRootFlags(rootCmd, &rootConf)
-}
 
 func initRootFlags(rootCmd *cobra.Command, rootConf *rootConfigT) {
 	flags := rootCmd.Flags()

@@ -22,6 +22,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -171,14 +172,21 @@ func setUpFakeServerAndCommand(t *testing.T, args []string) func() error {
 	case "download":
 		// Always disable the keyring by making this a test run.
 		cmd = getDownloadCmd(&rootConf, &downloadConf, nil, false, &corer{}, lock)
-		initDownloadFlags(cmd, &downloadConf)
+	case "login":
+		user, err := user.Current()
+		require.NoError(t, err)
+		mk := &mockKeyring{}
+		mk.On("Set", "go-imapgrab/username@127.0.0.1:30218", user.Username, "password").Return(nil)
+		t.Cleanup(func() { mk.AssertExpectations(t) })
+		cmd = getLoginCmd(
+			&rootConf, mk, func(int) ([]byte, error) { return []byte("password"), nil },
+		)
+	default:
+		t.Log("unknown command")
+		t.FailNow()
 	}
-	// All commands use the root flags.
-	initRootFlags(cmd, &rootConf)
 
-	// Make sure the arguments used for the test run are known to the command.
-	err := cmd.ParseFlags(args)
-	require.NoError(t, err)
+	cmd.SetArgs(args)
 
 	t.Cleanup(func() {
 		err := server.Close()
@@ -293,4 +301,22 @@ func TestSystemDownloadSuccess(t *testing.T) {
 	for _, msg := range defaultExpectedDownloadTestLogs {
 		assert.Contains(t, stderr, msg)
 	}
+}
+
+func TestSystemLoginSuccess(t *testing.T) {
+	args := []string{"login", "--server=127.0.0.1", "--port=30218", "--user=username", "--verbose"}
+
+	stdouterr := catchStdoutStderr(t)
+	execute := setUpFakeServerAndCommand(t, args)
+
+	err := execute()
+	require.NoError(t, err)
+
+	stdout, stderr := stdouterr()
+
+	assert.Contains(t, stdout, "Please provide your password for the following service:")
+	assert.Contains(t, stdout, "Username: username")
+	assert.Contains(t, stdout, "Server: 127.0.0.1")
+	assert.Contains(t, stdout, "Port: 30218")
+	assert.Empty(t, stderr)
 }

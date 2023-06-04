@@ -26,12 +26,7 @@ import (
 )
 
 func TestLoginSuccess(t *testing.T) {
-	rootConf := rootConfigT{
-		server:   "server",
-		port:     42,
-		username: "user",
-		password: "i do not matter",
-	}
+	rootConf := rootConfigT{password: "i do not matter"}
 	calledReadPassword := false
 	readPasswordFn := func(fd int) ([]byte, error) {
 		// We read from stdin.
@@ -47,6 +42,7 @@ func TestLoginSuccess(t *testing.T) {
 	mk.On("Set", "go-imapgrab/user@server:42", user.Username, "some password").Return(nil)
 
 	cmd := getLoginCmd(&rootConf, mk, readPasswordFn)
+	cmd.SetArgs([]string{"login", "--server=server", "--port=42", "--user=user"})
 	err = cmd.Execute()
 
 	assert.NoError(t, err)
