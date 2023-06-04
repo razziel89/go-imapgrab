@@ -19,12 +19,35 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"syscall"
 
 	"github.com/razziel89/go-imapgrab/core"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
+
+func loginCmdUse(args []string) string {
+	// Quote arguments that contain spaces.
+	quoted := make([]string, 0, len(args))
+	for _, arg := range args {
+		if strings.Contains(arg, " ") {
+			arg = fmt.Sprintf("\"%s\"", arg)
+		}
+		quoted = append(quoted, arg)
+	}
+
+	// Construct an equivalent command line with only the command name replaced by "login".
+	loginEquivalent := append([]string{}, quoted...)
+	loginEquivalent[1] = "login"
+
+	return fmt.Sprintf(
+		"To store credentials in your system keyring, run\n\n  %s\n\n"+
+			"Then enter your password at the prompt. Afterwards, run\n\n  %s\n\n"+
+			"again and go-imapgrab will take the password from the keyring.\n",
+		strings.Join(loginEquivalent, " "), strings.Join(quoted, " "),
+	)
+}
 
 func getLoginCmd(
 	rootConf *rootConfigT, keyring keyringOps, readPasswordFn func(int) ([]byte, error),

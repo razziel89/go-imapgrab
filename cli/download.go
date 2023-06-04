@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -77,7 +78,11 @@ func getDownloadCmd(
 			// Do not use the keyring if it has been disabled globally or if this is a test run,
 			// i.e. no prod run.
 			disableKeyring := noKeyring || !prodRun
-			return initCredentials(rootConf, disableKeyring, keyring)
+			err := initCredentials(rootConf, disableKeyring, keyring)
+			if credentialsNotFound(err) {
+				err = fmt.Errorf("%s\n\n%s", err.Error(), loginCmdUse(os.Args))
+			}
+			return err
 		},
 	}
 	initDownloadFlags(cmd, downloadConf)

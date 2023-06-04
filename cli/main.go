@@ -19,6 +19,7 @@ package main
 
 import (
 	"log"
+	"os"
 )
 
 const localhost = "127.0.0.1"
@@ -27,6 +28,6 @@ var logFatal = log.Fatal
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		logFatal(err.Error())
+		os.Exit(1)
 	}
 }
