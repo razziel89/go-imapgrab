@@ -24,6 +24,7 @@ import "github.com/razziel89/go-imapgrab/core"
 type coreOps interface {
 	getAllFolders(cfg core.IMAPConfig) ([]string, error)
 	downloadFolder(cfg core.IMAPConfig, folders []string, maildirBase string, threads int) error
+	serveMaildir(cfg core.IMAPConfig, serverPort int, maildirBase string) error
 }
 
 type corer struct{}
@@ -36,4 +37,8 @@ func (c *corer) downloadFolder(
 	cfg core.IMAPConfig, folders []string, maildirBase string, threads int,
 ) error {
 	return core.DownloadFolder(cfg, folders, maildirBase, threads)
+}
+
+func (c *corer) serveMaildir(cfg core.IMAPConfig, serverPort int, maildirBase string) error {
+	return core.ServeMaildir(cfg, serverPort, maildirBase)
 }

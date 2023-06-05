@@ -41,6 +41,11 @@ func (m *mockCoreOps) downloadFolder(
 	return args.Error(0)
 }
 
+func (m *mockCoreOps) serveMaildir(cfg core.IMAPConfig, maildirBase string) error {
+	args := m.Called(cfg, maildirBase)
+	return args.Error(0)
+}
+
 func TestCoreOpsGetAllFolders(t *testing.T) {
 	ops := corer{}
 	cfg := core.IMAPConfig{}

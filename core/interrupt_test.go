@@ -40,6 +40,11 @@ func (i *mockInterrupter) interrupted() bool {
 	return args.Bool(0)
 }
 
+func (i *mockInterrupter) done() <-chan os.Signal {
+	args := i.Called()
+	return args.Get(0).(chan os.Signal)
+}
+
 func TestInterrupter(t *testing.T) {
 	interrupter := newInterruptOps([]os.Signal{os.Interrupt})
 	defer interrupter.deregister()

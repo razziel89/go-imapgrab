@@ -21,7 +21,10 @@ package core
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
+
+	"github.com/emersion/go-imap/server"
 )
 
 // IMAPConfig is a configuration needed to access an IMAP server.
@@ -197,4 +200,67 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 		}
 	}
 	return
+}
+
+const closedNetErr = "use of closed network connection"
+
+func startLocalIMAPServer(
+	cfg IMAPConfig, serverPort int, maildirBase string,
+) (shutdown func() error, err error) {
+	backend, err := newBackend(maildirBase, cfg.User, cfg.Password)
+	if err != nil {
+		return nil, err
+	}
+	server := server.New(backend)
+	// Allow unauthenticated connections as this is a local server only.
+	server.AllowInsecureAuth = true
+	// Listen on a high local port and only on locahost. This is a local server, which means we
+	// should not listen on all interfaces.
+	server.Addr = fmt.Sprintf("127.0.0.1:%d", serverPort)
+	logInfo("local IMAP server listening on " + server.Addr)
+
+	// Have server listen in separate goroutine to be able to handle requests asyncronously. The
+	// channel is used to ensure the server stops listening before the main goroutine finishes
+	// execution.
+	syncChan := make(chan bool)
+	var serverErr error
+	go func() {
+		serverErr = server.ListenAndServe()
+		syncChan <- true
+	}()
+
+	shutdown = func() (err error) {
+		closeErr := server.Close()
+		<-syncChan
+		if err == nil && serverErr != nil && !strings.Contains(serverErr.Error(), closedNetErr) {
+			err = serverErr
+		}
+		if err == nil && closeErr != nil && !strings.Contains(closeErr.Error(), closedNetErr) {
+			err = closeErr
+		}
+		return err
+	}
+
+	return shutdown, err
+}
+
+// ServeMaildir starts a local IMAP server providing read-only access to a maildir.
+func ServeMaildir(cfg IMAPConfig, serverPort int, maildirBase string) (err error) {
+	fmt.Println(cfg, maildirBase)
+
+	shutdown, err := startLocalIMAPServer(cfg, serverPort, maildirBase)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		shutdownErr := shutdown()
+		if err == nil && shutdownErr != nil {
+			err = shutdownErr
+		}
+	}()
+
+	interrupter := newInterruptOps([]os.Signal{os.Interrupt})
+	<-interrupter.done()
+
+	return nil
 }

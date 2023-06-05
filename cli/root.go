@@ -60,10 +60,13 @@ const (
 		"  go-imapgrab login --server imap.gmail.com --user my.example@gmail.com\n\n" +
 		"  go-imapgrab list --server imap.gmail.com --user my.example@gmail.com\n\n" +
 		"  go-imapgrab download --server imap.gmail.com --user my.example@gmail.com" +
-		" --folder _ALL_ --folder -_Gmail_\n\n" +
+		" --folder _ALL_ --folder -_Gmail_ --path ./backup\n\n" +
+		"  go-imapgrab serve --server imap.gmail.com --user my.example@gmail.com" +
+		" --path ./backup --server-port 10539\n\n" +
 		"Provide your password at the login prompt. Here, we download all folders apart from\n" +
 		"Gmail-specific ones. Note that you may have to add the \"--port\" flag if your email\n" +
-		"provider does not use the default of 993."
+		"provider does not use the default of 993. The emails are downloaded to the local path\n" +
+		"\"backup\""
 )
 
 func getRootCmd() *cobra.Command {
