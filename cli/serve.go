@@ -35,7 +35,10 @@ type serveConfigT struct {
 	serverPort     int
 }
 
-const shortServeHelp = "Serve a locally stored maildir backup to as an IMAP server."
+const (
+	shortServeHelp    = "Serve a locally stored maildir backup via a read-only IMAP server."
+	defaultServerPort = 30912
+)
 
 func getServeCmd(
 	rootConf *rootConfigT,
@@ -99,7 +102,7 @@ func initServeFlags(serveCmd *cobra.Command, serveConf *serveConfigT) {
 
 	flags.StringVar(&serveConf.path, "path", "", "the local path to your maildir's parent dir")
 	flags.IntVar(
-		&serveConf.serverPort, "server-port", 30912,
+		&serveConf.serverPort, "server-port", defaultServerPort,
 		"port on which the local IMAP server will listen",
 	)
 	flags.IntVar(
