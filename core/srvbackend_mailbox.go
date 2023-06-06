@@ -21,98 +21,15 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/backend"
 	"github.com/emersion/go-imap/backend/backendutil"
 	"github.com/emersion/go-imap/backend/memory"
 )
-
-const readOnlyServerErr = "cannot execute action, this is a read-only IMAP server"
-
-type igrabBackend struct {
-	path     string
-	username string
-	password string
-	user     *igrabUser
-}
-
-func (b *igrabBackend) Login(_ *imap.ConnInfo, username, password string) (backend.User, error) {
-	logInfo(fmt.Sprintf("attempting to log in as %s with password %s", username, password))
-	if username != b.username {
-		logInfo(fmt.Sprintf("login as %s failed, bad user", username))
-		return nil, fmt.Errorf("bad username or password")
-	}
-	if password != b.password {
-		logInfo(fmt.Sprintf("login as %s failed, bad password", username))
-		return nil, fmt.Errorf("bad username or password")
-	}
-	logInfo(fmt.Sprintf("login as %s succeeded", username))
-	return b.user, nil
-}
-
-type igrabUser struct {
-	name      string
-	mailboxes []*igrabMailbox
-}
-
-// Username provides the user's name.
-func (u *igrabUser) Username() string {
-	logInfo("backend username")
-	return u.name
-}
-
-// ListMailboxes lists a mailbox.
-func (u *igrabUser) ListMailboxes(_ bool) ([]backend.Mailbox, error) {
-	logInfo("backend list mailboxes")
-	boxes := []backend.Mailbox{}
-	for _, mailbox := range u.mailboxes {
-		mailbox := mailbox
-		boxes = append(boxes, mailbox)
-	}
-	logInfo(fmt.Sprintf("listed %d mailboxes", len(boxes)))
-	return boxes, nil
-}
-
-// GetMailbox retrieves a mailbox.
-func (u *igrabUser) GetMailbox(name string) (backend.Mailbox, error) {
-	logInfo(fmt.Sprintf("backend get mailbox %s", name))
-	for _, mailbox := range u.mailboxes {
-		if mailbox.maildir.folderName() == name {
-			return mailbox, nil
-		}
-	}
-	return nil, fmt.Errorf("unknown mailbox %s", name)
-}
-
-// CreateMailbox creates a mailbox.
-func (u *igrabUser) CreateMailbox(_ string) error {
-	logInfo("backend create mailbox")
-	return nil
-}
-
-// DeleteMailbox deletes a mailbox.
-func (u *igrabUser) DeleteMailbox(_ string) error {
-	logInfo("backend delete mailbox")
-	return fmt.Errorf(readOnlyServerErr)
-}
-
-// RenameMailbox renames a mailbox.
-func (u *igrabUser) RenameMailbox(_, _ string) error {
-	logInfo("backend rename mailbox")
-	return fmt.Errorf(readOnlyServerErr)
-}
-
-// Logout logs out the user. This is a no-op.
-func (u *igrabUser) Logout() error {
-	logInfo("backend logout")
-	return nil
-}
 
 type igrabMailbox struct {
 	maildir  maildirPathT
@@ -313,77 +230,4 @@ func (mb *igrabMailbox) readMessages() error {
 	logInfo(fmt.Sprintf("read %d messags for mailbox %s", len(messages), mb.maildir.folderName()))
 	mb.messages = messages
 	return nil
-}
-
-type igrabMessage struct {
-	path   string
-	filled bool
-	lock   *sync.Mutex
-
-	msg *memory.Message
-}
-
-func (m *igrabMessage) Fetch(seqNum uint32, items []imap.FetchItem) (*imap.Message, error) {
-	err := m.fill()
-	if err != nil {
-		return nil, err
-	}
-	return m.msg.Fetch(seqNum, items)
-}
-
-func (m *igrabMessage) Match(seqNum uint32, c *imap.SearchCriteria) (bool, error) {
-	err := m.fill()
-	if err != nil {
-		return false, err
-	}
-	return m.msg.Match(seqNum, c)
-}
-
-func (m *igrabMessage) fill() error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	if m.filled {
-		return nil
-	}
-	// Fill only once if not yet filled.
-	body, err := os.ReadFile(m.path)
-	if err == nil {
-		m.msg.Size = uint32(len(body))
-		m.msg.Body = body
-	}
-	logInfo(fmt.Sprintf("read %d bytes from %s", len(body), m.path))
-	return err
-}
-
-func newBackend(path, username, password string) (backend.Backend, error) {
-	dirs, err := os.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-	mailboxes := []*igrabMailbox{}
-	for _, dir := range dirs {
-		maildirPath := maildirPathT{base: path, folder: dir.Name()}
-		if dir.IsDir() && isMaildir(maildirPath.folderPath()) {
-			mailboxes = append(mailboxes, &igrabMailbox{maildir: maildirPath})
-		}
-	}
-
-	logInfo(fmt.Sprintf("readin in %d mailboxes", len(mailboxes)))
-
-	for _, box := range mailboxes {
-		err := box.readMessages()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &igrabBackend{
-		path:     path,
-		username: username,
-		password: password,
-		user: &igrabUser{
-			name:      username,
-			mailboxes: mailboxes,
-		},
-	}, nil
 }
