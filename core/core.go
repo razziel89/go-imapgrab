@@ -260,7 +260,7 @@ func ServeMaildir(cfg IMAPConfig, serverPort int, maildirBase string) (err error
 	}()
 
 	interrupter := newInterruptOps([]os.Signal{os.Interrupt})
-	<-interrupter.done()
+	interrupter.wait()
 
 	return nil
 }

@@ -26,7 +26,7 @@ import (
 type interruptOps interface {
 	deregister()
 	interrupted() bool
-	done() <-chan os.Signal
+	wait()
 }
 
 type interrupter struct {
@@ -74,9 +74,8 @@ func (i *interrupter) interrupted() bool {
 	}
 }
 
-func (i *interrupter) done() <-chan os.Signal {
-	defer i.lock()()
-	return i.channel
+func (i *interrupter) wait() {
+	<-i.channel
 }
 
 func newInterruptOps(signals []os.Signal) interruptOps {
