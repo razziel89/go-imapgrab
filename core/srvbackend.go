@@ -19,7 +19,6 @@ package core
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/backend"
@@ -48,35 +47,19 @@ func (b *igrabBackend) Login(_ *imap.ConnInfo, username, password string) (backe
 	return b.user, nil
 }
 
+func (b *igrabBackend) addUser() error {
+	user := &igrabUser{name: b.username}
+	b.user = user
+	err := user.addMailboxes(b.path)
+	return err
+}
+
 func newBackend(path, username, password string) (backend.Backend, error) {
-	dirs, err := os.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-	mailboxes := []*igrabMailbox{}
-	for _, dir := range dirs {
-		maildirPath := maildirPathT{base: path, folder: dir.Name()}
-		if dir.IsDir() && isMaildir(maildirPath.folderPath()) {
-			mailboxes = append(mailboxes, &igrabMailbox{maildir: maildirPath})
-		}
-	}
-
-	logInfo(fmt.Sprintf("readin in %d mailboxes", len(mailboxes)))
-
-	for _, box := range mailboxes {
-		err := box.readMessages()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &igrabBackend{
+	bcknd := igrabBackend{
 		path:     path,
 		username: username,
 		password: password,
-		user: &igrabUser{
-			name:      username,
-			mailboxes: mailboxes,
-		},
-	}, nil
+	}
+	err := bcknd.addUser()
+	return &bcknd, err
 }

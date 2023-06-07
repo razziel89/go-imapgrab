@@ -181,7 +181,7 @@ type pathAndDate struct {
 	date time.Time
 }
 
-func (mb *igrabMailbox) readMessages() error {
+func (mb *igrabMailbox) addMessages() error {
 	base := mb.maildir.folderPath()
 	newFiles, newErr := ioutil.ReadDir(filepath.Join(base, "new"))
 	curFiles, curErr := ioutil.ReadDir(filepath.Join(base, "cur"))

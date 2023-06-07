@@ -19,6 +19,7 @@ package core
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/emersion/go-imap/backend"
 )
@@ -78,5 +79,33 @@ func (u *igrabUser) RenameMailbox(_, _ string) error {
 // Logout logs out the user. This is a no-op.
 func (u *igrabUser) Logout() error {
 	logInfo("backend logout")
+	return nil
+}
+
+func (u *igrabUser) addMailboxes(path string) error {
+	dirs, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	boxes := []*igrabMailbox{}
+	for _, dir := range dirs {
+		maildirPath := maildirPathT{base: path, folder: dir.Name()}
+		if dir.IsDir() && isMaildir(maildirPath.folderPath()) {
+			box := &igrabMailbox{maildir: maildirPath}
+			boxes = append(boxes, box)
+		}
+	}
+
+	u.mailboxes = boxes
+
+	for _, box := range boxes {
+		err := box.addMessages()
+		if err != nil {
+			return err
+		}
+	}
+	logInfo(fmt.Sprintf("readin in %d mailboxes", len(boxes)))
+
 	return nil
 }
