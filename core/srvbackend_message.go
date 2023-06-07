@@ -61,6 +61,7 @@ func (m *igrabMessage) fill() error {
 	if err == nil {
 		m.msg.Size = uint32(len(body))
 		m.msg.Body = body
+		m.filled = true
 	}
 	logInfo(fmt.Sprintf("read %d bytes from %s", len(body), m.path))
 	return err
