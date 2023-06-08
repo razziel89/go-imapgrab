@@ -26,6 +26,44 @@ import (
 	"github.com/emersion/go-imap/backend/memory"
 )
 
+// We have a file-backed local storage. To be able to easily view the messages, the files will have
+// to be read in. However, mailboxes can become very large, which would result in very high RAM
+// usage if all the messages are being kept in memory for a long period of time. Thus, we use this
+// implicit buffer that will
+type backendMessageMemory struct {
+	knownBytes int
+	maxBytes   int
+	messages   map[*igrabMessage]bool
+	lock       *sync.Mutex
+}
+
+var backendMem = backendMessageMemory{
+	knownBytes: 0,
+	// This means we will clear memory as soon as reading in a new message exceeds a storage of
+	// about 100MB.
+	maxBytes: 100_000_000, //nolint:gomnd
+	messages: map[*igrabMessage]bool{},
+	lock:     &sync.Mutex{},
+}
+
+func clearBackendMessageMemoryIfNeeded(msg *igrabMessage, newSize int) {
+	backendMem.lock.Lock()
+	defer backendMem.lock.Unlock()
+
+	// Only consider clearing the memory if the message is not yet known.
+	if _, found := backendMem.messages[msg]; !found {
+		if newSize+backendMem.knownBytes > backendMem.maxBytes {
+			for msg := range backendMem.messages {
+				msg.clear()
+				delete(backendMem.messages, msg)
+			}
+			backendMem.knownBytes = 0
+		}
+		backendMem.messages[msg] = true
+		backendMem.knownBytes += newSize
+	}
+}
+
 type igrabMessage struct {
 	path   string
 	filled bool
@@ -63,6 +101,17 @@ func (m *igrabMessage) fill() error {
 		m.msg.Body = body
 		m.filled = true
 	}
+	clearBackendMessageMemoryIfNeeded(m, len(body))
 	logInfo(fmt.Sprintf("read %d bytes from %s", len(body), m.path))
 	return err
+}
+
+func (m *igrabMessage) clear() {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	size := m.msg.Size
+	m.msg.Size = 0
+	m.msg.Body = nil
+	m.filled = false
+	logInfo(fmt.Sprintf("cleared %d bytes from %s", size, m.path))
 }

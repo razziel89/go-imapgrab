@@ -94,3 +94,61 @@ func TestBackendMessageError(t *testing.T) {
 	_, err = msg.Match(1, imap.NewSearchCriteria())
 	assert.Error(t, err)
 }
+
+func TestAutoClearMemory(t *testing.T) {
+	orgBackendMem := backendMem
+	defer func() { backendMem = orgBackendMem }()
+
+	backendMem = backendMessageMemory{
+		knownBytes: 0,
+		// This value means we clean up for every newly read message.
+		maxBytes: 0,
+		messages: map[*igrabMessage]bool{},
+		lock:     &sync.Mutex{},
+	}
+
+	path := filepath.Join(t.TempDir(), "email")
+	err := os.WriteFile(path, []byte(testBody), 0600)
+	require.NoError(t, err)
+
+	msg1 := &igrabMessage{
+		path: path,
+		lock: &sync.Mutex{},
+		msg: &memory.Message{
+			Date:  time.Now(),
+			Uid:   1,
+			Flags: []string{"\\Seen"},
+		},
+	}
+
+	msg2 := &igrabMessage{
+		path: path,
+		lock: &sync.Mutex{},
+		msg: &memory.Message{
+			Date:  time.Now(),
+			Uid:   2,
+			Flags: []string{"\\Seen"},
+		},
+	}
+
+	err = msg1.fill()
+	assert.NoError(t, err)
+
+	_, found1 := backendMem.messages[msg1]
+	_, found2 := backendMem.messages[msg2]
+
+	assert.True(t, found1)
+	assert.False(t, found2)
+
+	// Reading in message 2 will cause message 1 to be purged from memory.
+	err = msg2.fill()
+	assert.NoError(t, err)
+
+	assert.Equal(t, 1, len(backendMem.messages))
+
+	_, found1 = backendMem.messages[msg1]
+	_, found2 = backendMem.messages[msg2]
+
+	assert.False(t, found1)
+	assert.True(t, found2)
+}
