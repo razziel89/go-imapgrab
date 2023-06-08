@@ -39,9 +39,8 @@ func (u *igrabUser) Username() string {
 func (u *igrabUser) ListMailboxes(_ bool) ([]backend.Mailbox, error) {
 	logInfo("backend list mailboxes")
 	boxes := []backend.Mailbox{}
-	for _, mailbox := range u.mailboxes {
-		mailbox := mailbox
-		boxes = append(boxes, mailbox)
+	for idx := range u.mailboxes {
+		boxes = append(boxes, u.mailboxes[idx])
 	}
 	logInfo(fmt.Sprintf("listed %d mailboxes", len(boxes)))
 	return boxes, nil
@@ -61,7 +60,7 @@ func (u *igrabUser) GetMailbox(name string) (backend.Mailbox, error) {
 // CreateMailbox creates a mailbox.
 func (u *igrabUser) CreateMailbox(_ string) error {
 	logInfo("backend create mailbox")
-	return nil
+	return errReadOnlyServer
 }
 
 // DeleteMailbox deletes a mailbox.
@@ -99,13 +98,12 @@ func (u *igrabUser) addMailboxes(path string) error {
 
 	u.mailboxes = boxes
 
+	errs := threadSafeErrors{}
 	for _, box := range boxes {
 		err := box.addMessages()
-		if err != nil {
-			return err
-		}
+		errs.add(err)
 	}
 	logInfo(fmt.Sprintf("readin in %d mailboxes", len(boxes)))
 
-	return nil
+	return errs.err()
 }
