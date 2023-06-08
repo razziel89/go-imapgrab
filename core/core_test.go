@@ -19,7 +19,10 @@ package core
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -282,4 +285,30 @@ func TestPartitionFoldersMoreThreadsThanFolders(t *testing.T) {
 	outPartitions := partitionFolders(inFolders, threads)
 
 	assert.Equal(t, expectedPartitions, outPartitions)
+}
+
+func TestServerMaildirInitError(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "i do not exist")
+	err := ServeMaildir(IMAPConfig{}, 30123, tmp)
+	assert.Error(t, err)
+}
+
+func TestServerMaildir(t *testing.T) {
+	tmp := filepath.Join(t.TempDir())
+	var err error
+
+	syncChan := make(chan bool)
+	go func() {
+		err = ServeMaildir(IMAPConfig{}, 30123, tmp)
+		syncChan <- true
+	}()
+
+	// Wait a while to ensure that the signal we send will be received by the local server and not
+	// the testing process.
+	time.Sleep(100 * time.Millisecond)
+
+	signalSelf(t, os.Interrupt)
+	<-syncChan
+
+	assert.NoError(t, err)
 }

@@ -44,6 +44,13 @@ func (i *mockInterrupter) wait() {
 	_ = i.Called()
 }
 
+func signalSelf(t *testing.T, sig os.Signal) {
+	self, err := os.FindProcess(os.Getpid())
+	assert.NoError(t, err)
+	err = self.Signal(sig)
+	assert.NoError(t, err)
+}
+
 func TestInterrupter(t *testing.T) {
 	interrupter := newInterruptOps([]os.Signal{os.Interrupt})
 	defer interrupter.deregister()
@@ -71,11 +78,7 @@ func TestInterrupter(t *testing.T) {
 	assert.False(t, receivedSignal)
 	assert.False(t, interrupter.interrupted())
 
-	// Send signal to self.
-	self, err := os.FindProcess(os.Getpid())
-	assert.NoError(t, err)
-	err = self.Signal(os.Interrupt)
-	assert.NoError(t, err)
+	signalSelf(t, os.Interrupt)
 
 	wg.Wait()
 	assert.True(t, receivedSignal)
@@ -104,13 +107,8 @@ func TestInterrupterWait(t *testing.T) {
 	// Sleep a while to be sure the above goroutine got to the point where it is waiting.
 	time.Sleep(time.Millisecond * 100) //nolint:gomnd
 	assert.False(t, waited)
-	assert.False(t, interrupter.interrupted())
 
-	// Send signal to self.
-	self, err := os.FindProcess(os.Getpid())
-	assert.NoError(t, err)
-	err = self.Signal(os.Interrupt)
-	assert.NoError(t, err)
+	signalSelf(t, os.Interrupt)
 
 	wg.Wait()
 	assert.True(t, waited)

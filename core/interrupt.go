@@ -75,9 +75,9 @@ func (i *interrupter) interrupted() bool {
 }
 
 func (i *interrupter) wait() {
+	defer i.lock()()
 	// Wait first without lock to avoid deadlocks with other methods of this type.
 	<-i.channel
-	defer i.lock()()
 	i.deregisterNoLock()
 }
 
