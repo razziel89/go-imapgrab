@@ -67,13 +67,13 @@ func (u *igrabUser) CreateMailbox(_ string) error {
 // DeleteMailbox deletes a mailbox.
 func (u *igrabUser) DeleteMailbox(_ string) error {
 	logInfo("backend delete mailbox")
-	return fmt.Errorf(readOnlyServerErr)
+	return errReadOnlyServer
 }
 
 // RenameMailbox renames a mailbox.
 func (u *igrabUser) RenameMailbox(_, _ string) error {
 	logInfo("backend rename mailbox")
-	return fmt.Errorf(readOnlyServerErr)
+	return errReadOnlyServer
 }
 
 // Logout logs out the user. This is a no-op.

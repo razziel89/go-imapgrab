@@ -18,13 +18,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/backend"
 )
 
-const readOnlyServerErr = "cannot execute action, this is a read-only IMAP server"
+var errReadOnlyServer = errors.New("cannot execute action, this is a read-only IMAP server")
 
 type igrabBackend struct {
 	path     string

@@ -18,8 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
-	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
@@ -72,8 +72,8 @@ func (mb *igrabMailbox) Status(items []imap.StatusItem) (*imap.MailboxStatus, er
 	status.PermanentFlags = []string{"\\*"}
 	// State that all messages have already been seen.
 	status.UnseenSeqNum = 0
-
-	// Determine the next unseen UID. We just assume that a message's index is identical to its UID.
+	// Indicate that this is a read-only mailbox.
+	status.ReadOnly = true
 
 	for _, name := range items {
 		switch name {
@@ -148,10 +148,11 @@ func (mb *igrabMailbox) SearchMessages(_ bool, criteria *imap.SearchCriteria) ([
 // CreateMessage creates a new message.
 func (mb *igrabMailbox) CreateMessage(_ []string, _ time.Time, _ imap.Literal) error {
 	logInfo("backend create message")
-	return fmt.Errorf(readOnlyServerErr)
+	return errReadOnlyServer
 }
 
-// UpdateMessagesFlags updats message flags.
+// UpdateMessagesFlags updates message flags. We accept all flag updates unconditionally but those
+// updates are not persisted. All flags are reset once the local fake IMAP server is restarted.
 func (mb *igrabMailbox) UpdateMessagesFlags(
 	_ bool, seqset *imap.SeqSet, operation imap.FlagsOp, flags []string,
 ) error {
@@ -167,48 +168,39 @@ func (mb *igrabMailbox) UpdateMessagesFlags(
 // CopyMessages copies a message from one mailbox to another one.
 func (mb *igrabMailbox) CopyMessages(_ bool, _ *imap.SeqSet, _ string) error {
 	logInfo("backend mailbox copy messages")
-	return fmt.Errorf(readOnlyServerErr)
+	return errReadOnlyServer
 }
 
 // Expunge removes messags that shall be removed.
 func (mb *igrabMailbox) Expunge() error {
 	logInfo("backend mailbox expunge")
-	return fmt.Errorf(readOnlyServerErr)
+	return errReadOnlyServer
 }
 
-type pathAndDate struct {
+type pathAndInfo struct {
 	path string
-	date time.Time
+	info fs.FileInfo
 }
 
 func (mb *igrabMailbox) addMessages() error {
 	base := mb.maildir.folderPath()
-	newFiles, newErr := ioutil.ReadDir(filepath.Join(base, "new"))
-	curFiles, curErr := ioutil.ReadDir(filepath.Join(base, "cur"))
-	if newErr != nil || curErr != nil {
-		return errors.Join(newErr, curErr)
+	files := []pathAndInfo{}
+	for _, dir := range []string{"new", "cur"} {
+		moreFiles, err := ioutil.ReadDir(filepath.Join(base, dir))
+		if err != nil {
+			return err
+		}
+		for idx := range moreFiles {
+			files = append(files, pathAndInfo{
+				path: filepath.Join(base, dir, moreFiles[idx].Name()),
+				info: moreFiles[idx],
+			})
+		}
 	}
 	// Sort files by modification time to get some semblance of order.
-	sort.Slice(newFiles, func(i, j int) bool {
-		return newFiles[i].ModTime().Before(newFiles[j].ModTime())
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].info.ModTime().Before(files[j].info.ModTime())
 	})
-	sort.Slice(curFiles, func(i, j int) bool {
-		return curFiles[i].ModTime().Before(curFiles[j].ModTime())
-	})
-
-	files := make([]pathAndDate, 0, len(newFiles)+len(curFiles))
-	for _, file := range curFiles {
-		files = append(files, pathAndDate{
-			path: filepath.Join(base, "cur", file.Name()),
-			date: file.ModTime(),
-		})
-	}
-	for _, file := range newFiles {
-		files = append(files, pathAndDate{
-			path: filepath.Join(base, "new", file.Name()),
-			date: file.ModTime(),
-		})
-	}
 
 	messages := make([]*igrabMessage, 0, len(files))
 	for count, file := range files {
@@ -217,9 +209,9 @@ func (mb *igrabMailbox) addMessages() error {
 			filled: false,
 			lock:   &sync.Mutex{},
 			msg: &memory.Message{
-				Date: file.date,
 				// Identify by mod time.
-				Uid: uint32(count + 1),
+				Date: file.info.ModTime(),
+				Uid:  uint32(count + 1),
 				// Assume all have been seen already.
 				Flags: []string{"\\Seen"},
 				// Size and Body will be filled in later and only on demand.
