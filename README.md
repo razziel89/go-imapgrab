@@ -1,17 +1,23 @@
 ## Back up your IMAP mailboxes with ease!
 
+<!-- vim-markdown-toc GFM -->
+
 * [General](#general)
     * [Notable features](#notable-features)
     * [Currently absent features](#currently-absent-features)
 * [Why a re-implementation](#why-a-re-implementation)
 * [How to use](#how-to-use)
+    * [Note for Windows users](#note-for-windows-users)
     * [Store password in keyring](#store-password-in-keyring)
     * [List folders](#list-folders)
     * [Download](#download)
+    * [Serve](#serve)
 * [Installation](#installation)
     * [Tab completion](#tab-completion)
 * [How to contribute](#how-to-contribute)
 * [Licence](#licence)
+
+<!-- vim-markdown-toc -->
 
 # General
 ![Core_Coverage](https://img.shields.io/badge/Core_Coverage-100.0%25-brightgreen)
