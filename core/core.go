@@ -19,10 +19,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
+
+	"github.com/emersion/go-imap/server"
 )
+
+var signalsToWaitFor = []os.Signal{os.Interrupt}
 
 // IMAPConfig is a configuration needed to access an IMAP server.
 type IMAPConfig struct {
@@ -58,7 +64,7 @@ type Imapgrabber struct {
 func (ig *Imapgrabber) authenticateClient(cfg IMAPConfig) error {
 	imapOps, err := authenticateClient(cfg)
 	ig.imapOps = imapOps
-	ig.interruptOps = newInterruptOps([]os.Signal{os.Interrupt})
+	ig.interruptOps = newInterruptOps(signalsToWaitFor)
 	ig.downloadOps = downloader{
 		imapOps:    imapOps,
 		deliverOps: deliverer{},
@@ -140,7 +146,7 @@ func partitionFolders(folders []string, numPartitions int) [][]string {
 // the email is first downloaded into the `tmp` sub-directory and then moved atomically to the `new`
 // sub-directory.
 func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, threads int) (err error) {
-	interrupt := newInterruptOps([]os.Signal{os.Interrupt})
+	interrupt := newInterruptOps(signalsToWaitFor)
 	defer interrupt.deregister()
 
 	errs := threadSafeErrors{verbose: true}
@@ -197,4 +203,46 @@ func DownloadFolder(cfg IMAPConfig, folders []string, maildirBase string, thread
 		}
 	}
 	return
+}
+
+const errClosedNetwork = "use of closed network connection"
+
+// ServeMaildir starts a local IMAP server providing read-only access to a maildir.
+func ServeMaildir(cfg IMAPConfig, serverPort int, maildirBase string) (err error) {
+	backend, err := newBackend(maildirBase, cfg.User, cfg.Password)
+	if err != nil {
+		return err
+	}
+
+	server := server.New(backend)
+	// Allow unauthenticated connections as this is a local server only.
+	server.AllowInsecureAuth = true
+	// Listen on a high local port and only on locahost. This is a local server, which means we
+	// should not listen on all interfaces.
+	server.Addr = fmt.Sprintf("127.0.0.1:%d", serverPort)
+	logInfo("local IMAP server listening on " + server.Addr)
+
+	// Have server listen in separate goroutine to be able to handle requests asyncronously. The
+	// channel is used to ensure the server stops listening before the main goroutine finishes
+	// execution.
+	syncChan := make(chan bool, 1)
+	var serverErr error
+	go func() {
+		serverErr = server.ListenAndServe()
+		syncChan <- true
+	}()
+
+	newInterruptOps(signalsToWaitFor).wait()
+	logInfo("shutting down local IMAP server")
+	closeErr := server.Close()
+	// Wait until the server has actually shut down.
+	<-syncChan
+
+	// Do not report this expected error.
+	if strings.Contains(serverErr.Error(), errClosedNetwork) {
+		serverErr = nil
+	}
+
+	err = errors.Join(serverErr, closeErr)
+	return err
 }

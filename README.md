@@ -1,17 +1,23 @@
 ## Back up your IMAP mailboxes with ease!
 
+<!-- vim-markdown-toc GFM -->
+
 * [General](#general)
     * [Notable features](#notable-features)
     * [Currently absent features](#currently-absent-features)
 * [Why a re-implementation](#why-a-re-implementation)
 * [How to use](#how-to-use)
+    * [Note for Windows users](#note-for-windows-users)
     * [Store password in keyring](#store-password-in-keyring)
     * [List folders](#list-folders)
     * [Download](#download)
+    * [Serve - View your backed-up emails](#serve---view-your-backed-up-emails)
 * [Installation](#installation)
     * [Tab completion](#tab-completion)
 * [How to contribute](#how-to-contribute)
 * [Licence](#licence)
+
+<!-- vim-markdown-toc -->
 
 # General
 ![Core_Coverage](https://img.shields.io/badge/Core_Coverage-100.0%25-brightgreen)
@@ -34,9 +40,10 @@ needed, especially in the case of known vulnerabilities.
 
 - download IMAP mailboxes to a local directory following the
   [`maildir`][maildir] format
+- browse local backups with your favourite email client
 - download folders in parallel
 - static binary without any additional dependencies
-- optional support for system keyring to store credentials securely
+- support for system keyring to store credentials securely
 - maildir output fully compatible to the original [`imapgrab`][imapgrab] (please
   open an issue in this repository if you notice incompatibilities)
 - tab completion for many shells
@@ -44,6 +51,7 @@ needed, especially in the case of known vulnerabilities.
 ## Currently absent features
 
 Contributions to these would be welcome.
+Please reach out before starting to work on any of them.
 
 - output in other formats such as `mbox`
 - password specification via command line argument (use environment variable or
@@ -54,7 +62,6 @@ Contributions to these would be welcome.
   be runnable as `root` (use `sudo` instead to change the user for one
   invocation)
 - restoration of a local backup to a server
-- view downloaded emails (use `mutt -f ${LOCALPATH}/${FOLDER}` for that)
 - local removal of emails that have been removed remotely
 - a graphical user interface
 - download a single folder with multiple threads
@@ -95,8 +102,18 @@ See [installation](#installation) below for details.
 Once you have the executable, run `go-imapgrab --help` to see whether it works.
 Please open an issue in this repository if you experience problems!
 
-Then, store the password in your keyring (optional), list the folders in your
-mailbox, and download the ones you wish to backup.
+A typical workflow consists of the following four steps:
+
+- store the password for your account in your keyring (optional but recommended)
+- list the folders in your mailbox
+- download the ones you wish to back up
+- view locally stored emails using your favourite email client
+
+## Note for Windows users
+
+❗ If you are on Windows, replace any invocation of `go-imapgrab` by
+`go-imapgrab.exe`.
+This document will omit the `.exe` extension throughout. ❗
 
 ## Store password in keyring
 
@@ -111,12 +128,19 @@ go-imapgrab login -u "${USERNAME}" -s "${SERVER}" -p "${PORT}"
 Then, enter your password at the prompt.
 Note that the password will not be echoed as you type.
 
-The password needs to be specified only once.
-Every subsequent call to `go-imapgrab list` or `go-imapgrab download` will use
-the system's keyring if you do not disable the keyring.
+The specification of the port it optional, it defaults to 993.
+Refer to the documentation of your email provider for the username, server, and
+port.
+For Gmail, you can:
 
-Please see the section on [listing folders](#list-folders) for what each of the
-arguments mean.
+- use an [application-specific password][gmail-app-password] as password
+- provide your email address as `${USERNAME}`
+- use `imap.gmail.com` as `${SERVER}`
+- leave out the port since Gmail uses the default one
+
+The password needs to be specified only once.
+Every subsequent call to the `list`, `download`, or `serve` commands will use
+the system's keyring if you do not disable it.
 
 To see the full specification for the `login` command, run:
 
@@ -128,11 +152,12 @@ go-imapgrab login --help
 
 Usually, the first step after storing the password in your keyring is to list
 the folders available in your mailbox.
-If you did not store the password in your system keyring, run the following
-before trying to list folders:
+If you did not store the password in your system keyring, you have to assign its
+value to an environment variable called `IGRAB_PASSWORD`.
+On Unix-like systems, the following command is usually sufficient:
 
 ```bash
-export IGRAB_PASSWORD=${PASSWORD}
+export IGRAB_PASSWORD="${PASSWORD}"
 ```
 
 To list folders in your mailbox, run:
@@ -140,16 +165,6 @@ To list folders in your mailbox, run:
 ```bash
 go-imapgrab list -u "${USERNAME}" -s "${SERVER}" -p "${PORT}"
 ```
-
-The specification of the port it optional, it defaults to 993.
-Refer to the documentation of your email provider for the username, server, and
-port.
-For Gmail, you can:
-
-- use an [application-specific password][gmail-app-password] for `${PASSWORD}`
-- provide your email address as `${USERNAME}`
-- use `imap.gmail.com` as `${SERVER}`
-- leave out the port since Gmail uses the default one
 
 To disable the keyring, for example if you experience problems or don't have a
 keyring, add the `--no-keyring` flag.
@@ -219,6 +234,83 @@ To see the full specification for the `download` command, run:
 ```bash
 go-imapgrab download --help
 ```
+
+## Serve - View your backed-up emails
+
+### Using the mutt command line client
+
+There are several options to view your locally backed up emails.
+If you have access to the `mutt` email client, in order to view emails for a
+folder in your mailbox called `${FOLDER}`, you can run
+
+```bash
+mutt -f ${LOCALPATH}/${FOLDER}
+```
+
+Make sure to specify the very same `${LOCALPATH}` that you specified when
+running the `download` command.
+
+
+### Using any email client
+
+Unfortunately, only very few email clients support viewing locally stored
+emails.
+To work around that limitation, `go-imapgrab` can run as a fully-local
+read-only IMAP server that any IMAP-compatible email client can connect to.
+Here, fully local means that only programs on the same machine as the one
+running `go-imapgrab` can connect to it.
+
+The following example assumes you are using the Thunderbird email client.
+The first step is to launch `go-imapgrab` as a local IMAP server.
+To do so, run the following command:
+
+```bash
+go-imapgrab serve -u "${USERNAME}" -s "${SERVER}" -p "${PORT}" \
+    --path "${LOCALPATH}"
+```
+
+Make sure to specify the exact same values for `${USERNAME}`, `${SERVER}`,
+`${PORT}`, and  `${LOCALPATH}` as you did for the `download` command for the
+mailbox you wish to view.
+By default, the IMAP server will listen for incoming connections on port 30912
+on your local machine.
+
+Then, launch your email client and *manually* configure an email account that:
+
+- uses the IMAP protocol
+- does not use encryption
+- uses `localhost` as host/server
+- uses the same username and password as the email account you wish to view
+- uses the port 30912 (or another one if specified via the optional
+  `--server-port` flag)
+
+For Thunderbird, that would look like this (note that the first digit of the
+port number is obscured):
+
+<img src="./images/example_settings.png" alt="Example Settings" width="257" height="600">
+
+Note that you may have to accept the risk of using an unencrypted connection.
+As the IMAP server will only accept connections from your local machine, this is
+acceptable on single-user systems.
+For Thunderbird, that warning would look like this:
+
+<img src="./images/accept_risk.png" alt="Accept The Risk" width="450" height="380">
+
+If your email client requires you to specify an outgoing email server, use the
+same as for incoming email.
+
+To see the full specification for the `serve` command, run:
+
+```bash
+go-imapgrab serve --help
+```
+
+### A note on ports
+
+Only one service can listen on the same port.
+Thus, if you wish to view multiple mailboxes at the same time, specify a
+different port for every invocation of the `serve` command using the
+`--server-port "${SERVERPORT}"` flag.
 
 # Installation
 

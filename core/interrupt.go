@@ -26,6 +26,7 @@ import (
 type interruptOps interface {
 	deregister()
 	interrupted() bool
+	wait()
 }
 
 type interrupter struct {
@@ -71,6 +72,13 @@ func (i *interrupter) interrupted() bool {
 	default:
 		return false
 	}
+}
+
+func (i *interrupter) wait() {
+	defer i.lock()()
+	// Wait first without lock to avoid deadlocks with other methods of this type.
+	<-i.channel
+	i.deregisterNoLock()
 }
 
 func newInterruptOps(signals []os.Signal) interruptOps {
