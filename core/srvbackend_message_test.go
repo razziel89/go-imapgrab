@@ -152,3 +152,13 @@ func TestAutoClearMemory(t *testing.T) {
 	assert.False(t, found1)
 	assert.True(t, found2)
 }
+
+func TestIntFromEnvWithDefault(t *testing.T) {
+	t.Setenv("ENV_VAR", "42")
+	val := intFromEnvWithDefault("ENV_VAR", 21)
+	assert.Equal(t, 42, val)
+
+	t.Setenv("ENV_VAR", "no int")
+	val = intFromEnvWithDefault("ENV_VAR", 21)
+	assert.Equal(t, 21, val)
+}

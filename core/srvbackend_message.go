@@ -20,10 +20,15 @@ package core
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/backend/memory"
+)
+
+const (
+	maxMemMegabytesEnv = "IGRAB_MAX_SERVER_CACHE_MB"
 )
 
 // We have a file-backed local storage. To be able to easily view the messages, the files will have
@@ -41,9 +46,17 @@ var backendMem = backendMessageMemory{
 	knownBytes: 0,
 	// This means we will clear memory as soon as reading in a new message exceeds a storage of
 	// about 100MB.
-	maxBytes: 100_000_000, //nolint:gomnd
+	maxBytes: intFromEnvWithDefault(maxMemMegabytesEnv, 100) * 1_000_000, //nolint:gomnd
 	messages: map[*serverMessage]bool{},
 	lock:     &sync.Mutex{},
+}
+
+func intFromEnvWithDefault(envVar string, defaultVal int) int {
+	val, err := strconv.Atoi(os.Getenv(envVar))
+	if err != nil {
+		return defaultVal
+	}
+	return val
 }
 
 func clearBackendMessageMemoryIfNeeded(msg *serverMessage, newSize int) {
