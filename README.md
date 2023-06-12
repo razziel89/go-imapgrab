@@ -265,7 +265,7 @@ The first step is to launch `go-imapgrab` as a local IMAP server.
 To do so, run the following command:
 
 ```bash
-go-imapgrab download -u "${USERNAME}" -s "${SERVER}" -p "${PORT}" \
+go-imapgrab serve -u "${USERNAME}" -s "${SERVER}" -p "${PORT}" \
     --path "${LOCALPATH}"
 ```
 
