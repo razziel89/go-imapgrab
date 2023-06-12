@@ -24,19 +24,19 @@ import (
 	"github.com/emersion/go-imap/backend"
 )
 
-type igrabUser struct {
+type serverUser struct {
 	name      string
-	mailboxes []*igrabMailbox
+	mailboxes []*serverMailbox
 }
 
 // Username provides the user's name.
-func (u *igrabUser) Username() string {
+func (u *serverUser) Username() string {
 	logInfo("backend username")
 	return u.name
 }
 
 // ListMailboxes lists a mailbox.
-func (u *igrabUser) ListMailboxes(_ bool) ([]backend.Mailbox, error) {
+func (u *serverUser) ListMailboxes(_ bool) ([]backend.Mailbox, error) {
 	logInfo("backend list mailboxes")
 	boxes := []backend.Mailbox{}
 	for idx := range u.mailboxes {
@@ -47,7 +47,7 @@ func (u *igrabUser) ListMailboxes(_ bool) ([]backend.Mailbox, error) {
 }
 
 // GetMailbox retrieves a mailbox.
-func (u *igrabUser) GetMailbox(name string) (backend.Mailbox, error) {
+func (u *serverUser) GetMailbox(name string) (backend.Mailbox, error) {
 	logInfo(fmt.Sprintf("backend get mailbox %s", name))
 	for _, mailbox := range u.mailboxes {
 		if mailbox.maildir.folderName() == name {
@@ -58,40 +58,40 @@ func (u *igrabUser) GetMailbox(name string) (backend.Mailbox, error) {
 }
 
 // CreateMailbox creates a mailbox.
-func (u *igrabUser) CreateMailbox(_ string) error {
+func (u *serverUser) CreateMailbox(_ string) error {
 	logInfo("backend create mailbox")
 	return errReadOnlyServer
 }
 
 // DeleteMailbox deletes a mailbox.
-func (u *igrabUser) DeleteMailbox(_ string) error {
+func (u *serverUser) DeleteMailbox(_ string) error {
 	logInfo("backend delete mailbox")
 	return errReadOnlyServer
 }
 
 // RenameMailbox renames a mailbox.
-func (u *igrabUser) RenameMailbox(_, _ string) error {
+func (u *serverUser) RenameMailbox(_, _ string) error {
 	logInfo("backend rename mailbox")
 	return errReadOnlyServer
 }
 
 // Logout logs out the user. This is a no-op.
-func (u *igrabUser) Logout() error {
+func (u *serverUser) Logout() error {
 	logInfo("backend logout")
 	return nil
 }
 
-func (u *igrabUser) addMailboxes(path string) error {
+func (u *serverUser) addMailboxes(path string) error {
 	dirs, err := os.ReadDir(path)
 	if err != nil {
 		return err
 	}
 
-	boxes := []*igrabMailbox{}
+	boxes := []*serverMailbox{}
 	for _, dir := range dirs {
 		maildirPath := maildirPathT{base: path, folder: dir.Name()}
 		if dir.IsDir() && isMaildir(maildirPath.folderPath()) {
-			box := &igrabMailbox{maildir: maildirPath}
+			box := &serverMailbox{maildir: maildirPath}
 			boxes = append(boxes, box)
 		}
 	}

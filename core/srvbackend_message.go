@@ -33,7 +33,7 @@ import (
 type backendMessageMemory struct {
 	knownBytes int
 	maxBytes   int
-	messages   map[*igrabMessage]bool
+	messages   map[*serverMessage]bool
 	lock       *sync.Mutex
 }
 
@@ -42,11 +42,11 @@ var backendMem = backendMessageMemory{
 	// This means we will clear memory as soon as reading in a new message exceeds a storage of
 	// about 100MB.
 	maxBytes: 100_000_000, //nolint:gomnd
-	messages: map[*igrabMessage]bool{},
+	messages: map[*serverMessage]bool{},
 	lock:     &sync.Mutex{},
 }
 
-func clearBackendMessageMemoryIfNeeded(msg *igrabMessage, newSize int) {
+func clearBackendMessageMemoryIfNeeded(msg *serverMessage, newSize int) {
 	backendMem.lock.Lock()
 	defer backendMem.lock.Unlock()
 
@@ -64,7 +64,7 @@ func clearBackendMessageMemoryIfNeeded(msg *igrabMessage, newSize int) {
 	}
 }
 
-type igrabMessage struct {
+type serverMessage struct {
 	path   string
 	filled bool
 	lock   *sync.Mutex
@@ -72,7 +72,7 @@ type igrabMessage struct {
 	msg *memory.Message
 }
 
-func (m *igrabMessage) Fetch(seqNum uint32, items []imap.FetchItem) (*imap.Message, error) {
+func (m *serverMessage) Fetch(seqNum uint32, items []imap.FetchItem) (*imap.Message, error) {
 	err := m.fill()
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func (m *igrabMessage) Fetch(seqNum uint32, items []imap.FetchItem) (*imap.Messa
 	return m.msg.Fetch(seqNum, items)
 }
 
-func (m *igrabMessage) Match(seqNum uint32, c *imap.SearchCriteria) (bool, error) {
+func (m *serverMessage) Match(seqNum uint32, c *imap.SearchCriteria) (bool, error) {
 	err := m.fill()
 	if err != nil {
 		return false, err
@@ -88,7 +88,7 @@ func (m *igrabMessage) Match(seqNum uint32, c *imap.SearchCriteria) (bool, error
 	return m.msg.Match(seqNum, c)
 }
 
-func (m *igrabMessage) fill() error {
+func (m *serverMessage) fill() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	if m.filled {
@@ -106,7 +106,7 @@ func (m *igrabMessage) fill() error {
 	return err
 }
 
-func (m *igrabMessage) clear() {
+func (m *serverMessage) clear() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	size := m.msg.Size

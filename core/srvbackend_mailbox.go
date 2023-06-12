@@ -31,19 +31,19 @@ import (
 	"github.com/emersion/go-imap/backend/memory"
 )
 
-type igrabMailbox struct {
+type serverMailbox struct {
 	maildir  maildirPathT
-	messages []*igrabMessage
+	messages []*serverMessage
 }
 
 // Name provids the mailboxes name.
-func (mb *igrabMailbox) Name() string {
+func (mb *serverMailbox) Name() string {
 	logInfo("backend mailbox name")
 	return mb.maildir.folderName()
 }
 
 // Info provids some information about the maibox.
-func (mb *igrabMailbox) Info() (*imap.MailboxInfo, error) {
+func (mb *serverMailbox) Info() (*imap.MailboxInfo, error) {
 	logInfo("backend mailbox info")
 	info := &imap.MailboxInfo{
 		Delimiter: "/",
@@ -53,7 +53,7 @@ func (mb *igrabMailbox) Info() (*imap.MailboxInfo, error) {
 }
 
 // Status provides the mailboxes status.
-func (mb *igrabMailbox) Status(items []imap.StatusItem) (*imap.MailboxStatus, error) {
+func (mb *serverMailbox) Status(items []imap.StatusItem) (*imap.MailboxStatus, error) {
 	// Determine mailbox flags first, which basically means all flags that at least one email has
 	// set.
 	allFlags := make(map[string]bool)
@@ -96,19 +96,19 @@ func (mb *igrabMailbox) Status(items []imap.StatusItem) (*imap.MailboxStatus, er
 }
 
 // SetSubscribed marks a mailbox as subscribed. We ignore that and always return all mailboxes.
-func (mb *igrabMailbox) SetSubscribed(_ bool) error {
+func (mb *serverMailbox) SetSubscribed(_ bool) error {
 	logInfo("backend mailbox set subscribed")
 	return nil
 }
 
 // Check is a no-op.
-func (mb *igrabMailbox) Check() error {
+func (mb *serverMailbox) Check() error {
 	logInfo("backend mailbox check")
 	return nil
 }
 
 // ListMessages lists messages in a mailbox. Uids and indices are identical in this case.
-func (mb *igrabMailbox) ListMessages(
+func (mb *serverMailbox) ListMessages(
 	_ bool, seqset *imap.SeqSet, items []imap.FetchItem, msgChan chan<- *imap.Message,
 ) error {
 	logInfo("backend mailbox list messages")
@@ -128,7 +128,7 @@ func (mb *igrabMailbox) ListMessages(
 }
 
 // SearchMessages searches for a message.
-func (mb *igrabMailbox) SearchMessages(_ bool, criteria *imap.SearchCriteria) ([]uint32, error) {
+func (mb *serverMailbox) SearchMessages(_ bool, criteria *imap.SearchCriteria) ([]uint32, error) {
 	logInfo("backend mailbox search messages")
 	var foundIDs []uint32
 	for count, msg := range mb.messages {
@@ -146,14 +146,14 @@ func (mb *igrabMailbox) SearchMessages(_ bool, criteria *imap.SearchCriteria) ([
 }
 
 // CreateMessage creates a new message.
-func (mb *igrabMailbox) CreateMessage(_ []string, _ time.Time, _ imap.Literal) error {
+func (mb *serverMailbox) CreateMessage(_ []string, _ time.Time, _ imap.Literal) error {
 	logInfo("backend create message")
 	return errReadOnlyServer
 }
 
 // UpdateMessagesFlags updates message flags. We accept all flag updates unconditionally but those
 // updates are not persisted. All flags are reset once the local fake IMAP server is restarted.
-func (mb *igrabMailbox) UpdateMessagesFlags(
+func (mb *serverMailbox) UpdateMessagesFlags(
 	_ bool, seqset *imap.SeqSet, operation imap.FlagsOp, flags []string,
 ) error {
 	for count, msg := range mb.messages {
@@ -166,13 +166,13 @@ func (mb *igrabMailbox) UpdateMessagesFlags(
 }
 
 // CopyMessages copies a message from one mailbox to another one.
-func (mb *igrabMailbox) CopyMessages(_ bool, _ *imap.SeqSet, _ string) error {
+func (mb *serverMailbox) CopyMessages(_ bool, _ *imap.SeqSet, _ string) error {
 	logInfo("backend mailbox copy messages")
 	return errReadOnlyServer
 }
 
 // Expunge removes messags that shall be removed.
-func (mb *igrabMailbox) Expunge() error {
+func (mb *serverMailbox) Expunge() error {
 	logInfo("backend mailbox expunge")
 	return errReadOnlyServer
 }
@@ -182,7 +182,7 @@ type pathAndInfo struct {
 	info fs.FileInfo
 }
 
-func (mb *igrabMailbox) addMessages() error {
+func (mb *serverMailbox) addMessages() error {
 	base := mb.maildir.folderPath()
 	files := []pathAndInfo{}
 	for _, dir := range []string{"new", "cur"} {
@@ -202,9 +202,9 @@ func (mb *igrabMailbox) addMessages() error {
 		return files[i].info.ModTime().Before(files[j].info.ModTime())
 	})
 
-	messages := make([]*igrabMessage, 0, len(files))
+	messages := make([]*serverMessage, 0, len(files))
 	for count, file := range files {
-		msg := &igrabMessage{
+		msg := &serverMessage{
 			path:   file.path,
 			filled: false,
 			lock:   &sync.Mutex{},

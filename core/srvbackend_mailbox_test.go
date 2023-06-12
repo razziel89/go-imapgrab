@@ -31,7 +31,7 @@ import (
 )
 
 func TestBackendMailboxDisallowWriteOperations(t *testing.T) {
-	mb := igrabMailbox{}
+	mb := serverMailbox{}
 
 	err := mb.CopyMessages(true, nil, "")
 	assert.ErrorIs(t, err, errReadOnlyServer)
@@ -43,11 +43,11 @@ func TestBackendMailboxDisallowWriteOperations(t *testing.T) {
 	assert.ErrorIs(t, err, errReadOnlyServer)
 
 	// Mailbox has not been changed.
-	assert.Equal(t, igrabMailbox{}, mb)
+	assert.Equal(t, serverMailbox{}, mb)
 }
 
 func TestBackendMailboxNoops(t *testing.T) {
-	mb := igrabMailbox{}
+	mb := serverMailbox{}
 
 	err := mb.Check()
 	assert.NoError(t, err)
@@ -56,13 +56,13 @@ func TestBackendMailboxNoops(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Mailbox has not been changed.
-	assert.Equal(t, igrabMailbox{}, mb)
+	assert.Equal(t, serverMailbox{}, mb)
 }
 
 func TestBackendMailboxNameInfoStatus(t *testing.T) {
-	mb := igrabMailbox{
+	mb := serverMailbox{
 		maildir:  maildirPathT{base: "base", folder: "folder"},
-		messages: []*igrabMessage{{msg: &memory.Message{Flags: []string{"\\Seen"}}}},
+		messages: []*serverMessage{{msg: &memory.Message{Flags: []string{"\\Seen"}}}},
 	}
 
 	name := mb.Name()
@@ -92,9 +92,9 @@ func TestBackendMailboxUpdateListSearch(t *testing.T) {
 	err := os.WriteFile(path, []byte(testBody), 0600)
 	require.NoError(t, err)
 
-	mb := igrabMailbox{
+	mb := serverMailbox{
 		maildir: maildirPathT{base: "base", folder: "folder"},
-		messages: []*igrabMessage{
+		messages: []*serverMessage{
 			{
 				path:   path,
 				filled: false,
@@ -138,7 +138,7 @@ func TestBackendMailboxUpdateListSearch(t *testing.T) {
 
 func TestBackendMailboxAddMessagesDirMissingError(t *testing.T) {
 	path := t.TempDir()
-	mb := igrabMailbox{maildir: maildirPathT{base: path, folder: "folder"}}
+	mb := serverMailbox{maildir: maildirPathT{base: path, folder: "folder"}}
 	err := mb.addMessages()
 	assert.Error(t, err)
 }
@@ -153,7 +153,7 @@ func TestBackendMailboxAddmessages(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	mb := igrabMailbox{maildir: maildirPathT{base: tmpdir, folder: "inbox"}}
+	mb := serverMailbox{maildir: maildirPathT{base: tmpdir, folder: "inbox"}}
 
 	err := mb.addMessages()
 	assert.NoError(t, err)

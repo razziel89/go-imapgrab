@@ -27,14 +27,14 @@ import (
 
 var errReadOnlyServer = errors.New("cannot execute action, this is a read-only IMAP server")
 
-type igrabBackend struct {
+type serverBackend struct {
 	path     string
 	username string
 	password string
-	user     *igrabUser
+	user     *serverUser
 }
 
-func (b *igrabBackend) Login(_ *imap.ConnInfo, username, password string) (backend.User, error) {
+func (b *serverBackend) Login(_ *imap.ConnInfo, username, password string) (backend.User, error) {
 	logInfo(fmt.Sprintf("attempting to log in as %s", username))
 	if username != b.username {
 		logInfo(fmt.Sprintf("login as %s failed, bad user", username))
@@ -48,15 +48,15 @@ func (b *igrabBackend) Login(_ *imap.ConnInfo, username, password string) (backe
 	return b.user, nil
 }
 
-func (b *igrabBackend) addUser() error {
-	user := &igrabUser{name: b.username}
+func (b *serverBackend) addUser() error {
+	user := &serverUser{name: b.username}
 	b.user = user
 	err := user.addMailboxes(b.path)
 	return err
 }
 
 func newBackend(path, username, password string) (backend.Backend, error) {
-	bcknd := igrabBackend{
+	bcknd := serverBackend{
 		path:     path,
 		username: username,
 		password: password,

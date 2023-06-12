@@ -29,7 +29,7 @@ func TestBackendNew(t *testing.T) {
 	bcknd, err := newBackend(tmp, "username", "password")
 	assert.NoError(t, err)
 
-	assert.Empty(t, bcknd.(*igrabBackend).user.mailboxes)
+	assert.Empty(t, bcknd.(*serverBackend).user.mailboxes)
 }
 
 func TestBackendLogin(t *testing.T) {

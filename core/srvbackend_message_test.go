@@ -45,7 +45,7 @@ func TestBackendMessage(t *testing.T) {
 	err := os.WriteFile(path, []byte(testBody), 0600)
 	require.NoError(t, err)
 
-	msg := igrabMessage{
+	msg := serverMessage{
 		path:   path,
 		filled: false,
 		lock:   &sync.Mutex{},
@@ -72,7 +72,7 @@ func TestBackendMessage(t *testing.T) {
 func TestBackendMessageError(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "email")
 
-	msg := igrabMessage{
+	msg := serverMessage{
 		path:   path,
 		filled: false,
 		lock:   &sync.Mutex{},
@@ -103,7 +103,7 @@ func TestAutoClearMemory(t *testing.T) {
 		knownBytes: 0,
 		// This value means we clean up for every newly read message.
 		maxBytes: 0,
-		messages: map[*igrabMessage]bool{},
+		messages: map[*serverMessage]bool{},
 		lock:     &sync.Mutex{},
 	}
 
@@ -111,7 +111,7 @@ func TestAutoClearMemory(t *testing.T) {
 	err := os.WriteFile(path, []byte(testBody), 0600)
 	require.NoError(t, err)
 
-	msg1 := &igrabMessage{
+	msg1 := &serverMessage{
 		path: path,
 		lock: &sync.Mutex{},
 		msg: &memory.Message{
@@ -121,7 +121,7 @@ func TestAutoClearMemory(t *testing.T) {
 		},
 	}
 
-	msg2 := &igrabMessage{
+	msg2 := &serverMessage{
 		path: path,
 		lock: &sync.Mutex{},
 		msg: &memory.Message{

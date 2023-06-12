@@ -25,7 +25,7 @@ import (
 )
 
 func TestBackendUserDisallowWriteOperations(t *testing.T) {
-	user := igrabUser{}
+	user := serverUser{}
 
 	err := user.CreateMailbox("")
 	assert.ErrorIs(t, err, errReadOnlyServer)
@@ -37,11 +37,11 @@ func TestBackendUserDisallowWriteOperations(t *testing.T) {
 	assert.ErrorIs(t, err, errReadOnlyServer)
 
 	// User has not been changed.
-	assert.Equal(t, igrabUser{}, user)
+	assert.Equal(t, serverUser{}, user)
 }
 
 func TestBackendUserUsernameLogout(t *testing.T) {
-	user := igrabUser{name: "someone"}
+	user := serverUser{name: "someone"}
 
 	name := user.Username()
 	assert.Equal(t, "someone", name)
@@ -51,21 +51,21 @@ func TestBackendUserUsernameLogout(t *testing.T) {
 }
 
 func TestBackendUserGetListMailbox(t *testing.T) {
-	box := igrabMailbox{maildir: maildirPathT{base: "base", folder: "folder"}}
-	user := igrabUser{
-		mailboxes: []*igrabMailbox{&box},
+	box := serverMailbox{maildir: maildirPathT{base: "base", folder: "folder"}}
+	user := serverUser{
+		mailboxes: []*serverMailbox{&box},
 	}
 
 	boxes, err := user.ListMailboxes(true)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(boxes))
-	assert.Equal(t, &box, boxes[0].(*igrabMailbox))
+	assert.Equal(t, &box, boxes[0].(*serverMailbox))
 
 	gotten, err := user.GetMailbox("folder")
 
 	assert.NoError(t, err)
-	assert.Equal(t, &box, gotten.(*igrabMailbox))
+	assert.Equal(t, &box, gotten.(*serverMailbox))
 
 	_, err = user.GetMailbox("unknown")
 
@@ -79,14 +79,14 @@ func TestBackendAddMailboxes(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	user := igrabUser{}
+	user := serverUser{}
 	err = user.addMailboxes(tmp)
 	assert.NoError(t, err)
 }
 
 func TestBackendAddMailboxesMissingDir(t *testing.T) {
 	tmp := filepath.Join(t.TempDir(), "base")
-	user := igrabUser{}
+	user := serverUser{}
 	err := user.addMailboxes(tmp)
 	assert.Error(t, err)
 }
