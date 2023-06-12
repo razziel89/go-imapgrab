@@ -11,7 +11,7 @@
     * [Store password in keyring](#store-password-in-keyring)
     * [List folders](#list-folders)
     * [Download](#download)
-    * [Serve](#serve)
+    * [Serve - View your backed-up emails](#serve---view-your-backed-up-emails)
 * [Installation](#installation)
     * [Tab completion](#tab-completion)
 * [How to contribute](#how-to-contribute)
@@ -235,7 +235,7 @@ To see the full specification for the `download` command, run:
 go-imapgrab download --help
 ```
 
-## Serve
+## Serve - View your backed-up emails
 
 ### Using the mutt command line client
 
@@ -281,7 +281,8 @@ Then, launch your email client and *manually* configure an email account that:
 - does not use encryption
 - uses `localhost` as host/server
 - uses the same username and password as the email account you wish to view
-- uses the port 30912 (or another one if specified via the `--server-port` flag)
+- uses the port 30912 (or another one if specified via the optional
+  `--server-port` flag)
 
 For Thunderbird, that would look like this (note that the first digit of the
 port number is obscured):
