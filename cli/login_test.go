@@ -23,9 +23,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestLoginSuccess(t *testing.T) {
+	mockOps := mockCoreOps{}
+	defer mockOps.AssertExpectations(t)
+	mockOps.On("tryConnect", mock.Anything).Return(nil)
+
 	rootConf := rootConfigT{password: "i do not matter"}
 	calledReadPassword := false
 	readPasswordFn := func(fd int) ([]byte, error) {
@@ -41,7 +46,7 @@ func TestLoginSuccess(t *testing.T) {
 	mk := &mockKeyring{}
 	mk.On("Set", "go-imapgrab/user@server:42", user.Username, "some password").Return(nil)
 
-	cmd := getLoginCmd(&rootConf, mk, readPasswordFn)
+	cmd := getLoginCmd(&rootConf, mk, readPasswordFn, &mockOps)
 	cmd.SetArgs([]string{"login", "--server=server", "--port=42", "--user=user"})
 	err = cmd.Execute()
 
@@ -50,6 +55,9 @@ func TestLoginSuccess(t *testing.T) {
 }
 
 func TestLoginInterrupt(t *testing.T) {
+	mockOps := mockCoreOps{}
+	defer mockOps.AssertExpectations(t)
+
 	rootConf := rootConfigT{}
 	calledReadPassword := false
 	readPasswordFn := func(fd int) ([]byte, error) {
@@ -61,7 +69,7 @@ func TestLoginInterrupt(t *testing.T) {
 
 	mk := &mockKeyring{}
 
-	cmd := getLoginCmd(&rootConf, mk, readPasswordFn)
+	cmd := getLoginCmd(&rootConf, mk, readPasswordFn, &mockOps)
 	err := cmd.Execute()
 
 	assert.Error(t, err)

@@ -66,8 +66,10 @@ func loginCmdUse(rootConf *rootConfigT, args []string) string {
 
 const shortLoginHelp = "Store credentials in your system's keyring."
 
+type readPasswordFn func(int) ([]byte, error)
+
 func getLoginCmd(
-	rootConf *rootConfigT, keyring keyringOps, readPasswordFn func(int) ([]byte, error),
+	rootConf *rootConfigT, keyring keyringOps, readPasswordFn readPasswordFn, ops coreOps,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
@@ -75,18 +77,32 @@ func getLoginCmd(
 		Short: shortLoginHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(verbose)
+			// Allow insecure auth for local server for testing.
+			insecure := rootConf.server == localhost
+			cfg := core.IMAPConfig{
+				Server:   rootConf.server,
+				Port:     rootConf.port,
+				User:     rootConf.username,
+				Insecure: insecure,
+				// Password will be filled in later.
+				Password: "",
+			}
 
 			fmt.Printf(
 				"Please provide your password for the following service:\n"+
 					"  Username: %s\n  Server: %s\n  Port: %d\n\n"+
-					"Your password won't be echoed. "+
+					"Your password won't be echoed as you type. "+
 					"You may need to reset your terminal after aborting with Ctrl+C.\n"+
 					"\nPassword:",
-				rootConf.username, rootConf.server, rootConf.port,
+				cfg.User, cfg.Server, cfg.Port,
 			)
 			password, err := readPasswordFn(int(syscall.Stdin))
+			cfg.Password = string(password)
 			if err == nil {
-				err = addToKeyring(*rootConf, string(password), keyring)
+				err = ops.tryConnect(cfg)
+			}
+			if err == nil {
+				err = addToKeyring(*rootConf, cfg.Password, keyring)
 			}
 			return err
 		},
@@ -95,7 +111,7 @@ func getLoginCmd(
 	return cmd
 }
 
-var loginCmd = getLoginCmd(&rootConf, defaultKeyring, term.ReadPassword)
+var loginCmd = getLoginCmd(&rootConf, defaultKeyring, term.ReadPassword, &corer{})
 
 func init() {
 	rootCmd.AddCommand(loginCmd)

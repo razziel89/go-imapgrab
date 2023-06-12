@@ -42,10 +42,13 @@ var defaultExpectedTestLogs = []string{
 	"INFO logged in",
 	"INFO logging in as username with provided password",
 	"INFO logging out",
+	"WARNING using insecure connection to locahost",
+}
+
+var defaultExpectedListTestLogs = []string{
 	"INFO retrieved 1 folders",
 	"INFO retrieving folders",
 	"password taken from env var IGRAB_PASSWORD",
-	"WARNING using insecure connection to locahost",
 }
 
 var defaultExpectedDownloadTestLogs = []string{
@@ -179,7 +182,7 @@ func setUpFakeServerAndCommand(t *testing.T, args []string) func() error {
 		mk.On("Set", "go-imapgrab/username@127.0.0.1:30218", user.Username, "password").Return(nil)
 		t.Cleanup(func() { mk.AssertExpectations(t) })
 		cmd = getLoginCmd(
-			&rootConf, mk, func(int) ([]byte, error) { return []byte("password"), nil },
+			&rootConf, mk, func(int) ([]byte, error) { return []byte("password"), nil }, &corer{},
 		)
 	default:
 		t.Log("unknown command")
@@ -213,6 +216,9 @@ func TestSystemListSuccess(t *testing.T) {
 	stdout, stderr := stdouterr()
 	assert.Equal(t, "INBOX\n", stdout)
 	for _, msg := range defaultExpectedTestLogs {
+		assert.Contains(t, stderr, msg)
+	}
+	for _, msg := range defaultExpectedListTestLogs {
 		assert.Contains(t, stderr, msg)
 	}
 }
@@ -298,12 +304,17 @@ func TestSystemDownloadSuccess(t *testing.T) {
 	for _, msg := range defaultExpectedTestLogs {
 		assert.Contains(t, stderr, msg)
 	}
+	for _, msg := range defaultExpectedListTestLogs {
+		assert.Contains(t, stderr, msg)
+	}
 	for _, msg := range defaultExpectedDownloadTestLogs {
 		assert.Contains(t, stderr, msg)
 	}
 }
 
 func TestSystemLoginSuccess(t *testing.T) {
+	t.Setenv("IGRAB_PASSWORD", "password")
+
 	args := []string{"login", "--server=127.0.0.1", "--port=30218", "--user=username", "--verbose"}
 
 	stdouterr := catchStdoutStderr(t)
@@ -318,5 +329,8 @@ func TestSystemLoginSuccess(t *testing.T) {
 	assert.Contains(t, stdout, "Username: username")
 	assert.Contains(t, stdout, "Server: 127.0.0.1")
 	assert.Contains(t, stdout, "Port: 30218")
-	assert.Empty(t, stderr)
+
+	for _, msg := range defaultExpectedTestLogs {
+		assert.Contains(t, stderr, msg)
+	}
 }

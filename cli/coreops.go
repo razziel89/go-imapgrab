@@ -25,6 +25,7 @@ type coreOps interface {
 	getAllFolders(cfg core.IMAPConfig) ([]string, error)
 	downloadFolder(cfg core.IMAPConfig, folders []string, maildirBase string, threads int) error
 	serveMaildir(cfg core.IMAPConfig, serverPort int, maildirBase string) error
+	tryConnect(cfg core.IMAPConfig) error
 }
 
 type corer struct{}
@@ -41,4 +42,8 @@ func (c *corer) downloadFolder(
 
 func (c *corer) serveMaildir(cfg core.IMAPConfig, serverPort int, maildirBase string) error {
 	return core.ServeMaildir(cfg, serverPort, maildirBase)
+}
+
+func (c *corer) tryConnect(cfg core.IMAPConfig) error {
+	return core.TryConnect(cfg)
 }

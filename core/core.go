@@ -107,19 +107,11 @@ var NewImapgrabOps = func() ImapgrabOps {
 }
 
 // TryConnect attempts to connect to a server and returns whether the login worked.
-func TryConnect(cfg IMAPConfig) (works bool) {
+func TryConnect(cfg IMAPConfig) error {
 	ops := NewImapgrabOps()
-	err := ops.authenticateClient(cfg)
-	if err == nil {
-		// Make sure to log out in the end if we logged in successfully.
-		defer func() {
-			if logoutErr := ops.logout(false); logoutErr != nil && works {
-				logError(err.Error())
-				works = false
-			}
-		}()
-	}
-	return err == nil
+	loginErr := ops.authenticateClient(cfg)
+	logoutErr := ops.logout(false)
+	return errors.Join(loginErr, logoutErr)
 }
 
 // GetAllFolders retrieves a list of all folders in a mailbox.
