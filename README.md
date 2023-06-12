@@ -286,14 +286,14 @@ Then, launch your email client and *manually* configure an email account that:
 For Thunderbird, that would look like this (note that the first digit of the
 port number is obscured):
 
-<img src="./images/example_settings.png" alt="Example Settings" width="171" height="400">
+<img src="./images/example_settings.png" alt="Example Settings" width="257" height="600">
 
 Note that you may have to accept the risk of using an unencrypted connection.
 As the IMAP server will only accept connections from your local machine, this is
 acceptable on single-user systems.
 For Thunderbird, that warning would look like this:
 
-<img src="./images/accept_risk.png" alt="Accept The Risk" width="300" height="253">
+<img src="./images/accept_risk.png" alt="Accept The Risk" width="450" height="380">
 
 If your email client requires you to specify an outgoing email server, use the
 same as for incoming email.
