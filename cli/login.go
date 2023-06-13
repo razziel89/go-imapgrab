@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"syscall"
 	"unicode"
@@ -31,14 +32,15 @@ import (
 func quote(args []string) []string {
 	quoted := make([]string, 0, len(args))
 	for _, arg := range args {
-		hasWhitespace := false
+		// Also quote the empty string.
+		shallBeQuoted := arg == ""
 		for _, char := range arg {
 			if unicode.IsSpace(char) {
-				hasWhitespace = true
+				shallBeQuoted = true
 				break
 			}
 		}
-		if hasWhitespace {
+		if shallBeQuoted {
 			arg = fmt.Sprintf("\"%s\"", arg)
 		}
 		quoted = append(quoted, arg)
@@ -66,27 +68,63 @@ func loginCmdUse(rootConf *rootConfigT, args []string) string {
 
 const shortLoginHelp = "Store credentials in your system's keyring."
 
+type readPasswordFn func(int) ([]byte, error)
+
 func getLoginCmd(
-	rootConf *rootConfigT, keyring keyringOps, readPasswordFn func(int) ([]byte, error),
+	rootConf *rootConfigT, keyring keyringOps, readPasswordFn readPasswordFn, ops coreOps,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
 		Long:  shortLoginHelp + "\n\n" + typicalFlowHelp,
 		Short: shortLoginHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			core.SetVerboseLogs(verbose)
-
+			core.SetVerboseLogs(rootConf.verbose)
+			// Allow insecure auth for local server for testing.
+			insecure := rootConf.server == localhost
+			cfg := core.IMAPConfig{
+				Server:   rootConf.server,
+				Port:     rootConf.port,
+				User:     rootConf.username,
+				Insecure: insecure,
+				// Password will be filled in later.
+				Password: "",
+			}
 			fmt.Printf(
 				"Please provide your password for the following service:\n"+
 					"  Username: %s\n  Server: %s\n  Port: %d\n\n"+
-					"Your password won't be echoed. "+
+					"Your password won't be echoed as you type. "+
 					"You may need to reset your terminal after aborting with Ctrl+C.\n"+
 					"\nPassword:",
-				rootConf.username, rootConf.server, rootConf.port,
+				cfg.User, cfg.Server, cfg.Port,
 			)
 			password, err := readPasswordFn(int(syscall.Stdin))
+			cfg.Password = string(password)
 			if err == nil {
-				err = addToKeyring(*rootConf, string(password), keyring)
+				fmt.Printf(
+					" PASSWORD NOT SHOWN\n\nTrying to connect to the IMAP server, please wait.\n\n",
+				)
+				err = ops.tryConnect(cfg)
+			}
+			var keyringErr error
+			if err == nil && !rootConf.noKeyring {
+				keyringErr = addToKeyring(*rootConf, cfg.Password, keyring)
+			}
+			if err == nil {
+				var keyringMsg string
+				if rootConf.noKeyring {
+					keyringMsg = "not"
+				} else if keyringErr != nil {
+					log.Printf("ERROR addding password to keyring: %s\n", keyringErr.Error())
+					keyringMsg = "could not be"
+				} else {
+					keyringMsg = "successfully"
+				}
+				fmt.Printf(
+					"Credentials successfully validated. Password %s stored in keyring.\n",
+					keyringMsg,
+				)
+			} else {
+				fmt.Printf("\nCredentials could not be validated. Keyring unchanged.\n\n")
 			}
 			return err
 		},
@@ -95,7 +133,7 @@ func getLoginCmd(
 	return cmd
 }
 
-var loginCmd = getLoginCmd(&rootConf, defaultKeyring, term.ReadPassword)
+var loginCmd = getLoginCmd(&rootConfig, defaultKeyring, term.ReadPassword, &corer{})
 
 func init() {
 	rootCmd.AddCommand(loginCmd)

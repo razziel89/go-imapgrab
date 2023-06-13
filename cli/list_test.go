@@ -39,7 +39,8 @@ func TestListCommand(t *testing.T) {
 	mk := &mockKeyring{}
 
 	rootConf := rootConfigT{}
-	cmd := getListCmd(&rootConf, mk, false, &mockOps)
+	cmd := getListCmd(&rootConf, mk, &mockOps)
+	rootConf.noKeyring = true
 
 	err := cmd.Execute()
 	assert.Error(t, err)
@@ -63,13 +64,8 @@ func TestListCommandNoKeyringProdRun(t *testing.T) {
 	mk := &mockKeyring{}
 
 	rootConf := rootConfigT{}
-	cmd := getListCmd(&rootConf, mk, true, &mockOps)
-
-	// The keyring is disabled via user flags, which are evaluated after the command has been
-	// constructed.
-	orgNoKeyring := noKeyring
-	noKeyring = true
-	t.Cleanup(func() { noKeyring = orgNoKeyring })
+	cmd := getListCmd(&rootConf, mk, &mockOps)
+	rootConf.noKeyring = true
 
 	err = cmd.Execute()
 	assert.Error(t, err)
@@ -87,7 +83,7 @@ func TestListCommandNoCredentialsInKeyring(t *testing.T) {
 	defer mk.AssertExpectations(t)
 
 	rootConf := rootConfigT{}
-	cmd := getListCmd(&rootConf, mk, true, &mockOps)
+	cmd := getListCmd(&rootConf, mk, &mockOps)
 
 	err = cmd.Execute()
 	assert.ErrorContains(t, err, "secret not found in keyring")

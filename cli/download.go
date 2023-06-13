@@ -44,7 +44,6 @@ func getDownloadCmd(
 	rootConf *rootConfigT,
 	downloadConf *downloadConfigT,
 	keyring keyringOps,
-	prodRun bool,
 	ops coreOps,
 	lockFn lockFn,
 ) *cobra.Command {
@@ -53,7 +52,7 @@ func getDownloadCmd(
 		Long:  shortDownloadHelp + "\n\n" + typicalFlowHelp,
 		Short: shortDownloadHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			core.SetVerboseLogs(verbose)
+			core.SetVerboseLogs(rootConf.verbose)
 			// Allow insecure auth for local server for testing.
 			insecure := rootConf.server == localhost
 			cfg := core.IMAPConfig{
@@ -77,11 +76,9 @@ func getDownloadCmd(
 				cfg, downloadConf.folders, downloadConf.path, downloadConf.threads,
 			)
 		},
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Do not use the keyring if it has been disabled globally or if this is a test run,
-			// i.e. no prod run.
-			disableKeyring := noKeyring || !prodRun
-			err := initCredentials(rootConf, disableKeyring, keyring)
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			core.SetVerboseLogs(rootConf.verbose)
+			err := initCredentials(rootConf, keyring, rootConf.verbose)
 			if credentialsNotFound(err) {
 				err = fmt.Errorf("%s\n\n%s", err.Error(), loginCmdUse(rootConf, os.Args))
 			}
@@ -93,7 +90,7 @@ func getDownloadCmd(
 	return cmd
 }
 
-var downloadCmd = getDownloadCmd(&rootConf, &downloadConf, defaultKeyring, true, &corer{}, lock)
+var downloadCmd = getDownloadCmd(&rootConfig, &downloadConf, defaultKeyring, &corer{}, lock)
 
 func init() {
 	rootCmd.AddCommand(downloadCmd)

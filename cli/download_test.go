@@ -49,7 +49,10 @@ func TestDownloadCommand(t *testing.T) {
 
 	rootConf := rootConfigT{}
 	downloadConf := downloadConfigT{}
-	cmd := getDownloadCmd(&rootConf, &downloadConf, mk, false, &mockOps, mockLock)
+	cmd := getDownloadCmd(&rootConf, &downloadConf, mk, &mockOps, mockLock)
+
+	// Overwrite rootConf since defaults are set by getDownloadCmd.
+	rootConf.noKeyring = true
 
 	err := cmd.Execute()
 	assert.Error(t, err)
@@ -83,13 +86,10 @@ func TestDownloadCommandNoKeyringProdRun(t *testing.T) {
 
 	rootConf := rootConfigT{}
 	downloadConf := downloadConfigT{}
-	cmd := getDownloadCmd(&rootConf, &downloadConf, mk, true, &mockOps, mockLock)
+	cmd := getDownloadCmd(&rootConf, &downloadConf, mk, &mockOps, mockLock)
 
-	// The keyring is disabled via user flags, which are evaluated after the command has been
-	// constructed.
-	orgNoKeyring := noKeyring
-	noKeyring = true
-	t.Cleanup(func() { noKeyring = orgNoKeyring })
+	// Overwrite rootConf since defaults are set by getDownloadCmd.
+	rootConf.noKeyring = true
 
 	err = cmd.Execute()
 	assert.Error(t, err)
@@ -116,7 +116,10 @@ func TestDownloadCommandCannotGetLock(t *testing.T) {
 
 	rootConf := rootConfigT{}
 	downloadConf := downloadConfigT{}
-	cmd := getDownloadCmd(&rootConf, &downloadConf, mk, false, &mockOps, mockLock)
+	cmd := getDownloadCmd(&rootConf, &downloadConf, mk, &mockOps, mockLock)
+
+	// Overwrite rootConf since defaults are set by getDownloadCmd.
+	rootConf.noKeyring = true
 
 	err := cmd.Execute()
 	assert.Error(t, err)
@@ -142,7 +145,7 @@ func TestDownloadCommandNoCredentialsInKeyring(t *testing.T) {
 	mk.On("Get", "go-imapgrab/@:993", user.Username).Return("", keyring.ErrNotFound)
 	defer mk.AssertExpectations(t)
 
-	cmd := getDownloadCmd(&rootConfigT{}, &downloadConfigT{}, mk, true, &mockOps, mockLock)
+	cmd := getDownloadCmd(&rootConfigT{}, &downloadConfigT{}, mk, &mockOps, mockLock)
 
 	err = cmd.Execute()
 	assert.ErrorContains(t, err, "secret not found in keyring")

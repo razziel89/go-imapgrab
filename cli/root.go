@@ -18,8 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"log"
-
 	"github.com/spf13/cobra"
 )
 
@@ -27,24 +25,16 @@ const (
 	defaultPort = 993
 )
 
-var (
-	verbose  bool
-	rootConf rootConfigT
-	// Whether to disable use of the system keyring.
-	noKeyring bool
-)
+var rootConfig rootConfigT
 
 type rootConfigT struct {
 	server   string
 	port     int
 	username string
 	password string
-}
-
-func logDebug(v ...interface{}) {
-	if verbose {
-		log.Println(v...)
-	}
+	verbose  bool
+	// Whether to disable use of the system keyring.
+	noKeyring bool
 }
 
 const (
@@ -92,6 +82,6 @@ func initRootFlags(rootCmd *cobra.Command, rootConf *rootConfigT) {
 	flags.StringVarP(&rootConf.server, "server", "s", "", "address of imap server")
 	flags.IntVarP(&rootConf.port, "port", "p", defaultPort, "login port for imap server")
 	flags.StringVarP(&rootConf.username, "user", "u", "", "login user name")
-	flags.BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	flags.BoolVarP(&noKeyring, "no-keyring", "k", false, "do not use the system keyring")
+	flags.BoolVarP(&rootConf.verbose, "verbose", "v", false, "verbose output")
+	flags.BoolVarP(&rootConf.noKeyring, "no-keyring", "k", false, "do not use the system keyring")
 }

@@ -28,12 +28,3 @@ func TestRootCommand(t *testing.T) {
 	err := rootCmd.Execute()
 	assert.NoError(t, err)
 }
-
-func TestLogDebug(t *testing.T) {
-	orgVerbose := verbose
-	verbose = true
-	t.Cleanup(func() { verbose = orgVerbose })
-
-	// We deliberately do not catch output here.
-	logDebug("some test", 123)
-}

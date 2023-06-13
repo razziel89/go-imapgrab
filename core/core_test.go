@@ -154,6 +154,26 @@ func TestImapgrabberTerminate(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestTryConnect(t *testing.T) {
+	cfg := IMAPConfig{
+		Server:   "some-server",
+		Port:     42,
+		User:     "some user",
+		Password: "this is very secret",
+	}
+
+	mock := &mockImapgrabber{}
+	defer mock.AssertExpectations(t)
+	mock.On("authenticateClient", cfg).Return(nil)
+	mock.On("logout", false).Return(fmt.Errorf("some error"))
+
+	setUpCoreTest(t, mock)
+
+	err := TryConnect(cfg)
+
+	assert.Error(t, err)
+}
+
 func TestGetAllFolders(t *testing.T) {
 	cfg := IMAPConfig{
 		Server:   "some-server",
