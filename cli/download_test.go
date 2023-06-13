@@ -47,8 +47,6 @@ func TestDownloadCommand(t *testing.T) {
 
 	mk := &mockKeyring{}
 
-	rootConfig.verbose = true
-
 	rootConf := rootConfigT{}
 	downloadConf := downloadConfigT{}
 	cmd := getDownloadCmd(&rootConf, &downloadConf, mk, &mockOps, mockLock)

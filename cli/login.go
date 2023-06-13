@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"syscall"
 	"unicode"
@@ -31,14 +32,15 @@ import (
 func quote(args []string) []string {
 	quoted := make([]string, 0, len(args))
 	for _, arg := range args {
-		hasWhitespace := false
+		// Also quote the empty string.
+		shallBeQuoted := arg == ""
 		for _, char := range arg {
 			if unicode.IsSpace(char) {
-				hasWhitespace = true
+				shallBeQuoted = true
 				break
 			}
 		}
-		if hasWhitespace {
+		if shallBeQuoted {
 			arg = fmt.Sprintf("\"%s\"", arg)
 		}
 		quoted = append(quoted, arg)
@@ -87,7 +89,6 @@ func getLoginCmd(
 				// Password will be filled in later.
 				Password: "",
 			}
-
 			fmt.Printf(
 				"Please provide your password for the following service:\n"+
 					"  Username: %s\n  Server: %s\n  Port: %d\n\n"+
@@ -100,23 +101,27 @@ func getLoginCmd(
 			cfg.Password = string(password)
 			if err == nil {
 				fmt.Printf(
-					" NOT SHOWN\n\nTrying to connect to the IMAP server, please wait.\n\n",
+					" PASSWORD NOT SHOWN\n\nTrying to connect to the IMAP server, please wait.\n\n",
 				)
 				err = ops.tryConnect(cfg)
 			}
+			var keyringErr error
 			if err == nil && !rootConf.noKeyring {
-				err = addToKeyring(*rootConf, cfg.Password, keyring)
+				keyringErr = addToKeyring(*rootConf, cfg.Password, keyring)
 			}
 			if err == nil {
-				var keyringWord string
+				var keyringMsg string
 				if rootConf.noKeyring {
-					keyringWord = "not"
+					keyringMsg = "not"
+				} else if keyringErr != nil {
+					log.Printf("ERROR addding password to keyring: %s\n", keyringErr.Error())
+					keyringMsg = "could not be"
 				} else {
-					keyringWord = "successfully"
+					keyringMsg = "successfully"
 				}
 				fmt.Printf(
 					"Credentials successfully validated. Password %s stored in keyring.\n",
-					keyringWord,
+					keyringMsg,
 				)
 			} else {
 				fmt.Printf("\nCredentials could not be validated. Keyring unchanged.\n\n")

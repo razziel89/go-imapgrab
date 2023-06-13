@@ -63,7 +63,7 @@ func TestListCommandNoKeyringProdRun(t *testing.T) {
 
 	mk := &mockKeyring{}
 
-	rootConf := rootConfigT{noKeyring: true}
+	rootConf := rootConfigT{}
 	cmd := getListCmd(&rootConf, mk, &mockOps)
 	rootConf.noKeyring = true
 
