@@ -70,7 +70,7 @@ func getServeCmd(
 			defer unlock()
 			return ops.serveMaildir(cfg, serveConf.serverPort, serveConf.path)
 		},
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(rootConf.verbose)
 			err := initCredentials(rootConf, keyring, rootConf.verbose)
 			if credentialsNotFound(err) {

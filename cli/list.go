@@ -52,7 +52,7 @@ func getListCmd(rootConf *rootConfigT, keyring keyringOps, ops coreOps) *cobra.C
 
 			return err
 		},
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(rootConf.verbose)
 			err := initCredentials(rootConf, keyring, rootConf.verbose)
 			if credentialsNotFound(err) {

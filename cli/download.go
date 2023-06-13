@@ -76,7 +76,7 @@ func getDownloadCmd(
 				cfg, downloadConf.folders, downloadConf.path, downloadConf.threads,
 			)
 		},
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			core.SetVerboseLogs(rootConf.verbose)
 			err := initCredentials(rootConf, keyring, rootConf.verbose)
 			if credentialsNotFound(err) {
