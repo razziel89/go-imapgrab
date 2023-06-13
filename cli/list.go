@@ -29,15 +29,13 @@ import (
 
 const shortListHelp = "Print all folders in your inbox."
 
-func getListCmd(
-	rootConf *rootConfigT, keyring keyringOps, prodRun bool, ops coreOps,
-) *cobra.Command {
+func getListCmd(rootConf *rootConfigT, keyring keyringOps, ops coreOps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Long:  shortListHelp + "\n\n" + typicalFlowHelp,
 		Short: shortListHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			core.SetVerboseLogs(verbose)
+			core.SetVerboseLogs(rootConf.verbose)
 			// Allow insecure auth for local server for testing.
 			insecure := rootConf.server == localhost
 			cfg := core.IMAPConfig{
@@ -55,10 +53,8 @@ func getListCmd(
 			return err
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Do not use the keyring if it has been disabled globally or if this is a test run,
-			// i.e. no prod run.
-			disableKeyring := noKeyring || !prodRun
-			err := initCredentials(rootConf, disableKeyring, keyring)
+			core.SetVerboseLogs(rootConf.verbose)
+			err := initCredentials(rootConf, keyring, rootConf.verbose)
 			if credentialsNotFound(err) {
 				err = fmt.Errorf("%s\n\n%s", err.Error(), loginCmdUse(rootConf, os.Args))
 			}
@@ -69,7 +65,7 @@ func getListCmd(
 	return cmd
 }
 
-var listCmd = getListCmd(&rootConf, defaultKeyring, true, &corer{})
+var listCmd = getListCmd(&rootConfig, defaultKeyring, &corer{})
 
 func init() {
 	rootCmd.AddCommand(listCmd)

@@ -76,7 +76,7 @@ func getLoginCmd(
 		Long:  shortLoginHelp + "\n\n" + typicalFlowHelp,
 		Short: shortLoginHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			core.SetVerboseLogs(verbose)
+			core.SetVerboseLogs(rootConf.verbose)
 			// Allow insecure auth for local server for testing.
 			insecure := rootConf.server == localhost
 			cfg := core.IMAPConfig{
@@ -99,10 +99,27 @@ func getLoginCmd(
 			password, err := readPasswordFn(int(syscall.Stdin))
 			cfg.Password = string(password)
 			if err == nil {
+				fmt.Printf(
+					" NOT SHOWN\n\nTrying to connect to the IMAP server, please wait.\n\n",
+				)
 				err = ops.tryConnect(cfg)
 			}
-			if err == nil {
+			if err == nil && !rootConf.noKeyring {
 				err = addToKeyring(*rootConf, cfg.Password, keyring)
+			}
+			if err == nil {
+				var keyringWord string
+				if rootConf.noKeyring {
+					keyringWord = "not"
+				} else {
+					keyringWord = "successfully"
+				}
+				fmt.Printf(
+					"Credentials successfully validated. Password %s stored in keyring.\n",
+					keyringWord,
+				)
+			} else {
+				fmt.Printf("\nCredentials could not be validated. Keyring unchanged.\n\n")
 			}
 			return err
 		},
@@ -111,7 +128,7 @@ func getLoginCmd(
 	return cmd
 }
 
-var loginCmd = getLoginCmd(&rootConf, defaultKeyring, term.ReadPassword, &corer{})
+var loginCmd = getLoginCmd(&rootConfig, defaultKeyring, term.ReadPassword, &corer{})
 
 func init() {
 	rootCmd.AddCommand(loginCmd)

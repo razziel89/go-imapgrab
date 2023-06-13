@@ -41,19 +41,14 @@ const (
 )
 
 func getServeCmd(
-	rootConf *rootConfigT,
-	serveConf *serveConfigT,
-	keyring keyringOps,
-	prodRun bool,
-	ops coreOps,
-	lockFn lockFn,
+	rootConf *rootConfigT, serveConf *serveConfigT, keyring keyringOps, ops coreOps, lockFn lockFn,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Long:  shortServeHelp + "\n\n" + typicalFlowHelp,
 		Short: shortServeHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			core.SetVerboseLogs(verbose)
+			core.SetVerboseLogs(rootConf.verbose)
 			// Allow insecure auth for local server for testing.
 			insecure := rootConf.server == localhost
 			cfg := core.IMAPConfig{
@@ -76,10 +71,8 @@ func getServeCmd(
 			return ops.serveMaildir(cfg, serveConf.serverPort, serveConf.path)
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Do not use the keyring if it has been disabled globally or if this is a test run,
-			// i.e. no prod run.
-			disableKeyring := noKeyring || !prodRun
-			err := initCredentials(rootConf, disableKeyring, keyring)
+			core.SetVerboseLogs(rootConf.verbose)
+			err := initCredentials(rootConf, keyring, rootConf.verbose)
 			if credentialsNotFound(err) {
 				err = fmt.Errorf("%s\n\n%s", err.Error(), loginCmdUse(rootConf, os.Args))
 			}
@@ -91,7 +84,7 @@ func getServeCmd(
 	return cmd
 }
 
-var serveCmd = getServeCmd(&rootConf, &serveConfig, defaultKeyring, true, &corer{}, lock)
+var serveCmd = getServeCmd(&rootConfig, &serveConfig, defaultKeyring, &corer{}, lock)
 
 func init() {
 	rootCmd.AddCommand(serveCmd)

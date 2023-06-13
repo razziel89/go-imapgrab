@@ -22,7 +22,6 @@ import (
 	"io/fs"
 	"log"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -171,24 +170,19 @@ func setUpFakeServerAndCommand(t *testing.T, args []string) func() error {
 	switch args[0] {
 	case "list":
 		// Always disable the keyring by making this a test run.
-		cmd = getListCmd(&rootConf, nil, false, &corer{})
+		cmd = getListCmd(&rootConf, nil, &corer{})
 	case "download":
 		// Always disable the keyring by making this a test run.
-		cmd = getDownloadCmd(&rootConf, &downloadConf, nil, false, &corer{}, lock)
+		cmd = getDownloadCmd(&rootConf, &downloadConf, nil, &corer{}, lock)
 	case "login":
-		user, err := user.Current()
-		require.NoError(t, err)
-		mk := &mockKeyring{}
-		mk.On("Set", "go-imapgrab/username@127.0.0.1:30218", user.Username, "password").Return(nil)
-		t.Cleanup(func() { mk.AssertExpectations(t) })
+		getPasswordFn := func(int) ([]byte, error) { return []byte("password"), nil }
 		cmd = getLoginCmd(
-			&rootConf, mk, func(int) ([]byte, error) { return []byte("password"), nil }, &corer{},
+			&rootConf, nil, getPasswordFn, &corer{},
 		)
 	default:
 		t.Log("unknown command")
 		t.FailNow()
 	}
-
 	cmd.SetArgs(args)
 
 	t.Cleanup(func() {
@@ -206,7 +200,9 @@ func setUpFakeServerAndCommand(t *testing.T, args []string) func() error {
 func TestSystemListSuccess(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "password")
 
-	args := []string{"list", "--server=127.0.0.1", "--port=30218", "--user=username", "-v"}
+	args := []string{
+		"list", "--server=127.0.0.1", "--port=30218", "--user=username", "-v", "--no-keyring",
+	}
 	stdouterr := catchStdoutStderr(t)
 	execute := setUpFakeServerAndCommand(t, args)
 
@@ -226,7 +222,9 @@ func TestSystemListSuccess(t *testing.T) {
 func TestSystemListAuthError(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "password")
 
-	args := []string{"list", "--server=127.0.0.1", "--port=30218", "--user=something-else", "-v"}
+	args := []string{
+		"list", "--server=127.0.0.1", "--port=30218", "--user=something-else", "-v", "--no-keyring",
+	}
 	stdouterr := catchStdoutStderr(t)
 	execute := setUpFakeServerAndCommand(t, args)
 
@@ -280,7 +278,7 @@ func TestSystemDownloadSuccess(t *testing.T) {
 	maildir := t.TempDir()
 	args := []string{
 		"download", "--server=127.0.0.1", "--port=30218", "--user=username", "--verbose",
-		"--folder=_ALL_", "--path", maildir,
+		"--folder=_ALL_", "--path", maildir, "--no-keyring",
 	}
 	stdouterr := catchStdoutStderr(t)
 	execute := setUpFakeServerAndCommand(t, args)
@@ -315,7 +313,10 @@ func TestSystemDownloadSuccess(t *testing.T) {
 func TestSystemLoginSuccess(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "password")
 
-	args := []string{"login", "--server=127.0.0.1", "--port=30218", "--user=username", "--verbose"}
+	args := []string{
+		"login", "--server=127.0.0.1", "--port=30218", "--user=username", "--verbose",
+		"--no-keyring",
+	}
 
 	stdouterr := catchStdoutStderr(t)
 	execute := setUpFakeServerAndCommand(t, args)

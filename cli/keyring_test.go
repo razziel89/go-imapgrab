@@ -144,12 +144,12 @@ func TestInitCredentialsFromEnvironmentWithKeyring(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "some password")
 
 	cfg := rootConfigT{
-		server:   "server",
-		port:     42,
-		username: "user",
-		password: "i will be added",
+		server:    "server",
+		port:      42,
+		username:  "user",
+		password:  "i will be added",
+		noKeyring: false,
 	}
-	noKeyring = false
 
 	user, err := user.Current()
 	assert.NoError(t, err)
@@ -159,7 +159,7 @@ func TestInitCredentialsFromEnvironmentWithKeyring(t *testing.T) {
 	mk.On("Set", "go-imapgrab/user@server:42", user.Username, "some password").
 		Return(nil)
 
-	err = initCredentials(&cfg, noKeyring, mk)
+	err = initCredentials(&cfg, mk, false)
 
 	assert.NoError(t, err)
 	assert.Equal(t, cfg.password, "some password")
@@ -170,15 +170,15 @@ func TestInitCredentialsFromEnvironmentNoKeyring(t *testing.T) {
 	t.Setenv("IGRAB_PASSWORD", "some password")
 
 	cfg := rootConfigT{
-		server:   "server",
-		port:     42,
-		username: "user",
-		password: "i will be added",
+		server:    "server",
+		port:      42,
+		username:  "user",
+		password:  "i will be added",
+		noKeyring: true,
 	}
-	noKeyring = true
 	mk := &mockKeyring{}
 
-	err := initCredentials(&cfg, noKeyring, mk)
+	err := initCredentials(&cfg, mk, false)
 
 	assert.NoError(t, err)
 	assert.Equal(t, cfg.password, "some password")
@@ -197,15 +197,15 @@ func TestInitCredentialsNoPasswordNoKeyring(t *testing.T) {
 	assert.NoError(t, err)
 
 	cfg := rootConfigT{
-		server:   "server",
-		port:     42,
-		username: "user",
-		password: "i will be added",
+		server:    "server",
+		port:      42,
+		username:  "user",
+		password:  "i will be added",
+		noKeyring: true,
 	}
-	noKeyring = true
 	mk := &mockKeyring{}
 
-	err = initCredentials(&cfg, noKeyring, mk)
+	err = initCredentials(&cfg, mk, false)
 
 	assert.Error(t, err)
 	// Make sure the password has not been modified.
@@ -225,12 +225,12 @@ func TestInitCredentialsNoPasswordFromKeyring(t *testing.T) {
 	assert.NoError(t, err)
 
 	cfg := rootConfigT{
-		server:   "server",
-		port:     42,
-		username: "user",
-		password: "i will be added",
+		server:    "server",
+		port:      42,
+		username:  "user",
+		password:  "i will be added",
+		noKeyring: false,
 	}
-	noKeyring = false
 
 	user, err := user.Current()
 	assert.NoError(t, err)
@@ -239,7 +239,7 @@ func TestInitCredentialsNoPasswordFromKeyring(t *testing.T) {
 	mk.On("Get", "go-imapgrab/user@server:42", user.Username).
 		Return("some password", nil)
 
-	err = initCredentials(&cfg, noKeyring, mk)
+	err = initCredentials(&cfg, mk, false)
 
 	assert.NoError(t, err)
 	assert.Equal(t, cfg.password, "some password")

@@ -110,7 +110,10 @@ var NewImapgrabOps = func() ImapgrabOps {
 func TryConnect(cfg IMAPConfig) error {
 	ops := NewImapgrabOps()
 	loginErr := ops.authenticateClient(cfg)
-	logoutErr := ops.logout(false)
+	var logoutErr error
+	if loginErr == nil {
+		logoutErr = ops.logout(false)
+	}
 	return errors.Join(loginErr, logoutErr)
 }
 

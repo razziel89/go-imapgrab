@@ -20,6 +20,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/user"
 
@@ -86,18 +87,23 @@ func addToKeyring(cfg rootConfigT, password string, keyring keyringOps) error {
 	return err
 }
 
-func initCredentials(rootConf *rootConfigT, noKeyring bool, keyring keyringOps) error {
+func initCredentials(rootConf *rootConfigT, keyring keyringOps, verbose bool) error {
+	logDebug := func(s string) {
+		if verbose {
+			log.Println(s)
+		}
+	}
 	if password, found := os.LookupEnv(passwdEnvVar); found {
 		logDebug(fmt.Sprintf("password taken from env var %s", passwdEnvVar))
 		rootConf.password = password
-		if noKeyring {
+		if rootConf.noKeyring {
 			return nil
 		}
 		logDebug("adding password to keyring")
 		return addToKeyring(*rootConf, password, keyring)
 	}
 
-	if noKeyring {
+	if rootConf.noKeyring {
 		return fmt.Errorf("password not set via env var %s and keyring disabled", passwdEnvVar)
 	}
 

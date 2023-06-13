@@ -47,7 +47,9 @@ func TestServeCommand(t *testing.T) {
 
 	mk := &mockKeyring{}
 
-	cmd := getServeCmd(&rootConfigT{}, &serveConfigT{}, mk, false, &mockOps, mockLock)
+	rootConf := rootConfigT{}
+	cmd := getServeCmd(&rootConf, &serveConfigT{}, mk, &mockOps, mockLock)
+	rootConf.noKeyring = true
 
 	err := cmd.Execute()
 	assert.Error(t, err)
@@ -79,13 +81,9 @@ func TestServeCommandNoKeyringProdRun(t *testing.T) {
 
 	mk := &mockKeyring{}
 
-	cmd := getServeCmd(&rootConfigT{}, &serveConfigT{}, mk, false, &mockOps, mockLock)
-
-	// The keyring is disabled via user flags, which are evaluated after the command has been
-	// constructed.
-	orgNoKeyring := noKeyring
-	noKeyring = true
-	t.Cleanup(func() { noKeyring = orgNoKeyring })
+	rootConf := rootConfigT{}
+	cmd := getServeCmd(&rootConf, &serveConfigT{}, mk, &mockOps, mockLock)
+	rootConf.noKeyring = true
 
 	err = cmd.Execute()
 	assert.Error(t, err)
@@ -110,7 +108,9 @@ func TestServeCommandCannotGetLock(t *testing.T) {
 
 	mk := &mockKeyring{}
 
-	cmd := getServeCmd(&rootConfigT{}, &serveConfigT{}, mk, false, &mockOps, mockLock)
+	rootConf := rootConfigT{}
+	cmd := getServeCmd(&rootConf, &serveConfigT{}, mk, &mockOps, mockLock)
+	rootConf.noKeyring = true
 
 	err := cmd.Execute()
 	assert.Error(t, err)
@@ -136,7 +136,7 @@ func TestServeCommandNoCredentialsInKeyring(t *testing.T) {
 	mk.On("Get", "go-imapgrab/@:993", user.Username).Return("", keyring.ErrNotFound)
 	defer mk.AssertExpectations(t)
 
-	cmd := getServeCmd(&rootConfigT{}, &serveConfigT{}, mk, true, &mockOps, mockLock)
+	cmd := getServeCmd(&rootConfigT{}, &serveConfigT{}, mk, &mockOps, mockLock)
 
 	err = cmd.Execute()
 	assert.ErrorContains(t, err, "secret not found in keyring")
