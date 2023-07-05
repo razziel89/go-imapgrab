@@ -37,7 +37,7 @@ const (
 	uiIntroduction = "This is a simple UI for go-imapgrab.\nEnter details for new mailboxes in " +
 		"the text boxes at the top.\nSelect which mailboxes to act upon in the list in the " +
 		"middle.\nTrigger actions on all selected mailboxes with the buttons at the bottom.\n" +
-		"View logs at the very bottom."
+		"View logs at the very bottom.\nIf you want to delete an entry, edit the config file."
 )
 
 func getUICmd(keyring keyringOps, ops coreOps) *cobra.Command {
@@ -58,9 +58,10 @@ func getUICmd(keyring keyringOps, ops coreOps) *cobra.Command {
 				}
 				if err == nil {
 					for _, mb := range uiConf.Mailboxes {
-						password, keyringErr := retrieveFromKeyring(mb.asRootConf(), keyring)
-						err = errors.Join(err, keyringErr)
-						mb.Password = password
+						// Ignore errors, e.g. because some credentials could not be found. This is
+						// not optimal but at this point we just want to get the UI started.
+						password, _ := retrieveFromKeyring(mb.asRootConf(), keyring)
+						mb.password = password
 					}
 				}
 				if err != nil {
@@ -69,7 +70,7 @@ func getUICmd(keyring keyringOps, ops coreOps) *cobra.Command {
 			}
 
 			// Run the UI.
-			return runUI(&uiConf, cfgFile, ops)
+			return runUI(&uiConf, cfgFile, ops, keyring)
 		},
 	}
 	return cmd
@@ -119,9 +120,9 @@ type uiMailboxConf struct {
 	Name       string
 	Server     string
 	User       string
-	Password   string
 	Port       int
 	Serverport int
+	password   string
 }
 
 func (mbCfg *uiMailboxConf) asRootConf() rootConfigT {
@@ -129,14 +130,30 @@ func (mbCfg *uiMailboxConf) asRootConf() rootConfigT {
 		server:    mbCfg.Server,
 		port:      mbCfg.Port,
 		username:  mbCfg.User,
-		password:  mbCfg.Password,
+		password:  mbCfg.password,
 		verbose:   false,
 		noKeyring: false,
 	}
 }
 
 func (ui *uiConf) addMailbox(mailbox uiMailboxConf) {
-	ui.Mailboxes = append(ui.Mailboxes, &mailbox)
+	// Remove if already present. That means "adding" overwrites existing entries.
+	existIdx := -1
+	for idx, mb := range ui.Mailboxes {
+		if mailbox.Name == mb.Name {
+			existIdx = idx
+		}
+	}
+	if existIdx >= 0 {
+		// Replace an existing entry.
+		mailboxes := append([]*uiMailboxConf{}, ui.Mailboxes[:existIdx]...)
+		mailboxes = append(mailboxes, &mailbox)
+		mailboxes = append(mailboxes, ui.Mailboxes[existIdx+1:]...)
+		ui.Mailboxes = mailboxes
+	} else {
+		// Append a new entry.
+		ui.Mailboxes = append(ui.Mailboxes, &mailbox)
+	}
 }
 
 func (ui *uiConf) knownMailboxes() []string {
@@ -147,12 +164,32 @@ func (ui *uiConf) knownMailboxes() []string {
 	return result
 }
 
+func (ui *uiConf) boxByName(name string) *uiMailboxConf {
+	for _, mb := range ui.Mailboxes {
+		if name == mb.Name {
+			return mb
+		}
+	}
+	return nil
+}
+
 const filePerms = 0644
 
-func saveToFile(path string, cfg *uiConf) error {
+func saveToFile(path string, cfg *uiConf, keyring keyringOps) error {
 	fileContent, err := yaml.Marshal(cfg)
 	if err == nil {
 		err = os.WriteFile(path, fileContent, filePerms)
+	}
+	for _, mb := range cfg.Mailboxes {
+		password, keyringErr := retrieveFromKeyring(mb.asRootConf(), keyring)
+		if !credentialsNotFound(keyringErr) {
+			err = errors.Join(err, keyringErr)
+		}
+		if err == nil && len(password) == 0 && len(mb.password) != 0 {
+			// The password is not known but has been entered by the user, store it.
+			keyringErr = addToKeyring(mb.asRootConf(), mb.password, keyring)
+			err = errors.Join(err, keyringErr)
+		}
 	}
 	if err != nil {
 		err = fmt.Errorf("failed to save config: %s", err.Error())
@@ -168,6 +205,7 @@ type saveCfgEventHandler struct {
 	boxes       map[string]gwu.TextBox
 	reportLabel gwu.Label
 	updates     []func(gwu.Event)
+	keyring     keyringOps
 }
 
 func (h *saveCfgEventHandler) HandleEvent(event gwu.Event) {
@@ -179,7 +217,7 @@ func (h *saveCfgEventHandler) HandleEvent(event gwu.Event) {
 		Name:       h.boxes["Name"].Text(),
 		User:       h.boxes["User"].Text(),
 		Server:     h.boxes["Server"].Text(),
-		Password:   h.boxes["Password"].Text(),
+		password:   h.boxes["Password"].Text(),
 		Port:       port,
 		Serverport: serverport,
 	}
@@ -189,20 +227,20 @@ func (h *saveCfgEventHandler) HandleEvent(event gwu.Event) {
 		mb.Server == "" ||
 		mb.Port == 0 ||
 		mb.Serverport == 0 ||
-		mb.Password == "" {
+		mb.password == "" {
 
 		h.reportLabel.SetText("Error in input values, at least\none value is unspecified!")
 		h.reportLabel.Style().SetBackground(gwu.ClrRed)
 		return
 	}
 	h.cfg.addMailbox(mb)
-	if err := saveToFile(h.cfgPath, h.cfg); err != nil {
+	if err := saveToFile(h.cfgPath, h.cfg, h.keyring); err != nil {
 		h.reportLabel.SetText(err.Error())
-		h.reportLabel.Style().SetBackground("")
+		h.reportLabel.Style().SetBackground(gwu.ClrRed)
 		return
 	}
 	h.reportLabel.SetText("Config successfully saved!")
-	h.reportLabel.Style().SetBackground(gwu.ClrRed)
+	h.reportLabel.Style().SetBackground(gwu.ClrGreen)
 
 	for _, box := range h.boxes {
 		box.SetText("")
@@ -220,7 +258,7 @@ const (
 )
 
 //nolint:funlen,gomnd
-func runUI(cfg *uiConf, cfgPath string, _ coreOps) error {
+func runUI(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps) error {
 	win := gwu.NewWindow("main", "go-imapgrab-ui")
 
 	// Define some style elements.
@@ -260,25 +298,45 @@ func runUI(cfg *uiConf, cfgPath string, _ coreOps) error {
 		boxes:       boxes,
 		reportLabel: reportLabel,
 		cfgPath:     cfgPath,
+		keyring:     keyring,
 	}
 	btn.AddEHandler(&saveHandler, gwu.ETypeClick)
 	panel.Add(btn)
 	panel.Add(reportLabel)
 	win.Add(panel)
 
-	// List of known mailboxes.
+	// List of known mailboxes where boxes to act upon can be selected.
 	panel = gwu.NewHorizontalPanel()
 	panel.SetCellPadding(5)
 	panel.Style().SetBorder2(1, gwu.BrdStyleSolid, gwu.ClrBlack)
 	panel.Style().SetMargin("20px")
 	panel.Add(gwu.NewLabel("All known mailboxes:"))
-	listBox := gwu.NewListBox(cfg.knownMailboxes())
-	listBox.SetRows(len(cfg.Mailboxes))
+	// Define list and make sure it's updated when saving a new mailbox.
+	listBox := gwu.NewListBox(nil)
 	listBox.SetMulti(true)
-	// listBox.AddEHandlerFunc(func(e gwu.Event) {
-	//     listBox.Style().SetWidth(listBox.SelectedValue() + "px")
-	//     e.MarkDirty(listBox)
-	// }, gwu.ETypeChange)
+	updateList := func(event gwu.Event) {
+		listBox.SetRows(len(cfg.Mailboxes))
+		listBox.SetValues(cfg.knownMailboxes())
+		if event != nil {
+			event.MarkDirty(listBox)
+		}
+	}
+	updateList(nil)
+	saveHandler.updates = append(saveHandler.updates, updateList)
+	// Update an internal data structure that will always know which mailboxes are selected. That
+	// way, we don't have to update it for every buttom that does something.
+	selectedBoxes := []*uiMailboxConf{}
+	listBox.AddEHandlerFunc(func(event gwu.Event) {
+		newBoxes := []*uiMailboxConf{}
+		for _, boxName := range listBox.SelectedValues() {
+			if newBox := cfg.boxByName(boxName); newBox != nil {
+				newBoxes = append(newBoxes, newBox)
+			}
+		}
+		selectedBoxes = newBoxes
+		log.Printf("selected: %v", selectedBoxes) // TODO: remove
+		event.MarkDirty(listBox)
+	}, gwu.ETypeChange)
 	panel.Add(listBox)
 	win.Add(panel)
 
