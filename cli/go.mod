@@ -6,12 +6,14 @@ replace github.com/razziel89/go-imapgrab/core => ../core
 
 require (
 	github.com/emersion/go-imap v1.2.1
+	github.com/icza/gowut v1.4.0
 	github.com/razziel89/go-imapgrab/core v0.0.0-20230313202000-bc375372818b
 	github.com/rogpeppe/go-internal v1.10.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.7.1
 	github.com/zalando/go-keyring v0.2.2
 	golang.org/x/term v0.7.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
