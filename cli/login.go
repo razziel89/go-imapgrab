@@ -19,7 +19,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"strings"
 	"syscall"
 	"unicode"
@@ -133,7 +135,18 @@ func getLoginCmd(
 	return cmd
 }
 
-var loginCmd = getLoginCmd(&rootConfig, defaultKeyring, term.ReadPassword, &corer{})
+func readFromStdin(fd int) ([]byte, error) {
+	info, err := os.Stdin.Stat()
+	if fd != 0 || err != nil || (info.Mode()&os.ModeCharDevice) == os.ModeCharDevice {
+		// Input is a terminal or there was an error trying to determine that. Default to
+		// interactive prompts.
+		return term.ReadPassword(fd)
+	}
+	// Otherwise, make this work with pipes, too.
+	return io.ReadAll(os.Stdin)
+}
+
+var loginCmd = getLoginCmd(&rootConfig, defaultKeyring, readFromStdin, &corer{})
 
 func init() {
 	rootCmd.AddCommand(loginCmd)

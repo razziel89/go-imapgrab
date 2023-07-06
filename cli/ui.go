@@ -22,8 +22,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/icza/gowut/gwu"
 	"github.com/spf13/cobra"
@@ -36,8 +39,11 @@ const (
 	// Introductory text shown in the UI.
 	uiIntroduction = "This is a simple UI for go-imapgrab.\nEnter details for new mailboxes in " +
 		"the text boxes at the top.\nSelect which mailboxes to act upon in the list in the " +
-		"middle.\nTrigger actions on all selected mailboxes with the buttons at the bottom.\n" +
-		"View logs at the very bottom.\nIf you want to delete an entry, edit the config file."
+		"middle.\nTrigger actions on all selected mailboxes with the buttons on the right.\n" +
+		"View logs at the very bottom.\nIf you want to delete an entry, edit the config file.\n" +
+		"If you download something, it may take quite a while until you see any changes.\n" +
+		"The UI only refreshes once all actions have finished.\n" +
+		"Initial downloads are particularly slow and may even result in a timeout.\n"
 )
 
 func getUICmd(keyring keyringOps, ops coreOps) *cobra.Command {
@@ -59,10 +65,16 @@ func getUICmd(keyring keyringOps, ops coreOps) *cobra.Command {
 				if err == nil {
 					for _, mb := range uiConf.Mailboxes {
 						// Ignore errors, e.g. because some credentials could not be found. This is
-						// not optimal but at this point we just want to get the UI started.
+						// not optimal but at this point we just want to get the UI started and all
+						// available passwords loaded.
 						password, _ := retrieveFromKeyring(mb.asRootConf(), keyring)
 						mb.password = password
 					}
+				}
+				if err == nil && len(uiConf.Path) == 0 {
+					err = fmt.Errorf(
+						"empty path specified in config file %s, cannot download", cfgFile,
+					)
 				}
 				if err != nil {
 					return err
@@ -70,7 +82,7 @@ func getUICmd(keyring keyringOps, ops coreOps) *cobra.Command {
 			}
 
 			// Run the UI.
-			return runUI(&uiConf, cfgFile, ops, keyring)
+			return runUI(&uiConf, cfgFile, ops, keyring, os.Args[0])
 		},
 	}
 	return cmd
@@ -113,6 +125,7 @@ func findConfigFile() string {
 }
 
 type uiConf struct {
+	Path      string
 	Mailboxes []*uiMailboxConf
 }
 
@@ -122,7 +135,9 @@ type uiMailboxConf struct {
 	User       string
 	Port       int
 	Serverport int
-	password   string
+	// Keep this member internal so that it cannot be serialised or deserialised. It shall never be
+	// written to a file but always retrieved from the keyring, if present.
+	password string
 }
 
 func (mbCfg *uiMailboxConf) asRootConf() rootConfigT {
@@ -255,10 +270,11 @@ func (h *saveCfgEventHandler) HandleEvent(event gwu.Event) {
 
 const (
 	uiCellPadding = 5
+	contentSep    = "============================="
 )
 
 //nolint:funlen,gomnd
-func runUI(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps) error {
+func runUI(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps, pathToBin string) error {
 	win := gwu.NewWindow("main", "go-imapgrab-ui")
 
 	// Define some style elements.
@@ -324,7 +340,8 @@ func runUI(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps) error {
 	updateList(nil)
 	saveHandler.updates = append(saveHandler.updates, updateList)
 	// Update an internal data structure that will always know which mailboxes are selected. That
-	// way, we don't have to update it for every buttom that does something.
+	// way, we don't have to update it for every button that does something but we can just assume
+	// it's there and up to date.
 	selectedBoxes := []*uiMailboxConf{}
 	listBox.AddEHandlerFunc(func(event gwu.Event) {
 		newBoxes := []*uiMailboxConf{}
@@ -338,78 +355,96 @@ func runUI(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps) error {
 		event.MarkDirty(listBox)
 	}, gwu.ETypeChange)
 	panel.Add(listBox)
-	win.Add(panel)
+	vertPanel := gwu.NewVerticalPanel()
+	vertPanel.SetCellPadding(5)
 
-	// // Button which changes window content
-	// win.Add(gwu.NewLabel("I'm a label! Try clicking on the button=>"))
-	// btn := gwu.NewButton("Click me")
-	// btn.AddEHandler(&myButtonHandler{text: ":-)"}, gwu.ETypeClick)
-	// win.Add(btn)
-	// btnsPanel := gwu.NewNaturalPanel()
-	// btn.AddEHandlerFunc(func(e gwu.Event) {
-	//     // Create and add a new button...
-	//     newbtn := gwu.NewButton(fmt.Sprintf("Extra #%d", btnsPanel.CompsCount()))
-	//     newbtn.AddEHandlerFunc(func(e gwu.Event) {
-	//         btnsPanel.Remove(newbtn) // ...which removes itself when clicked
-	//         e.MarkDirty(btnsPanel)
-	//     }, gwu.ETypeClick)
-	//     btnsPanel.Insert(newbtn, 0)
-	//     e.MarkDirty(btnsPanel)
-	// }, gwu.ETypeClick)
-	// win.Add(btnsPanel)
-	//
-	// // ListBox examples
-	// panel := gwu.NewHorizontalPanel()
-	// panel.Style().SetBorder2(1, gwu.BrdStyleSolid, gwu.ClrBlack)
-	// panel.SetCellPadding(2)
-	// panel.Add(gwu.NewLabel("A drop-down list being"))
-	// listBox := gwu.NewListBox([]string{"50", "100", "150", "200", "250"})
-	// listBox.Style().SetWidth("50")
-	// listBox.AddEHandlerFunc(func(e gwu.Event) {
-	//     listBox.Style().SetWidth(listBox.SelectedValue() + "px")
-	//     e.MarkDirty(listBox)
-	// }, gwu.ETypeChange)
-	// panel.Add(listBox)
-	// panel.Add(gwu.NewLabel("pixel wide. And a multi-select list:"))
-	// listBox := gwu.NewListBox([]string{"First", "Second", "Third", "Forth", "Fifth", "Sixth"})
-	// listBox.SetMulti(true)
-	// listBox.SetRows(4)
-	// panel.Add(listBox)
-	// countLabel := gwu.NewLabel("Selected count: 0")
-	// listBox.AddEHandlerFunc(func(e gwu.Event) {
-	//     countLabel.SetText(fmt.Sprintf("Selected count: %d", len(listBox.SelectedIndices())))
-	//     e.MarkDirty(countLabel)
-	// }, gwu.ETypeChange)
-	// panel.Add(countLabel)
-	// win.Add(panel)
-	//
-	// // Self-color changer check box
-	// greencb := gwu.NewCheckBox("I'm a check box. When checked, I'm green!")
-	// greencb.AddEHandlerFunc(func(e gwu.Event) {
-	//     if greencb.State() {
-	//         greencb.Style().SetBackground(gwu.ClrGreen)
-	//     } else {
-	//         greencb.Style().SetBackground("")
-	//     }
-	//     e.MarkDirty(greencb)
-	// }, gwu.ETypeClick)
-	// win.Add(greencb)
-	//
-	// // TextBox with echo
-	// panel = gwu.NewHorizontalPanel()
-	// panel.Add(gwu.NewLabel("Enter your name:"))
-	// tb := gwu.NewTextBox("")
-	// tb.AddSyncOnETypes(gwu.ETypeKeyUp)
-	// panel.Add(tb)
-	// panel.Add(gwu.NewLabel("You entered:"))
-	// nameLabel := gwu.NewLabel("")
-	// nameLabel.Style().SetColor(gwu.ClrRed)
-	// tb.AddEHandlerFunc(func(e gwu.Event) {
-	//     nameLabel.SetText(tb.Text())
-	//     e.MarkDirty(nameLabel)
-	// }, gwu.ETypeChange, gwu.ETypeKeyUp)
-	// panel.Add(nameLabel)
-	// win.Add(panel)
+	// Add buttons to act on selected mailboxes.
+	reportLabel = gwu.NewLabel("")
+	reportLabel.Style().SetWhiteSpace(gwu.WhiteSpacePreLine)
+
+	verbose := gwu.NewCheckBox("Verbose Logs")
+	vertPanel.Add(verbose)
+
+	for _, buttonName := range []string{"Login", "List", "Download", "Serve"} {
+		buttonName := buttonName
+		button := gwu.NewButton(buttonName + " Selected")
+		handler := func(event gwu.Event) {
+			allContent := map[string]string{}
+			wg := sync.WaitGroup{}
+			wg.Add(len(selectedBoxes))
+			for _, mb := range selectedBoxes {
+				mb := mb
+				go func() {
+					content := []string{}
+					args := []string{
+						strings.ToLower(buttonName),
+						// Ignore keyring, we are using env vars instead.
+						"--no-keyring",
+						"--server", mb.Server,
+						"--user", mb.User,
+						"--port", fmt.Sprint(mb.Port),
+					}
+					if verbose.State() {
+						args = append(args, "--verbose")
+					}
+					stdin := ""
+					if buttonName == "Serve" {
+						args = append(args, []string{"--server-port", fmt.Sprint(mb.Serverport)}...)
+						log.Fatal("cannot yet serve, don't know how to shut down", args)
+					}
+					if buttonName == "Download" {
+						// Download all folders apart form Gmail-specific ones.
+						args = append(args, []string{"--folder", "_ALL_"}...)
+						args = append(args, []string{"--folder", "-_Gmail_"}...)
+						args = append(args, []string{"--path", filepath.Join(cfg.Path, mb.Name)}...)
+					}
+					if buttonName == "Login" {
+						stdin = mb.password
+					}
+					stdout, stderr, err := callWithArgs(
+						pathToBin,
+						args,
+						[]string{fmt.Sprintf("%s=%s", passwdEnvVar, mb.password)},
+						stdin,
+					)
+					if err != nil {
+						content = append(
+							content, fmt.Sprintf("Failure for %s, errors follow.\n", mb.Name),
+						)
+						content = append(content, err.Error())
+					} else {
+						content = append(content, fmt.Sprintf("Success for %s.\n", mb.Name))
+					}
+					if len(stdout) != 0 {
+						content = append(content, fmt.Sprintf("Stdout for %s:\n", mb.Name))
+						content = append(content, stdout)
+					}
+					if len(stderr) != 0 {
+						content = append(content, fmt.Sprintf("Stderr for %s:\n", mb.Name))
+						content = append(content, stderr)
+					}
+					content = append(content, contentSep)
+					allContent[mb.Name] = strings.Join(content, "\n")
+					log.Printf("Done processing %s", mb.Name)
+					wg.Done()
+				}()
+			}
+			wg.Wait()
+			content := contentSep + "\n"
+			for _, mb := range selectedBoxes {
+				content += allContent[mb.Name] + "\n"
+			}
+			reportLabel.SetText(content)
+			event.MarkDirty(reportLabel)
+			log.Printf("Done doing %s", buttonName)
+		}
+		button.AddEHandlerFunc(handler, gwu.ETypeClick)
+		vertPanel.Add(button)
+	}
+
+	panel.Add(vertPanel)
+	win.Add(panel)
+	win.Add(reportLabel)
 
 	server := gwu.NewServer("go-imapgrab-ui", fmt.Sprintf("%s:%d", localhost, uiPort))
 	server.SetText("go-imapgrab")
@@ -419,4 +454,28 @@ func runUI(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps) error {
 		err = server.Start("main")
 	}
 	return err
+}
+
+// Call an executable with arguments and return stdout and stderr.
+func callWithArgs(
+	cmdName string,
+	args []string,
+	env []string,
+	stdin string,
+) (string, string, error) {
+	log.Println("Running command:", cmdName, strings.Join(quote(args), " "))
+
+	cmd := exec.Command(cmdName, args...)
+	cmd.Env = env
+
+	cmd.Stdin = strings.NewReader(stdin)
+
+	stdout := strings.Builder{}
+	cmd.Stdout = &stdout
+	stderr := strings.Builder{}
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	return stdout.String(), stderr.String(), err
 }
