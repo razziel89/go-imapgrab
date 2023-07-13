@@ -39,6 +39,7 @@ type ui struct {
 	actionButtons              uiActionButtons
 	knownMailboxesList         gwu.ListBox
 	verboseCheckbox            gwu.CheckBox
+	window gwu.Window
 }
 
 type uiNewMailboxDetailsTextboxes struct {
@@ -59,7 +60,7 @@ type uiActionButtons struct {
 }
 
 // Build the UI, excluding any and all functionality.
-func uiBuild(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps, pathToBin string) ui {
+func uiBuild() ui {
 	window := uiBuildMainWindow()
 	newMailboxDetailsTextboxes, saveNewMailboxButton, newMailboxPanel := uiBuildAddMailboxSection()
 	knownMailboxesList, knownMailboxesPanel := uiBuildKnownMailboxesList()
@@ -78,6 +79,7 @@ func uiBuild(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps, pathToB
 	window.Add(reportLabel)
 
 	return ui{
+		window: window,
 		newMailboxDetailsTextboxes: newMailboxDetailsTextboxes,
 		actionButtons:              actionButtons,
 		knownMailboxesList:         knownMailboxesList,
