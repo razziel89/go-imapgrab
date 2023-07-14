@@ -25,12 +25,12 @@ const (
 	uiCellPadding  = 5
 	uiNummailboxes = 10
 	// Introductory text shown in the UI.
-	uiIntroduction = "This is a simple UI for go-imapgrab.\nEnter details for new mailboxes in " +
-		"the text boxes at the top.\nSelect which mailboxes to act upon in the list in the " +
-		"middle.\nTrigger actions on all selected mailboxes with the buttons on the right.\n" +
-		"View logs at the very bottom.\nIf you want to delete an entry, edit the config file.\n" +
-		"If you download something, it may take quite a while until you see any changes.\n" +
-		"The UI only refreshes once all actions have finished.\n" +
+	uiIntroduction = "This is a simple UI for go-imapgrab.\n\nEnter details for new/updated " +
+		"mailboxes in the text boxes at the top. Select which mailboxes to act upon in the list " +
+		"in the middle. Trigger actions on all selected mailboxes with the buttons on the right." +
+		" View logs at the very bottom. " +
+		"If you download something, it may take quite a while until you see any changes. " +
+		"The UI only refreshes once all actions have finished. " +
 		"Initial downloads are particularly slow and may even result in a timeout.\n"
 )
 
@@ -59,6 +59,8 @@ type uiActionButtons struct {
 	list     gwu.Button
 	download gwu.Button
 	serve    gwu.Button
+	edit     gwu.Button
+	delete   gwu.Button
 }
 
 // Build the UI, excluding any and all functionality.
@@ -117,7 +119,7 @@ func uiBuildAddMailboxSection() (
 	panel.SetCellPadding(uiCellPadding)
 	panel.Style().SetBorder2(1, gwu.BrdStyleSolid, gwu.ClrBlack)
 	panel.Style().SetMargin("20px")
-	panel.Add(gwu.NewLabel("Enter details for new mailbox below:"))
+	panel.Add(gwu.NewLabel("Enter details for new/updated mailbox below:"))
 
 	newBox := func(name string) gwu.TextBox {
 		horPanel := gwu.NewHorizontalPanel()
@@ -182,6 +184,8 @@ func uiBuildMailboxActionButtons() (
 		list:     newButton("List"),
 		download: newButton("Download"),
 		serve:    newButton("Serve"),
+		edit:     newButton("Edit"),
+		delete:   newButton("Delete"),
 		// Will be set externally since it is not part of this panel. This is a bit hacky but I
 		// wanted to combine all the buttons in one type.
 		save: nil,
@@ -191,7 +195,7 @@ func uiBuildMailboxActionButtons() (
 }
 
 func uiBuildReportLabel() gwu.Label {
-	label := gwu.NewLabel("")
+	label := gwu.NewLabel("Logs will show up here.")
 	label.Style().SetWhiteSpace(gwu.WhiteSpacePreLine)
 	return label
 }

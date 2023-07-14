@@ -54,6 +54,8 @@ func uiFunctionalise(ui *ui) error {
 	uiAddButtonHandler(buttons.login, reportFn, ui, getGenericUIButtonHandler("login"))
 	uiAddButtonHandler(buttons.list, reportFn, ui, getGenericUIButtonHandler("list"))
 	uiAddButtonHandler(buttons.download, reportFn, ui, getGenericUIButtonHandler("download"))
+	uiAddButtonHandler(buttons.edit, reportFn, ui, uiHandlerEdit)
+	uiAddButtonHandler(buttons.delete, reportFn, ui, uiHandlerDelete)
 
 	return nil
 }
@@ -121,7 +123,59 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 	list.SetValues(ui.config.knownMailboxes())
 	update(list)
 
-	return "Config successfully saved!", nil
+	return "Mailbox successfully saved!", nil
+}
+
+func uiHandlerDelete(ui *ui, update requestUpdateFn) (string, error) {
+	list := ui.elements.knownMailboxesList
+
+	for _, box := range list.SelectedValues() {
+		ui.config.removeMailbox(box)
+	}
+	if err := ui.config.saveToFileAndKeyring(ui.keyring); err != nil {
+		return "", err
+	}
+
+	// Request refreshes for all components that were affeced by this handler.
+	list.SetValues(ui.config.knownMailboxes())
+	update(list)
+
+	return "Mailbox successfully removed!", nil
+}
+
+func uiHandlerEdit(ui *ui, update requestUpdateFn) (string, error) {
+	boxes := ui.elements.newMailboxDetailsTextboxes
+	list := ui.elements.knownMailboxesList
+
+	selected := list.SelectedValues()
+	switch len(selected) {
+	case 0:
+		return "Select exactly one mailbox.", fmt.Errorf("too few mailboxes selected")
+	case 1: // Success case, no-op.
+	default:
+		return "Select exactly one mailbox.", fmt.Errorf("too many mailboxes selected")
+	}
+
+	mb := ui.config.boxByName(selected[0])
+	if mb == nil {
+		return "", fmt.Errorf("internal error, selected mailbox is unknown")
+	}
+
+	boxes.name.SetText(mb.Name)
+	boxes.password.SetText(mb.password)
+	boxes.port.SetText(fmt.Sprint(mb.Port))
+	boxes.server.SetText(mb.Server)
+	boxes.serverport.SetText(fmt.Sprint(mb.Serverport))
+	boxes.user.SetText(mb.User)
+
+	// Request refreshes for all components that were affeced by this handler.
+	for _, box := range []gwu.TextBox{
+		boxes.name, boxes.password, boxes.port, boxes.server, boxes.serverport, boxes.user,
+	} {
+		update(box)
+	}
+
+	return "Mailbox data loaded successfully!", nil
 }
 
 func getGenericUIButtonHandler(actionName string) uiButtomHandlerFn {

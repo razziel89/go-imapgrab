@@ -73,6 +73,21 @@ func (mbCfg *uiConfFileMailbox) asServeConf(rootPath string) serveConfigT {
 	}
 }
 
+func (ui *uiConfigFile) removeMailbox(name string) {
+	existIdx := -1
+	for idx, mb := range ui.Mailboxes {
+		if name == mb.Name {
+			existIdx = idx
+		}
+	}
+	if existIdx >= 0 {
+		// Remove an existing entry.
+		mailboxes := append([]*uiConfFileMailbox{}, ui.Mailboxes[:existIdx]...)
+		mailboxes = append(mailboxes, ui.Mailboxes[existIdx+1:]...)
+		ui.Mailboxes = mailboxes
+	}
+}
+
 func (ui *uiConfigFile) upsertMailbox(mailbox uiConfFileMailbox) {
 	// Remove if already present.
 	existIdx := -1
