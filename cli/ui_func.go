@@ -39,13 +39,9 @@ func uiFunctionalise(ui *ui) error {
 
 	// Create a function that can be used to easily show output to the user.
 	reportFn := func(event gwu.Event, action, str string, err error) {
-		ui.elements.reportLabel.Style().SetBackground(gwu.ClrWhite)
-
 		var text string
 		if err != nil {
-			text = fmt.Sprintf("ERROR executing action '%s':\n%s\n\n", action, err.Error())
-			// In case of errors, colour the background red to make that clear.
-			ui.elements.reportLabel.Style().SetBackground(gwu.ClrRed)
+			text = fmt.Sprintf("ERROR(S) executing action '%s':\n%s\n\n", action, err.Error())
 		}
 		text += str
 
@@ -53,8 +49,11 @@ func uiFunctionalise(ui *ui) error {
 		event.MarkDirty(ui.elements.reportLabel)
 	}
 
-	uiAddButtonHandler(ui.elements.actionButtons.save, reportFn, ui, uiHandlerSave)
-	uiAddButtonHandler(ui.elements.actionButtons.list, reportFn, ui, uiHandlerList)
+	buttons := ui.elements.actionButtons
+	uiAddButtonHandler(buttons.save, reportFn, ui, uiHandlerSave)
+	uiAddButtonHandler(buttons.login, reportFn, ui, getGenericUIButtonHandler("login"))
+	uiAddButtonHandler(buttons.list, reportFn, ui, getGenericUIButtonHandler("list"))
+	uiAddButtonHandler(buttons.download, reportFn, ui, getGenericUIButtonHandler("download"))
 
 	return nil
 }
@@ -125,38 +124,40 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 	return "Config successfully saved!", nil
 }
 
-func uiHandlerList(ui *ui, _ requestUpdateFn) (string, error) {
-	selectedBoxes := ui.elements.knownMailboxesList.SelectedValues()
+func getGenericUIButtonHandler(actionName string) uiButtomHandlerFn {
+	return func(ui *ui, _ requestUpdateFn) (string, error) {
+		selectedBoxes := ui.elements.knownMailboxesList.SelectedValues()
 
-	errs := map[string]error{}
-	outputs := map[string]string{}
+		errs := map[string]error{}
+		outputs := map[string]string{}
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(selectedBoxes))
-	for _, box := range selectedBoxes {
-		box := box
-		go func() {
-			output, err := runFromConf(
-				ui.selfExe, "list",
-				*ui.config.asRootConf(box, ui.elements.verboseCheckbox.State()),
-				*ui.config.asDownloadConf(box),
-				*ui.config.asServeConf(box),
-			)
-			outputs[box] = fmt.Sprintf("Mailbox: %s\n%s\n%s", box, output, contentSep)
-			errs[box] = err
-			log.Printf("Done processing %s", box)
-			wg.Done()
-		}()
+		wg := sync.WaitGroup{}
+		wg.Add(len(selectedBoxes))
+		for _, box := range selectedBoxes {
+			box := box
+			go func() {
+				output, err := runFromConf(
+					ui.selfExe, actionName,
+					*ui.config.asRootConf(box, ui.elements.verboseCheckbox.State()),
+					*ui.config.asDownloadConf(box),
+					*ui.config.asServeConf(box),
+				)
+				outputs[box] = fmt.Sprintf("Mailbox: %s\n%s\n%s", box, output, contentSep)
+				errs[box] = err
+				log.Printf("Done processing %s", box)
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+		log.Printf("Done processing all: %s", actionName)
+
+		var err error
+		results := []string{contentSep}
+		for _, box := range selectedBoxes {
+			results = append(results, outputs[box])
+			err = errors.Join(err, errs[box])
+		}
+
+		return strings.Join(results, "\n"), err
 	}
-	wg.Wait()
-	log.Printf("Done processing all: list")
-
-	var err error
-	results := []string{contentSep}
-	for _, box := range selectedBoxes {
-		results = append(results, outputs[box])
-		err = errors.Join(err, errs[box])
-	}
-
-	return strings.Join(results, "\n"), err
 }

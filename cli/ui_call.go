@@ -35,7 +35,8 @@ func callWithArgs(
 	env []string,
 	stdin string,
 ) (string, string, error) {
-	log.Println("Running command:", cmdName, strings.Join(quote(args), " "))
+	fullCmd := fmt.Sprintf("%s %s", cmdName, strings.Join(quote(args), " "))
+	log.Println("Running command:", fullCmd)
 
 	cmd := exec.Command(cmdName, args...)
 	cmd.Env = env
@@ -48,6 +49,9 @@ func callWithArgs(
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
+	if err != nil {
+		err = fmt.Errorf("failed to execute '%s': %s", fullCmd, err.Error())
+	}
 
 	return stdout.String(), stderr.String(), err
 }
@@ -79,10 +83,10 @@ func runFromConf(
 		args = append(args, []string{"--path", serveConf.path}...)
 		log.Fatal("cannot yet serve, don't know how to shut down", args)
 	case "download":
+		args = append(args, []string{"--path", downloadConf.path}...)
 		for _, folder := range downloadConf.folders {
 			args = append(args, []string{"--folder", folder}...)
 		}
-		args = append(args, []string{"--path", downloadConf.path}...)
 	case "login":
 		// When calling login, the password has to be provided via stdin for now.
 		stdin = rootConf.password
@@ -99,21 +103,17 @@ func runFromConf(
 
 	content := []string{}
 	if err != nil {
-		content = append(content, "Failure, errors follow.\n")
-		content = append(content, err.Error())
+		content = append(content, fmt.Sprintf("Failure running '%s', logs follow.\n", cmd))
 	} else {
-		content = append(content, "Success, logs follow.\n")
+		content = append(content, fmt.Sprintf("Success running '%s', logs follow, if any.\n", cmd))
 	}
-	if len(stdout) != 0 {
+	if err == nil && len(stdout) != 0 {
 		content = append(content, "Normal output:\n")
 		content = append(content, stdout)
 	}
-	if len(stderr) != 0 {
+	if (rootConf.verbose || err != nil) && len(stderr) != 0 {
 		content = append(content, "Verbose output:\n")
 		content = append(content, stderr)
 	}
-	if err == nil {
-		return strings.Join(content, "\n"), nil
-	}
-	return "", fmt.Errorf(strings.Join(content, "\n"))
+	return strings.TrimSpace(strings.Join(content, "\n")), err
 }
