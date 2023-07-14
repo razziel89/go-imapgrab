@@ -56,15 +56,11 @@ func callWithArgs(
 // the path to go-imapgrab since we don't know it and don't want to hardcode it here. This function
 // contains very specific knowledge of which commands support which arguments.
 func runFromConf(
-	exe, cmd string,
-	rootConf rootConfigT,
-	downloadConf downloadConfigT,
-	serveConf serveConfigT,
+	exe, cmd string, rootConf rootConfigT, downloadConf downloadConfigT, serveConf serveConfigT,
 ) (string, error) {
-	content := []string{}
-
 	// Construct equivalent CLI arguments.
 	args := []string{
+		cmd,
 		// Always ignore keyring, we are using env vars instead to pass the password.
 		"--no-keyring",
 		"--server", rootConf.server,
@@ -101,23 +97,21 @@ func runFromConf(
 		stdin,
 	)
 
+	content := []string{}
 	if err != nil {
-		content = append(
-			content, fmt.Sprintf("Failure, errors follow.\n"),
-		)
+		content = append(content, "Failure, errors follow.\n")
 		content = append(content, err.Error())
 	} else {
-		content = append(content, fmt.Sprintf("Success, logs follow.\n"))
+		content = append(content, "Success, logs follow.\n")
 	}
 	if len(stdout) != 0 {
-		content = append(content, fmt.Sprintf("Stdout:\n"))
+		content = append(content, "Stdout:\n")
 		content = append(content, stdout)
 	}
 	if len(stderr) != 0 {
-		content = append(content, fmt.Sprintf("Stderr:\n"))
+		content = append(content, "Stderr:\n")
 		content = append(content, stderr)
 	}
-
 	if err == nil {
 		return strings.Join(content, "\n"), nil
 	}

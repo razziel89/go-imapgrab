@@ -34,7 +34,7 @@ const (
 	uiPort      = 8081
 )
 
-func getUICmd(keyring keyringOps, ops coreOps, newServer newServerFn) *cobra.Command {
+func getUICmd(keyring keyringOps, newServer newServerFn) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ui",
 		Long:  shortUIHelp + "\n\n" + typicalFlowHelp,
@@ -60,7 +60,7 @@ func newGwuServer(appName string, addr string) uiServer {
 	return gwu.NewServer(appName, addr)
 }
 
-var uiCmd = getUICmd(defaultKeyring, &corer{}, newGwuServer)
+var uiCmd = getUICmd(defaultKeyring, newGwuServer)
 
 func init() {
 	rootCmd.AddCommand(uiCmd)

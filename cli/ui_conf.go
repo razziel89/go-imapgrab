@@ -120,9 +120,9 @@ func (ui *uiConfigFile) saveToFileAndKeyring(keyring keyringOps) error {
 	if err == nil {
 		for _, mb := range ui.Mailboxes {
 			if err == nil && len(mb.password) != 0 {
-				// The password has been entered by the user or it is known, store it. Note that that
-				// means we will overwrite all existing passwords, too, but that is acceptablehere.
-				// Saving the config is a rare event.
+				// The password has been entered by the user or it is known, store it. Note that
+				// that means we will overwrite all existing passwords, too, but that is
+				// acceptablehere. Saving the config is a rare event.
 				err = addToKeyring(mb.asRootConf(false), mb.password, keyring)
 			}
 		}

@@ -109,7 +109,9 @@ func uiBuildMainWindow() gwu.Window {
 
 // Build text boxes to add a new mailbox entry, the button to trigger saving the thing, as well as
 // the general panel containing that.
-func uiBuildAddMailboxSection() (boxes uiNewMailboxDetailsTextboxes, saveButton gwu.Button, panel gwu.Panel) {
+func uiBuildAddMailboxSection() (
+	boxes uiNewMailboxDetailsTextboxes, saveButton gwu.Button, panel gwu.Panel,
+) {
 	panel = gwu.NewVerticalPanel()
 	panel.SetAlign(gwu.HARight, gwu.VADefault)
 	panel.SetCellPadding(uiCellPadding)
@@ -160,7 +162,9 @@ func uiBuildKnownMailboxesList() (gwu.ListBox, gwu.Panel) {
 }
 
 // Add buttons to act on selected mailboxes.
-func uiBuildMailboxActionButtons() (buttons uiActionButtons, verbose gwu.CheckBox, panel gwu.Panel) {
+func uiBuildMailboxActionButtons() (
+	buttons uiActionButtons, verbose gwu.CheckBox, panel gwu.Panel,
+) {
 	panel = gwu.NewVerticalPanel()
 	panel.SetCellPadding(uiCellPadding)
 
