@@ -105,11 +105,11 @@ func runFromConf(
 		content = append(content, "Success, logs follow.\n")
 	}
 	if len(stdout) != 0 {
-		content = append(content, "Stdout:\n")
+		content = append(content, "Normal output:\n")
 		content = append(content, stdout)
 	}
 	if len(stderr) != 0 {
-		content = append(content, "Stderr:\n")
+		content = append(content, "Verbose output:\n")
 		content = append(content, stderr)
 	}
 	if err == nil {

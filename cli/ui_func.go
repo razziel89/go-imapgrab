@@ -142,7 +142,7 @@ func uiHandlerList(ui *ui, _ requestUpdateFn) (string, error) {
 				*ui.config.asDownloadConf(box),
 				*ui.config.asServeConf(box),
 			)
-			outputs[box] = output
+			outputs[box] = fmt.Sprintf("Mailbox: %s\n%s\n%s", box, output, contentSep)
 			errs[box] = err
 			log.Printf("Done processing %s", box)
 			wg.Done()
