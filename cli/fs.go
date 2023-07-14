@@ -17,6 +17,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package main
 
+import (
+	"errors"
+	"os"
+)
+
 // Check whether a path exists.
 func exists(path string) bool {
 	_, err := os.Stat(path)
