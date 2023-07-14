@@ -88,6 +88,14 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 	boxes := ui.elements.newMailboxDetailsTextboxes
 	list := ui.elements.knownMailboxesList
 
+	folders := []string{}
+	for _, folder := range strings.Split(boxes.folders.Text(), ",") {
+		folder := strings.TrimSpace(folder)
+		if folder != "" {
+			folders = append(folders, folder)
+		}
+	}
+
 	port, _ := strconv.Atoi(strings.TrimSpace(boxes.port.Text()))
 	serverport, _ := strconv.Atoi(strings.TrimSpace(boxes.serverport.Text()))
 	mb := uiConfFileMailbox{
@@ -97,6 +105,7 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 		password:   strings.TrimSpace(boxes.password.Text()),
 		Port:       port,
 		Serverport: serverport,
+		Folders:    folders,
 	}
 
 	if mb.Name == "" ||
@@ -104,7 +113,8 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 		mb.Server == "" ||
 		mb.Port == 0 ||
 		mb.Serverport == 0 ||
-		mb.password == "" {
+		mb.password == "" ||
+		len(mb.Folders) == 0 {
 
 		return "", fmt.Errorf("error in input values, at least one value is empty or zero")
 	}
@@ -115,7 +125,8 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 
 	// Request refreshes for all components that were affeced by this handler.
 	for _, box := range []gwu.TextBox{
-		boxes.name, boxes.password, boxes.port, boxes.server, boxes.serverport, boxes.user,
+		boxes.name, boxes.password, boxes.port, boxes.server,
+		boxes.serverport, boxes.user, boxes.folders,
 	} {
 		box.SetText("")
 		update(box)
@@ -167,10 +178,12 @@ func uiHandlerEdit(ui *ui, update requestUpdateFn) (string, error) {
 	boxes.server.SetText(mb.Server)
 	boxes.serverport.SetText(fmt.Sprint(mb.Serverport))
 	boxes.user.SetText(mb.User)
+	boxes.folders.SetText(strings.Join(mb.Folders, ", "))
 
 	// Request refreshes for all components that were affeced by this handler.
 	for _, box := range []gwu.TextBox{
-		boxes.name, boxes.password, boxes.port, boxes.server, boxes.serverport, boxes.user,
+		boxes.name, boxes.password, boxes.port, boxes.server,
+		boxes.serverport, boxes.user, boxes.folders,
 	} {
 		update(box)
 	}

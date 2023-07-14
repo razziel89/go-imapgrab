@@ -26,9 +26,9 @@ const (
 	uiNummailboxes = 10
 	// Introductory text shown in the UI.
 	uiIntroduction = "This is a simple UI for go-imapgrab.\n\nEnter details for new/updated " +
-		"mailboxes in the text boxes at the top. Select which mailboxes to act upon in the list " +
-		"in the middle. Trigger actions on all selected mailboxes with the buttons on the right." +
-		" View logs at the very bottom. " +
+		"mailboxes in the text boxes at the top. Separate folders by commas. Select which " +
+		"mailboxes to act upon in the list in the middle. Trigger actions on all selected " +
+		"mailboxes with the buttons on the right. View logs at the very bottom. " +
 		"If you download something, it may take quite a while until you see any changes. " +
 		"The UI only refreshes once all actions have finished. " +
 		"Initial downloads are particularly slow and may even result in a timeout.\n"
@@ -51,6 +51,7 @@ type uiNewMailboxDetailsTextboxes struct {
 	port       gwu.TextBox
 	serverport gwu.TextBox
 	password   gwu.TextBox
+	folders    gwu.TextBox
 }
 
 type uiActionButtons struct {
@@ -139,6 +140,7 @@ func uiBuildAddMailboxSection() (
 		port:       newBox("Port"),
 		serverport: newBox("Serverport"),
 		password:   newBox("Password"),
+		folders:    newBox("Folders"),
 	}
 
 	saveButton = gwu.NewButton("Save")
