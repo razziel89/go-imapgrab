@@ -20,6 +20,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v2"
 )
@@ -37,19 +38,38 @@ type uiConfFileMailbox struct {
 	User       string
 	Port       int
 	Serverport int
+	Folders    []string
 	// Keep this member internal so that it cannot be serialised or deserialised. It shall never be
 	// written to a file but always retrieved from the keyring, if present.
 	password string
 }
 
-func (mbCfg *uiConfFileMailbox) asRootConf() rootConfigT {
+func (mbCfg *uiConfFileMailbox) asRootConf(verbose bool) rootConfigT {
 	return rootConfigT{
-		server:    mbCfg.Server,
-		port:      mbCfg.Port,
-		username:  mbCfg.User,
-		password:  mbCfg.password,
-		verbose:   false,
-		noKeyring: false,
+		server:   mbCfg.Server,
+		port:     mbCfg.Port,
+		username: mbCfg.User,
+		password: mbCfg.password,
+		verbose:  verbose,
+		// Never use the keyring this way.
+		noKeyring: true,
+	}
+}
+
+func (mbCfg *uiConfFileMailbox) asDownloadConf(rootPath string) downloadConfigT {
+	return downloadConfigT{
+		folders:        mbCfg.Folders,
+		path:           filepath.Join(rootPath, mbCfg.Name),
+		threads:        0,
+		timeoutSeconds: defaultTimeoutSeconds,
+	}
+}
+
+func (mbCfg *uiConfFileMailbox) asServeConf(rootPath string) serveConfigT {
+	return serveConfigT{
+		path:           filepath.Join(rootPath, mbCfg.Name),
+		serverPort:     mbCfg.Serverport,
+		timeoutSeconds: defaultTimeoutSeconds,
 	}
 }
 
@@ -103,7 +123,7 @@ func (ui *uiConfigFile) saveToFileAndKeyring(keyring keyringOps) error {
 				// The password has been entered by the user or it is known, store it. Note that that
 				// means we will overwrite all existing passwords, too, but that is acceptablehere.
 				// Saving the config is a rare event.
-				err = addToKeyring(mb.asRootConf(), mb.password, keyring)
+				err = addToKeyring(mb.asRootConf(false), mb.password, keyring)
 			}
 		}
 	}
@@ -111,4 +131,31 @@ func (ui *uiConfigFile) saveToFileAndKeyring(keyring keyringOps) error {
 		err = fmt.Errorf("failed to save config: %s", err.Error())
 	}
 	return err
+}
+
+func (ui *uiConfigFile) asRootConf(mailboxName string, verbose bool) *rootConfigT {
+	box := ui.boxByName(mailboxName)
+	if box == nil {
+		return nil
+	}
+	result := box.asRootConf(verbose)
+	return &result
+}
+
+func (ui *uiConfigFile) asDownloadConf(mailboxName string) *downloadConfigT {
+	box := ui.boxByName(mailboxName)
+	if box == nil {
+		return nil
+	}
+	result := box.asDownloadConf(ui.Path)
+	return &result
+}
+
+func (ui *uiConfigFile) asServeConf(mailboxName string) *serveConfigT {
+	box := ui.boxByName(mailboxName)
+	if box == nil {
+		return nil
+	}
+	result := box.asServeConf(ui.Path)
+	return &result
 }

@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"fmt"
 	"log"
 	"os/exec"
 	"strings"
@@ -49,4 +50,76 @@ func callWithArgs(
 	err := cmd.Run()
 
 	return stdout.String(), stderr.String(), err
+}
+
+// Call a specific command of the go-imapgrab executable based on a root config. We have to provide
+// the path to go-imapgrab since we don't know it and don't want to hardcode it here. This function
+// contains very specific knowledge of which commands support which arguments.
+func runFromConf(
+	exe, cmd string,
+	rootConf rootConfigT,
+	downloadConf downloadConfigT,
+	serveConf serveConfigT,
+) (string, error) {
+	content := []string{}
+
+	// Construct equivalent CLI arguments.
+	args := []string{
+		// Always ignore keyring, we are using env vars instead to pass the password.
+		"--no-keyring",
+		"--server", rootConf.server,
+		"--user", rootConf.username,
+		"--port", fmt.Sprint(rootConf.port),
+	}
+	if rootConf.verbose {
+		args = append(args, "--verbose")
+	}
+	stdin := ""
+	switch cmd {
+	case "list":
+		// No additional arguments have to be specified.
+	case "serve":
+		args = append(args, []string{"--server-port", fmt.Sprint(serveConf.serverPort)}...)
+		args = append(args, []string{"--path", serveConf.path}...)
+		log.Fatal("cannot yet serve, don't know how to shut down", args)
+	case "download":
+		for _, folder := range downloadConf.folders {
+			args = append(args, []string{"--folder", folder}...)
+		}
+		args = append(args, []string{"--path", downloadConf.path}...)
+	case "login":
+		// When calling login, the password has to be provided via stdin for now.
+		stdin = rootConf.password
+	default:
+		return "", fmt.Errorf("unknown command %s", cmd)
+	}
+
+	stdout, stderr, err := callWithArgs(
+		exe,
+		args,
+		[]string{fmt.Sprintf("%s=%s", passwdEnvVar, rootConf.password)},
+		stdin,
+	)
+
+	if err != nil {
+		content = append(
+			content, fmt.Sprintf("Failure, errors follow.\n"),
+		)
+		content = append(content, err.Error())
+	} else {
+		content = append(content, fmt.Sprintf("Success, logs follow.\n"))
+	}
+	if len(stdout) != 0 {
+		content = append(content, fmt.Sprintf("Stdout:\n"))
+		content = append(content, stdout)
+	}
+	if len(stderr) != 0 {
+		content = append(content, fmt.Sprintf("Stderr:\n"))
+		content = append(content, stderr)
+	}
+
+	if err == nil {
+		return strings.Join(content, "\n"), nil
+	}
+	return "", fmt.Errorf(strings.Join(content, "\n"))
 }

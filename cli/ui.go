@@ -96,6 +96,7 @@ type ui struct {
 
 	keyring keyringOps
 	mutex   sync.Mutex
+	selfExe string
 }
 
 func newUI(cfgFilePath string, keyring keyringOps) (*ui, error) {
@@ -114,7 +115,7 @@ func newUI(cfgFilePath string, keyring keyringOps) (*ui, error) {
 			// Ignore errors, e.g. because some credentials could not be found. This is not optimal
 			// but at this point we just want to get the UI started and all available passwords
 			// loaded.
-			password, _ := retrieveFromKeyring(mb.asRootConf(), keyring)
+			password, _ := retrieveFromKeyring(mb.asRootConf(false), keyring)
 			mb.password = password
 		}
 	}
@@ -130,6 +131,9 @@ func newUI(cfgFilePath string, keyring keyringOps) (*ui, error) {
 		elements: uiBuild(),
 		config:   uiConf,
 		keyring:  keyring,
+		// Assume that the first value on os.Args is always the path to ourselves. That is almost
+		// always true.
+		selfExe: os.Args[0],
 	}, err
 }
 

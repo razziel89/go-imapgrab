@@ -18,8 +18,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/icza/gowut/gwu"
 )
@@ -30,14 +34,16 @@ const (
 )
 
 func uiFunctionalise(ui *ui) error {
-	_ = callWithArgs
+	// Pre-populate elements.
+	ui.elements.knownMailboxesList.SetValues(ui.config.knownMailboxes())
 
+	// Create a function that can be used to easily show output to the user.
 	reportFn := func(event gwu.Event, action, str string, err error) {
 		ui.elements.reportLabel.Style().SetBackground(gwu.ClrWhite)
 
 		var text string
 		if err != nil {
-			text = fmt.Sprintf("ERROR executing action '%s':\n\n%s\n\n", action, err.Error())
+			text = fmt.Sprintf("ERROR executing action '%s':\n%s\n\n", action, err.Error())
 			// In case of errors, colour the background red to make that clear.
 			ui.elements.reportLabel.Style().SetBackground(gwu.ClrRed)
 		}
@@ -63,6 +69,7 @@ func uiAddButtonHandler(
 ) {
 	button.AddEHandlerFunc(
 		func(event gwu.Event) {
+			// Make sure that no two handlers will ever be called at the same time.
 			ui.mutex.Lock()
 			defer ui.mutex.Unlock()
 
@@ -73,17 +80,19 @@ func uiAddButtonHandler(
 	)
 }
 
+// Handler functions follow.
+
 func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 	boxes := ui.elements.newMailboxDetailsTextboxes
 	list := ui.elements.knownMailboxesList
 
-	port, _ := strconv.Atoi(boxes.port.Text())
-	serverport, _ := strconv.Atoi(boxes.serverport.Text())
+	port, _ := strconv.Atoi(strings.TrimSpace(boxes.port.Text()))
+	serverport, _ := strconv.Atoi(strings.TrimSpace(boxes.serverport.Text()))
 	mb := uiConfFileMailbox{
-		Name:       boxes.name.Text(),
-		User:       boxes.user.Text(),
-		Server:     boxes.server.Text(),
-		password:   boxes.password.Text(),
+		Name:       strings.TrimSpace(boxes.name.Text()),
+		User:       strings.TrimSpace(boxes.user.Text()),
+		Server:     strings.TrimSpace(boxes.server.Text()),
+		password:   strings.TrimSpace(boxes.password.Text()),
 		Port:       port,
 		Serverport: serverport,
 	}
@@ -115,6 +124,41 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 	return "Config successfully saved!", nil
 }
 
+func uiHandlerList(ui *ui, _ requestUpdateFn) (string, error) {
+	selectedBoxes := ui.elements.knownMailboxesList.SelectedValues()
+
+	errs := map[string]error{}
+	outputs := map[string]string{}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(selectedBoxes))
+	for _, box := range selectedBoxes {
+		go func() {
+			output, err := runFromConf(
+				ui.selfExe, "list",
+				*ui.config.asRootConf(box, ui.elements.verboseCheckbox.State()),
+				*ui.config.asDownloadConf(box),
+				*ui.config.asServeConf(box),
+			)
+			outputs[box] = output
+			errs[box] = err
+			log.Printf("Done processing %s", box)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	log.Printf("Done processing all: list")
+
+	var err error
+	results := []string{contentSep}
+	for _, box := range selectedBoxes {
+		results = append(results, outputs[box])
+		err = errors.Join(err, errs[box])
+	}
+
+	return strings.Join(results, "\n"), err
+}
+
 // func runUI(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps, pathToBin string) error {
 //     saveHandler := saveCfgEventHandler{
 //         cfg:         cfg,
@@ -128,7 +172,7 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 //     panel.Add(reportLabel)
 //     win.Add(panel)
 //
-//     // List of known mailboxes where boxes to act upon can be selected.
+//     // List of known mailboxes where boxes to act upon can be selectedBoxes.
 //     panel = gwu.NewHorizontalPanel()
 //     panel.SetCellPadding(5)
 //     panel.Style().SetBorder2(1, gwu.BrdStyleSolid, gwu.ClrBlack)
@@ -146,7 +190,7 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 //     }
 //     updateList(nil)
 //     saveHandler.updates = append(saveHandler.updates, updateList)
-//     // Update an internal data structure that will always know which mailboxes are selected. That
+//     // Update an internal data structure that will always know which mailboxes are selectedBoxes. That
 //     // way, we don't have to update it for every button that does something but we can just assume
 //     // it's there and up to date.
 //     selectedBoxes := []*uiMailboxConf{}
@@ -158,14 +202,14 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 //             }
 //         }
 //         selectedBoxes = newBoxes
-//         log.Printf("selected: %v", selectedBoxes) // TODO: remove
+//         log.Printf("selectedBoxes: %v", selectedBoxes) // TODO: remove
 //         event.MarkDirty(listBox)
 //     }, gwu.ETypeChange)
 //     panel.Add(listBox)
 //     vertPanel := gwu.NewVerticalPanel()
 //     vertPanel.SetCellPadding(5)
 //
-//     // Add buttons to act on selected mailboxes.
+//     // Add buttons to act on selectedBoxes mailboxes.
 //     reportLabel = gwu.NewLabel("")
 //     reportLabel.Style().SetWhiteSpace(gwu.WhiteSpacePreLine)
 //
@@ -174,7 +218,7 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 //
 //     for _, buttonName := range []string{"Login", "List", "Download", "Serve"} {
 //         buttonName := buttonName
-//         button := gwu.NewButton(buttonName + " Selected")
+//         button := gwu.NewButton(buttonName + " selectedBoxes")
 //         handler := func(event gwu.Event) {
 //             allContent := map[string]string{}
 //             wg := sync.WaitGroup{}

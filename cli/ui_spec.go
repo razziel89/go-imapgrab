@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	uiCellPadding = 5
+	uiCellPadding  = 5
+	uiNummailboxes = 10
 	// Introductory text shown in the UI.
 	uiIntroduction = "This is a simple UI for go-imapgrab.\nEnter details for new mailboxes in " +
 		"the text boxes at the top.\nSelect which mailboxes to act upon in the list in the " +
@@ -151,6 +152,7 @@ func uiBuildKnownMailboxesList() (gwu.ListBox, gwu.Panel) {
 	panel.Add(gwu.NewLabel("All known mailboxes:"))
 
 	listBox := gwu.NewListBox(nil)
+	listBox.SetRows(uiNummailboxes)
 	listBox.SetMulti(true)
 
 	panel.Add(listBox)
