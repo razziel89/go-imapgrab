@@ -34,12 +34,13 @@ const (
 )
 
 // Contains all the components of the UI that are needed to provide functionality later on.
-type ui struct {
+type uiElements struct {
 	newMailboxDetailsTextboxes uiNewMailboxDetailsTextboxes
 	actionButtons              uiActionButtons
 	knownMailboxesList         gwu.ListBox
 	verboseCheckbox            gwu.CheckBox
-	window gwu.Window
+	reportLabel                gwu.Label
+	window                     gwu.Window
 }
 
 type uiNewMailboxDetailsTextboxes struct {
@@ -60,7 +61,7 @@ type uiActionButtons struct {
 }
 
 // Build the UI, excluding any and all functionality.
-func uiBuild() ui {
+func uiBuild() uiElements {
 	window := uiBuildMainWindow()
 	newMailboxDetailsTextboxes, saveNewMailboxButton, newMailboxPanel := uiBuildAddMailboxSection()
 	knownMailboxesList, knownMailboxesPanel := uiBuildKnownMailboxesList()
@@ -78,8 +79,9 @@ func uiBuild() ui {
 	window.Add(knownMailboxesPanel)
 	window.Add(reportLabel)
 
-	return ui{
-		window: window,
+	return uiElements{
+		window:                     window,
+		reportLabel:                reportLabel,
 		newMailboxDetailsTextboxes: newMailboxDetailsTextboxes,
 		actionButtons:              actionButtons,
 		knownMailboxesList:         knownMailboxesList,
