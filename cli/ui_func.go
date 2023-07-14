@@ -17,52 +17,105 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package main
 
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/icza/gowut/gwu"
+)
+
 const (
 	contentSep = "============================="
+	filePerms  = 0644
 )
 
 func uiFunctionalise(ui *ui) error {
-	_ = ui
 	_ = callWithArgs
+
+	reportFn := func(event gwu.Event, action, str string, err error) {
+		ui.elements.reportLabel.Style().SetBackground(gwu.ClrWhite)
+
+		var text string
+		if err != nil {
+			text = fmt.Sprintf("ERROR executing action '%s':\n\n%s\n\n", action, err.Error())
+			// In case of errors, colour the background red to make that clear.
+			ui.elements.reportLabel.Style().SetBackground(gwu.ClrRed)
+		}
+		text += str
+
+		ui.elements.reportLabel.SetText(text)
+		event.MarkDirty(ui.elements.reportLabel)
+	}
+
+	uiAddButtonHandler(ui.elements.actionButtons.save, reportFn, ui, uiHandlerSave)
 
 	return nil
 }
 
+type requestUpdateFn func(gwu.Comp)
+
+type reportFn func(gwu.Event, string, string, error)
+
+type uiButtomHandlerFn func(*ui, requestUpdateFn) (string, error)
+
+func uiAddButtonHandler(
+	button gwu.Button, report reportFn, ui *ui, handler uiButtomHandlerFn,
+) {
+	button.AddEHandlerFunc(
+		func(event gwu.Event) {
+			ui.mutex.Lock()
+			defer ui.mutex.Unlock()
+
+			str, err := handler(ui, func(comp gwu.Comp) { event.MarkDirty(comp) })
+			report(event, button.Text(), str, err)
+		},
+		gwu.ETypeClick,
+	)
+}
+
+func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
+	boxes := ui.elements.newMailboxDetailsTextboxes
+	list := ui.elements.knownMailboxesList
+
+	port, _ := strconv.Atoi(boxes.port.Text())
+	serverport, _ := strconv.Atoi(boxes.serverport.Text())
+	mb := uiConfFileMailbox{
+		Name:       boxes.name.Text(),
+		User:       boxes.user.Text(),
+		Server:     boxes.server.Text(),
+		password:   boxes.password.Text(),
+		Port:       port,
+		Serverport: serverport,
+	}
+
+	if mb.Name == "" ||
+		mb.User == "" ||
+		mb.Server == "" ||
+		mb.Port == 0 ||
+		mb.Serverport == 0 ||
+		mb.password == "" {
+
+		return "", fmt.Errorf("error in input values, at least one value is empty or zero")
+	}
+	ui.config.upsertMailbox(mb)
+	if err := ui.config.saveToFileAndKeyring(ui.keyring); err != nil {
+		return "", err
+	}
+
+	// Request refreshes for all components that were affeced by this handler.
+	for _, box := range []gwu.TextBox{
+		boxes.name, boxes.password, boxes.port, boxes.server, boxes.serverport, boxes.user,
+	} {
+		box.SetText("")
+		update(box)
+	}
+	list.SetValues(ui.config.knownMailboxes())
+	update(list)
+
+	return "Config successfully saved!", nil
+}
+
 // func runUI(cfg *uiConf, cfgPath string, _ coreOps, keyring keyringOps, pathToBin string) error {
-//     win := gwu.NewWindow("main", "go-imapgrab-ui")
-//
-//     // Define some style elements.
-//     win.Style().SetWidth("80%")
-//     win.SetCellPadding(uiCellPadding)
-//
-//     panel := gwu.NewVerticalPanel()
-//     panel.Style().SetWidth("80%")
-//     panel.Style().SetWhiteSpace(gwu.WhiteSpacePreLine)
-//     panel.Add(gwu.NewLabel(uiIntroduction))
-//     win.Add(panel)
-//
-//     // Text boxes to add a new entry.
-//     panel = gwu.NewVerticalPanel()
-//     panel.SetAlign(gwu.HARight, gwu.VADefault)
-//     panel.SetCellPadding(5)
-//     panel.Style().SetBorder2(1, gwu.BrdStyleSolid, gwu.ClrBlack)
-//     panel.Style().SetMargin("20px")
-//     panel.Add(gwu.NewLabel("Enter details for new mailbox below:"))
-//     boxes := map[string]gwu.TextBox{}
-//     for _, name := range []string{"Name", "Server", "User", "Port", "Serverport", "Password"} {
-//         horPanel := gwu.NewHorizontalPanel()
-//         horPanel.SetAlign(gwu.HALeft, gwu.VAMiddle)
-//         label := gwu.NewLabel(name + ":")
-//         box := gwu.NewTextBox("")
-//         box.AddSyncOnETypes(gwu.ETypeKeyUp)
-//         horPanel.Add(label)
-//         horPanel.Add(box)
-//         panel.Add(horPanel)
-//         boxes[name] = box
-//     }
-//     reportLabel := gwu.NewLabel("")
-//     reportLabel.Style().SetWhiteSpace(gwu.WhiteSpacePreLine)
-//     btn := gwu.NewButton("Save")
 //     saveHandler := saveCfgEventHandler{
 //         cfg:         cfg,
 //         boxes:       boxes,
