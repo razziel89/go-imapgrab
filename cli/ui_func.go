@@ -18,12 +18,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/icza/gowut/gwu"
 )
@@ -31,6 +32,7 @@ import (
 const (
 	contentSep = "============================="
 	filePerms  = 0644
+	uiTimeout  = 5 * time.Minute
 )
 
 func uiFunctionalise(ui *ui) error {
@@ -51,9 +53,11 @@ func uiFunctionalise(ui *ui) error {
 
 	buttons := ui.elements.actionButtons
 	uiAddButtonHandler(buttons.save, reportFn, ui, uiHandlerSave)
-	uiAddButtonHandler(buttons.login, reportFn, ui, getGenericUIButtonHandler("login"))
-	uiAddButtonHandler(buttons.list, reportFn, ui, getGenericUIButtonHandler("list"))
-	uiAddButtonHandler(buttons.download, reportFn, ui, getGenericUIButtonHandler("download"))
+	uiAddButtonHandler(buttons.login, reportFn, ui, getGenericUIButtonHandler("login", uiTimeout))
+	uiAddButtonHandler(buttons.list, reportFn, ui, getGenericUIButtonHandler("list", uiTimeout))
+	uiAddButtonHandler(
+		buttons.download, reportFn, ui, getGenericUIButtonHandler("download", uiTimeout),
+	)
 	uiAddButtonHandler(buttons.edit, reportFn, ui, uiHandlerEdit)
 	uiAddButtonHandler(buttons.delete, reportFn, ui, uiHandlerDelete)
 
@@ -191,40 +195,53 @@ func uiHandlerEdit(ui *ui, update requestUpdateFn) (string, error) {
 	return "Mailbox data loaded successfully!", nil
 }
 
-func getGenericUIButtonHandler(actionName string) uiButtomHandlerFn {
+func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButtomHandlerFn {
 	return func(ui *ui, _ requestUpdateFn) (string, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
 		selectedBoxes := ui.elements.knownMailboxesList.SelectedValues()
 
-		errs := map[string]error{}
-		outputs := map[string]string{}
+		errs := []error{}
+		outputs := []string{contentSep}
+		addFns := []func(){}
 
-		wg := sync.WaitGroup{}
-		wg.Add(len(selectedBoxes))
 		for _, box := range selectedBoxes {
+			// Avoid loop variable weirdness.
 			box := box
-			go func() {
-				output, err := runFromConf(
-					ui.selfExe, actionName,
-					*ui.config.asRootConf(box, ui.elements.verboseCheckbox.State()),
-					*ui.config.asDownloadConf(box),
-					*ui.config.asServeConf(box),
+
+			root := ui.config.asRootConf(box, ui.elements.verboseCheckbox.State())
+			download := ui.config.asDownloadConf(box)
+			serve := ui.config.asServeConf(box)
+			if root == nil || download == nil || serve == nil {
+				log.Printf("skipping %s for unknown mailbox %s", actionName, box)
+				continue
+			}
+
+			args, err := runCmdArgsFromConfs(actionName, ui.selfExe, *root, *download, *serve)
+			if err != nil {
+				return "", fmt.Errorf(
+					"internal error, the command should be known: %s", err.Error(),
 				)
-				outputs[box] = fmt.Sprintf("Mailbox: %s\n%s\n%s", box, output, contentSep)
-				errs[box] = err
+			}
+			outputFn := runFromConfAsync(ctx, args)
+
+			addFn := func() {
+				output, err := outputFn()
+				outputs = append(
+					outputs, fmt.Sprintf("Mailbox: %s\n%s\n%s", box, output, contentSep),
+				)
+				errs = append(errs, err)
 				log.Printf("Done processing %s", box)
-				wg.Done()
-			}()
+			}
+			addFns = append(addFns, addFn)
 		}
-		wg.Wait()
+
+		for _, fn := range addFns {
+			fn()
+		}
 		log.Printf("Done processing all: %s", actionName)
 
-		var err error
-		results := []string{contentSep}
-		for _, box := range selectedBoxes {
-			results = append(results, outputs[box])
-			err = errors.Join(err, errs[box])
-		}
-
-		return strings.Join(results, "\n"), err
+		return strings.Join(outputs, "\n"), errors.Join(errs...)
 	}
 }
