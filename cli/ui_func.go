@@ -30,9 +30,10 @@ import (
 )
 
 const (
-	contentSep = "============================="
-	filePerms  = 0644
-	uiTimeout  = 1 * time.Minute
+	contentSep  = "============================="
+	filePerms   = 0644
+	uiTimeout   = 1 * time.Minute
+	actionServe = "serve"
 )
 
 func uiFunctionalise(ui *ui) error {
@@ -60,6 +61,10 @@ func uiFunctionalise(ui *ui) error {
 	)
 	uiAddButtonHandler(buttons.edit, reportFn, ui, uiHandlerEdit)
 	uiAddButtonHandler(buttons.delete, reportFn, ui, uiHandlerDelete)
+	uiAddButtonHandler(
+		buttons.serve, reportFn, ui,
+		getUIHandlerServe("Serve Selected", "Stop Serving All", gwu.ClrBlack, gwu.ClrRed),
+	)
 
 	return nil
 }
@@ -68,10 +73,10 @@ type requestUpdateFn func(gwu.Comp)
 
 type reportFn func(gwu.Event, string, string, error)
 
-type uiButtomHandlerFn func(*ui, requestUpdateFn) (string, error)
+type uiButtonHandlerFn func(*ui, requestUpdateFn) (string, error)
 
 func uiAddButtonHandler(
-	button gwu.Button, report reportFn, ui *ui, handler uiButtomHandlerFn,
+	button gwu.Button, report reportFn, ui *ui, handler uiButtonHandlerFn,
 ) {
 	button.AddEHandlerFunc(
 		func(event gwu.Event) {
@@ -195,7 +200,7 @@ func uiHandlerEdit(ui *ui, update requestUpdateFn) (string, error) {
 	return "Mailbox data loaded successfully!", nil
 }
 
-func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButtomHandlerFn {
+func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButtonHandlerFn {
 	return func(ui *ui, _ requestUpdateFn) (string, error) {
 		selectedBoxes := ui.elements.knownMailboxesList.SelectedValues()
 
@@ -248,5 +253,73 @@ func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButto
 		}
 
 		return strings.Join(outputs, "\n"), errors.Join(err, errors.Join(errs...))
+	}
+}
+
+func getUIHandlerServe(
+	serveText, unserveText, serveColour, unserveColour string,
+) uiButtonHandlerFn {
+	var errs []error
+	var outputs []string
+	var addFns []func()
+	var ctx context.Context
+	var cancel context.CancelFunc
+	// At the beginning, assume we will be serving. Shut down processes if false.
+	doServe := true
+
+	return func(ui *ui, update requestUpdateFn) (string, error) {
+		defer update(ui.elements.actionButtons.serve)
+		if !doServe {
+			cancel()
+			for _, fn := range addFns {
+				fn()
+			}
+			ui.elements.actionButtons.serve.SetText(serveText)
+			ui.elements.actionButtons.serve.Style().SetColor(serveColour)
+			doServe = true
+			return "Stopped serving, please ignore errors.\n" + strings.Join(
+					outputs,
+					"\n",
+				), errors.Join(
+					errs...)
+		}
+
+		// Serve mailboxes. Initialise some variables.
+		errs = []error{}
+		outputs = []string{}
+		addFns = []func(){}
+		ctx, cancel = context.WithCancel(context.Background())
+
+		for _, box := range ui.elements.knownMailboxesList.SelectedValues() {
+			box := box
+
+			root := ui.config.asRootConf(box, ui.elements.verboseCheckbox.State())
+			download := ui.config.asDownloadConf(box)
+			serve := ui.config.asServeConf(box)
+			if root == nil || download == nil || serve == nil {
+				log.Printf("skipping serve for unknown mailbox %s", box)
+				continue
+			}
+			args, err := newRunSelfConf(ui.selfExe, actionServe, *root, *download, *serve)
+			if err != nil {
+				cancel()
+				err = fmt.Errorf("internal error while preparing to call self: %s", err.Error())
+				return "", err
+			}
+			outputFn := runExeAsync(ctx, args)
+
+			addFn := func() {
+				output, err := outputFn()
+				outputs = append(
+					outputs, fmt.Sprintf("Mailbox: %s\n%s\n%s", box, output, contentSep),
+				)
+				errs = append(errs, err)
+			}
+			addFns = append(addFns, addFn)
+		}
+		ui.elements.actionButtons.serve.SetText(unserveText)
+		ui.elements.actionButtons.serve.Style().SetColor(unserveColour)
+		doServe = false
+		return fmt.Sprintf("Serving %d mailboxes.", len(addFns)), nil
 	}
 }
