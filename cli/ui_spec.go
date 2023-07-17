@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	uiCellPadding  = 5
+	uiCellPadding  = 3
 	uiNummailboxes = 10
 	// Introductory text shown in the UI.
 	uiIntroduction = "This is a simple UI for go-imapgrab.\n\nEnter details for new/updated " +
@@ -56,6 +56,7 @@ type uiNewMailboxDetailsTextboxes struct {
 
 type uiActionButtons struct {
 	save     gwu.Button
+	clear    gwu.Button
 	login    gwu.Button
 	list     gwu.Button
 	download gwu.Button
@@ -67,7 +68,7 @@ type uiActionButtons struct {
 // Build the UI, excluding any and all functionality.
 func uiBuild() uiElements {
 	window := uiBuildMainWindow()
-	newMailboxDetailsTextboxes, saveNewMailboxButton, newMailboxPanel := uiBuildAddMailboxSection()
+	newMailboxTextboxes, saveNewMailbox, clearBoxes, newMailboxPanel := uiBuildAddMailboxSection()
 	knownMailboxesList, knownMailboxesPanel := uiBuildKnownMailboxesList()
 	actionButtons, verboseCheckbox, actionButtonsPanel := uiBuildMailboxActionButtons()
 	reportLabel := uiBuildReportLabel()
@@ -76,7 +77,8 @@ func uiBuild() uiElements {
 	knownMailboxesPanel.Add(actionButtonsPanel)
 
 	// Add the save button separately.
-	actionButtons.save = saveNewMailboxButton
+	actionButtons.save = saveNewMailbox
+	actionButtons.clear = clearBoxes
 
 	// Add everything to the main window in the correct order.
 	window.Add(newMailboxPanel)
@@ -86,7 +88,7 @@ func uiBuild() uiElements {
 	return uiElements{
 		window:                     window,
 		reportLabel:                reportLabel,
-		newMailboxDetailsTextboxes: newMailboxDetailsTextboxes,
+		newMailboxDetailsTextboxes: newMailboxTextboxes,
 		actionButtons:              actionButtons,
 		knownMailboxesList:         knownMailboxesList,
 		verboseCheckbox:            verboseCheckbox,
@@ -97,7 +99,6 @@ func uiBuildMainWindow() gwu.Window {
 	window := gwu.NewWindow("main", "go-imapgrab-ui")
 	// Define some style elements for the window.
 	window.Style().SetWidth("80%")
-	window.SetCellPadding(uiCellPadding)
 
 	// The introductory text, which is an integral part of the window. Without it, it would not be
 	// clear how to use the UI.
@@ -113,7 +114,7 @@ func uiBuildMainWindow() gwu.Window {
 // Build text boxes to add a new mailbox entry, the button to trigger saving the thing, as well as
 // the general panel containing that.
 func uiBuildAddMailboxSection() (
-	boxes uiNewMailboxDetailsTextboxes, saveButton gwu.Button, panel gwu.Panel,
+	boxes uiNewMailboxDetailsTextboxes, saveButton, clearButton gwu.Button, panel gwu.Panel,
 ) {
 	panel = gwu.NewVerticalPanel()
 	panel.SetAlign(gwu.HARight, gwu.VADefault)
@@ -143,10 +144,15 @@ func uiBuildAddMailboxSection() (
 		folders:    newBox("Folders"),
 	}
 
+	horPanel := gwu.NewHorizontalPanel()
+	horPanel.SetCellPadding(uiCellPadding)
 	saveButton = gwu.NewButton("Save")
-	panel.Add(saveButton)
+	horPanel.Add(saveButton)
+	clearButton = gwu.NewButton("Clear")
+	horPanel.Add(clearButton)
+	panel.Add(horPanel)
 
-	return boxes, saveButton, panel
+	return boxes, saveButton, clearButton, panel
 }
 
 // List of known mailboxes where boxes to act upon can be selected.
@@ -155,7 +161,7 @@ func uiBuildKnownMailboxesList() (gwu.ListBox, gwu.Panel) {
 	panel.SetCellPadding(uiCellPadding)
 	panel.Style().SetBorder2(1, gwu.BrdStyleSolid, gwu.ClrBlack)
 	panel.Style().SetMargin("20px")
-	panel.Add(gwu.NewLabel("All known mailboxes:"))
+	panel.Add(gwu.NewLabel("Mailboxes:"))
 
 	listBox := gwu.NewListBox(nil)
 	listBox.SetRows(uiNummailboxes)
@@ -190,7 +196,8 @@ func uiBuildMailboxActionButtons() (
 		delete:   newButton("Delete"),
 		// Will be set externally since it is not part of this panel. This is a bit hacky but I
 		// wanted to combine all the buttons in one type.
-		save: nil,
+		save:  nil,
+		clear: nil,
 	}
 
 	return buttons, verbose, panel

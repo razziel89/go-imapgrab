@@ -54,6 +54,7 @@ func uiFunctionalise(ui *ui) error {
 
 	buttons := ui.elements.actionButtons
 	uiAddButtonHandler(buttons.save, reportFn, ui, uiHandlerSave)
+	uiAddButtonHandler(buttons.clear, reportFn, ui, uiHandlerClear)
 	uiAddButtonHandler(buttons.login, reportFn, ui, getGenericUIButtonHandler("login", uiTimeout))
 	uiAddButtonHandler(buttons.list, reportFn, ui, getGenericUIButtonHandler("list", uiTimeout))
 	uiAddButtonHandler(
@@ -63,7 +64,7 @@ func uiFunctionalise(ui *ui) error {
 	uiAddButtonHandler(buttons.delete, reportFn, ui, uiHandlerDelete)
 	uiAddButtonHandler(
 		buttons.serve, reportFn, ui,
-		getUIHandlerServe("Serve Selected", "Stop Serving All", gwu.ClrBlack, gwu.ClrRed),
+		getUIHandlerServe(ui, "Serve Selected", "Stop Serving All", gwu.ClrBlack, gwu.ClrRed),
 	)
 
 	return nil
@@ -144,6 +145,21 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 	update(list)
 
 	return "Mailbox successfully saved!", nil
+}
+
+func uiHandlerClear(ui *ui, update requestUpdateFn) (string, error) {
+	boxes := ui.elements.newMailboxDetailsTextboxes
+
+	// Request refreshes for all components that were affeced by this handler.
+	for _, box := range []gwu.TextBox{
+		boxes.name, boxes.password, boxes.port, boxes.server,
+		boxes.serverport, boxes.user, boxes.folders,
+	} {
+		box.SetText("")
+		update(box)
+	}
+
+	return "Textboxes successfully cleared!", nil
 }
 
 func uiHandlerDelete(ui *ui, update requestUpdateFn) (string, error) {
@@ -257,11 +273,12 @@ func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButto
 }
 
 func getUIHandlerServe(
-	serveText, unserveText, serveColour, unserveColour string,
+	outerUI *ui, serveText, unserveText, serveColour, unserveColour string,
 ) uiButtonHandlerFn {
-	var errs []error
-	var outputs []string
-	var addFns []func()
+	outerUI.elements.actionButtons.serve.SetText(serveText)
+	outerUI.elements.actionButtons.serve.Style().SetColor(serveColour)
+	// The below function closes over these variables, which lets us avoid globals.
+	var outputFns []func() (string, error)
 	var ctx context.Context
 	var cancel context.CancelFunc
 	// At the beginning, assume we will be serving. Shut down processes if false.
@@ -271,24 +288,20 @@ func getUIHandlerServe(
 		defer update(ui.elements.actionButtons.serve)
 		if !doServe {
 			cancel()
-			for _, fn := range addFns {
-				fn()
+			for _, fn := range outputFns {
+				// Always ignore returns here as it will only show that the binary was killed.
+				_, _ = fn()
 			}
 			ui.elements.actionButtons.serve.SetText(serveText)
 			ui.elements.actionButtons.serve.Style().SetColor(serveColour)
 			doServe = true
-			return "Stopped serving, please ignore errors.\n" + strings.Join(
-					outputs,
-					"\n",
-				), errors.Join(
-					errs...)
+			return "Stopped serving.", nil
 		}
 
 		// Serve mailboxes. Initialise some variables.
-		errs = []error{}
-		outputs = []string{}
-		addFns = []func(){}
+		outputFns = []func() (string, error){}
 		ctx, cancel = context.WithCancel(context.Background())
+		what := []string{}
 
 		for _, box := range ui.elements.knownMailboxesList.SelectedValues() {
 			box := box
@@ -306,20 +319,18 @@ func getUIHandlerServe(
 				err = fmt.Errorf("internal error while preparing to call self: %s", err.Error())
 				return "", err
 			}
-			outputFn := runExeAsync(ctx, args)
 
-			addFn := func() {
-				output, err := outputFn()
-				outputs = append(
-					outputs, fmt.Sprintf("Mailbox: %s\n%s\n%s", box, output, contentSep),
-				)
-				errs = append(errs, err)
-			}
-			addFns = append(addFns, addFn)
+			outputFns = append(outputFns, runExeAsync(ctx, args))
+			what = append(what, fmt.Sprintf("port %d: %s", serve.serverPort, box))
 		}
 		ui.elements.actionButtons.serve.SetText(unserveText)
 		ui.elements.actionButtons.serve.Style().SetColor(unserveColour)
 		doServe = false
-		return fmt.Sprintf("Serving %d mailboxes.", len(addFns)), nil
+
+		return fmt.Sprintf(
+			"Serving %d mailboxes:\n%s",
+			len(outputFns),
+			strings.Join(what, "\n"),
+		), nil
 	}
 }
