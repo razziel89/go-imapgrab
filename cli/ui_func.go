@@ -32,7 +32,7 @@ import (
 const (
 	contentSep = "============================="
 	filePerms  = 0644
-	uiTimeout  = 5 * time.Minute
+	uiTimeout  = 1 * time.Minute
 )
 
 func uiFunctionalise(ui *ui) error {
@@ -197,14 +197,14 @@ func uiHandlerEdit(ui *ui, update requestUpdateFn) (string, error) {
 
 func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButtomHandlerFn {
 	return func(ui *ui, _ requestUpdateFn) (string, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-
 		selectedBoxes := ui.elements.knownMailboxesList.SelectedValues()
 
 		errs := []error{}
 		outputs := []string{contentSep}
 		addFns := []func(){}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
 
 		for _, box := range selectedBoxes {
 			// Avoid loop variable weirdness.
@@ -218,13 +218,13 @@ func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButto
 				continue
 			}
 
-			args, err := runCmdArgsFromConfs(actionName, ui.selfExe, *root, *download, *serve)
+			args, err := newRunSelfConf(ui.selfExe, actionName, *root, *download, *serve)
 			if err != nil {
 				return "", fmt.Errorf(
-					"internal error, the command should be known: %s", err.Error(),
+					"internal error while preparing to call self: %s", err.Error(),
 				)
 			}
-			outputFn := runFromConfAsync(ctx, args)
+			outputFn := runExeAsync(ctx, args)
 
 			addFn := func() {
 				output, err := outputFn()
@@ -242,6 +242,11 @@ func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButto
 		}
 		log.Printf("Done processing all: %s", actionName)
 
-		return strings.Join(outputs, "\n"), errors.Join(errs...)
+		var err error
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			err = fmt.Errorf("command not completed, timeout of %s reached", uiTimeout)
+		}
+
+		return strings.Join(outputs, "\n"), errors.Join(err, errors.Join(errs...))
 	}
 }

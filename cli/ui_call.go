@@ -25,20 +25,23 @@ import (
 	"strings"
 )
 
-// Call an executable with arguments and return stdout and stderr. Specify the command via
-// "cmdName"", the arguments via "args", additional environment variables in the form "key=value"
-// via "env", and standard input via "stdin".
-func callWithArgs(
-	ctx context.Context,
-	cmdName string,
-	args []string,
-	env []string,
-	stdin string,
-) (string, string, error) {
-	fullCmd := fmt.Sprintf("%s %s", cmdName, strings.Join(quote(args), " "))
-	log.Println("Running command:", fullCmd)
+type runExeResult struct {
+	prettyCmd string
+	stdout    string
+	stderr    string
+}
 
-	cmd := exec.CommandContext(ctx, cmdName, args...)
+// Call an executable with arguments and return stdout and stderr. Specify the executable via
+// "exe"", the arguments via "args", additional environment variables in the form "key=value" via
+// "env", and standard input via "stdin". The command will be cancelled automatically when the
+// context expires.
+func runExe(
+	ctx context.Context, exe string, args []string, env []string, stdin string,
+) (runExeResult, error) {
+	prettyCmd := fmt.Sprintf("%s %s", exe, strings.Join(quote(args), " "))
+	log.Println("Running command:", prettyCmd)
+
+	cmd := exec.CommandContext(ctx, exe, args...)
 	cmd.Env = env
 
 	cmd.Stdin = strings.NewReader(stdin)
@@ -49,25 +52,32 @@ func callWithArgs(
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
-	if err != nil {
-		err = fmt.Errorf("failed to execute '%s': %s", fullCmd, err.Error())
-	}
 
-	return stdout.String(), stderr.String(), err
+	return runExeResult{
+		prettyCmd: prettyCmd,
+		stdout:    stdout.String(),
+		stderr:    stderr.String(),
+	}, err
 }
 
-type runCmdArgs struct {
-	cmd     string
-	exe     string
+type runExeConf struct {
+	exePath string
 	args    []string
 	stdin   string
 	env     []string
 	verbose bool
 }
 
-func runCmdArgsFromConfs(
-	cmd, exe string, rootConf rootConfigT, downloadConf downloadConfigT, serveConf serveConfigT,
-) (runCmdArgs, error) {
+// Create a structure that can be used to call a specific command of go-imapgrab. We have to provide
+// the path to go-imapgrab since we don't know it and don't want to hardcode it here. This function
+// contains very specific knowledge of which commands support which arguments. If the returned error
+// is non-nil, then the specified command is now known.
+func newRunSelfConf(
+	selfPath, cmd string,
+	rootConf rootConfigT,
+	downloadConf downloadConfigT,
+	serveConf serveConfigT,
+) (runExeConf, error) {
 	args := []string{
 		cmd,
 		// Always ignore keyring, we are using env vars instead to pass the password.
@@ -86,7 +96,6 @@ func runCmdArgsFromConfs(
 	case "serve":
 		args = append(args, []string{"--server-port", fmt.Sprint(serveConf.serverPort)}...)
 		args = append(args, []string{"--path", serveConf.path}...)
-		log.Fatal("cannot yet serve, don't know how to shut down", args)
 	case "download":
 		args = append(args, []string{"--path", downloadConf.path}...)
 		for _, folder := range downloadConf.folders {
@@ -96,13 +105,12 @@ func runCmdArgsFromConfs(
 		// When calling login, the password has to be provided via stdin for now.
 		stdin = rootConf.password
 	default:
-		return runCmdArgs{}, fmt.Errorf("unknown command %s", cmd)
+		return runExeConf{}, fmt.Errorf("unknown command %s", cmd)
 	}
 	env := []string{fmt.Sprintf("%s=%s", passwdEnvVar, rootConf.password)}
 
-	return runCmdArgs{
-		cmd:     cmd,
-		exe:     exe,
+	return runExeConf{
+		exePath: selfPath,
 		args:    args,
 		stdin:   stdin,
 		env:     env,
@@ -110,41 +118,34 @@ func runCmdArgsFromConfs(
 	}, nil
 }
 
-// Call a specific command of the go-imapgrab executable based on a root config. We have to provide
-// the path to go-imapgrab since we don't know it and don't want to hardcode it here. This function
-// contains very specific knowledge of which commands support which arguments.
-//
-// Make sure the context is cancelled before calling the returned function.
-func runFromConfAsync(
-	ctx context.Context,
-	cfg runCmdArgs,
-) func() (string, error) {
+// Call a specific command of the go-imapgrab executable based on a config.
+func runExeAsync(ctx context.Context, cfg runExeConf) func() (string, error) {
 	content := []string{}
 	var err error
 
 	sync := make(chan bool)
 	go func() {
-		defer func() { sync <- true }()
-
-		stdout, stderr, err := callWithArgs(ctx, cfg.exe, cfg.args, cfg.env, cfg.stdin)
+		result, err := runExe(ctx, cfg.exePath, cfg.args, cfg.env, cfg.stdin)
 
 		if err != nil {
 			content = append(
-				content, fmt.Sprintf("Failure running '%s', logs follow.\n", cfg.cmd),
+				content, fmt.Sprintf("Failure running '%s', logs follow.\n", result.prettyCmd),
 			)
 		} else {
 			content = append(
-				content, fmt.Sprintf("Success running '%s', logs follow, if any.\n", cfg.cmd),
+				content,
+				fmt.Sprintf("Success running '%s', logs follow, if any.\n", result.prettyCmd),
 			)
 		}
-		if err == nil && len(stdout) != 0 {
+		if err == nil && len(result.stdout) != 0 {
 			content = append(content, "Normal output:\n")
-			content = append(content, stdout)
+			content = append(content, result.stdout)
 		}
-		if (cfg.verbose || err != nil) && len(stderr) != 0 {
+		if (cfg.verbose || err != nil) && len(result.stderr) != 0 {
 			content = append(content, "Verbose output:\n")
-			content = append(content, stderr)
+			content = append(content, result.stderr)
 		}
+		sync <- true
 	}()
 
 	return func() (string, error) {
