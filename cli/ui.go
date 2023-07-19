@@ -120,9 +120,11 @@ func newUI(cfgFilePath string, keyring keyringOps) (*ui, error) {
 		}
 	}
 	if err == nil && len(uiConf.Path) == 0 {
-		err = fmt.Errorf(
-			"empty download path specified in config file %s, cannot start UI", cfgFilePath,
-		)
+		xdgState, isSet := os.LookupEnv("XDG_STATE_HOME")
+		if !isSet {
+			xdgState = filepath.Join(os.Getenv("HOME"), ".local", "state")
+		}
+		uiConf.Path = filepath.Join(xdgState, "go-imapgrab", "download")
 	}
 
 	uiConf.filePath = cfgFilePath
