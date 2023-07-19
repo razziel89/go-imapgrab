@@ -65,7 +65,9 @@ type uiActionButtons struct {
 	delete   gwu.Button
 }
 
-// Build the UI, excluding any and all functionality.
+// Build the UI, excluding any and all functionality. This function is not tested separately because
+// it simply constructs the UI. Any automated test of the UI arrangement would be complex and
+// convoluted, hence none are added.
 func uiBuild() uiElements {
 	window := uiBuildMainWindow()
 	newMailboxTextboxes, saveNewMailbox, clearBoxes, newMailboxPanel := uiBuildAddMailboxSection()

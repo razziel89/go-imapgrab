@@ -73,8 +73,8 @@ func init() {
 // file go-imapgrab.yaml in the current directory. If neither can be found, do not use a config file
 // and simply start the UI.
 func findUIConfigFile() string {
-	xdgConfigHome, isSet := os.LookupEnv("XDG_CONFIG_HOME")
-	if !isSet {
+	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
+	if len(xdgConfigHome) == 0 {
 		xdgConfigHome = filepath.Join(os.Getenv("HOME"), ".config")
 	}
 	cfgInHome := filepath.Join(xdgConfigHome, "go-imapgrab", "config.yaml")
@@ -121,8 +121,8 @@ func newUI(cfgFilePath string, keyring keyringOps) (*ui, error) {
 		}
 	}
 	if err == nil && len(uiConf.Path) == 0 {
-		xdgState, isSet := os.LookupEnv("XDG_STATE_HOME")
-		if !isSet {
+		xdgState := os.Getenv("XDG_STATE_HOME")
+		if len(xdgState) == 0 {
 			xdgState = filepath.Join(os.Getenv("HOME"), ".local", "state")
 		}
 		uiConf.Path = filepath.Join(xdgState, "go-imapgrab", "download")
@@ -141,9 +141,9 @@ func newUI(cfgFilePath string, keyring keyringOps) (*ui, error) {
 }
 
 type uiServer interface {
-	SetText(text string)
-	AddWin(w gwu.Window) error
-	Start(openWins ...string) error
+	SetText(string)
+	AddWin(gwu.Window) error
+	Start(...string) error
 }
 
 type newServerFn func(appName string, addr string) uiServer
