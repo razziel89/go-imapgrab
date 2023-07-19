@@ -128,6 +128,9 @@ func (ui *uiConfigFile) boxByName(name string) *uiConfFileMailbox {
 func (ui *uiConfigFile) saveToFileAndKeyring(keyring keyringOps) error {
 	// TODO: consider using a lock file when manipulating the config file.
 
+	// The file will always be saved, even if the password cannot be stored in the keyring. That
+	// gives the user the chance to try again later / after fixing keyring-related problems without
+	// losing access to any provided information.
 	fileContent, err := yaml.Marshal(ui)
 	if err == nil {
 		err = os.WriteFile(ui.filePath, fileContent, filePerms)
