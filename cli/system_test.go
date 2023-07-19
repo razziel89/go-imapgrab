@@ -175,7 +175,7 @@ func setUpFakeServerAndCommand(t *testing.T, args []string) func() error {
 		// Always disable the keyring by making this a test run.
 		cmd = getDownloadCmd(&rootConf, &downloadConf, nil, &corer{}, lock)
 	case "login":
-		getPasswordFn := func(int) ([]byte, error) { return []byte("password"), nil }
+		getPasswordFn := func() ([]byte, error) { return []byte("password"), nil }
 		cmd = getLoginCmd(
 			&rootConf, nil, getPasswordFn, &corer{},
 		)

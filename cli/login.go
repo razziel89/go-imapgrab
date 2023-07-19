@@ -70,7 +70,7 @@ func loginCmdUse(rootConf *rootConfigT, args []string) string {
 
 const shortLoginHelp = "Store credentials in your system's keyring."
 
-type readPasswordFn func(int) ([]byte, error)
+type readPasswordFn func() ([]byte, error)
 
 func getLoginCmd(
 	rootConf *rootConfigT, keyring keyringOps, readPasswordFn readPasswordFn, ops coreOps,
@@ -99,7 +99,7 @@ func getLoginCmd(
 					"\nPassword:",
 				cfg.User, cfg.Server, cfg.Port,
 			)
-			password, err := readPasswordFn(int(syscall.Stdin))
+			password, err := readPasswordFn()
 			cfg.Password = string(password)
 			if err == nil {
 				fmt.Printf(
@@ -135,12 +135,14 @@ func getLoginCmd(
 	return cmd
 }
 
-func readFromStdin(fd int) ([]byte, error) {
+var readFromTerminal = term.ReadPassword
+
+func readFromStdin() ([]byte, error) {
 	info, err := os.Stdin.Stat()
-	if fd != 0 || err != nil || (info.Mode()&os.ModeCharDevice) == os.ModeCharDevice {
+	if err != nil || (info.Mode()&os.ModeCharDevice) == os.ModeCharDevice {
 		// Input is a terminal or there was an error trying to determine that. Default to
 		// interactive prompts.
-		return term.ReadPassword(fd)
+		return readFromTerminal(int(syscall.Stdin))
 	}
 	// Otherwise, make this work with pipes, too.
 	return io.ReadAll(os.Stdin)
