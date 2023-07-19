@@ -100,13 +100,14 @@ type ui struct {
 }
 
 func newUI(cfgFilePath string, keyring keyringOps) (*ui, error) {
-	if !exists(cfgFilePath) {
-		return nil, fmt.Errorf("cannot find config file at %s", cfgFilePath)
-	}
 	log.Printf("Using config file at %s", cfgFilePath)
 
 	var uiConf uiConfigFile
-	cfgContent, err := os.ReadFile(cfgFilePath) //nolint:gosec
+	var cfgContent []byte
+	var err error
+	if exists(cfgFilePath) {
+		cfgContent, err = os.ReadFile(cfgFilePath) //nolint:gosec
+	}
 	if err == nil {
 		err = yaml.Unmarshal(cfgContent, &uiConf)
 	}
