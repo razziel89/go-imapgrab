@@ -125,7 +125,8 @@ func runExeAsync(ctx context.Context, cfg runExeConf) func() (string, error) {
 
 	sync := make(chan bool)
 	go func() {
-		result, err := runExe(ctx, cfg.exePath, cfg.args, cfg.env, cfg.stdin)
+		var result runExeResult
+		result, err = runExe(ctx, cfg.exePath, cfg.args, cfg.env, cfg.stdin)
 
 		if err != nil {
 			content = append(
