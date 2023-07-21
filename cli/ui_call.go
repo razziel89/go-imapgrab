@@ -101,7 +101,7 @@ func newRunSelfConf(
 		for _, folder := range downloadConf.folders {
 			args = append(args, []string{"--folder", folder}...)
 		}
-	case "login":
+	case "login": //nolint:goconst
 		// When calling login, the password has to be provided via stdin for now.
 		stdin = rootConf.password
 	default:

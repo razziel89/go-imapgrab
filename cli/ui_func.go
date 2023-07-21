@@ -40,17 +40,7 @@ func uiFunctionalise(ui *ui) error {
 	// Pre-populate elements.
 	ui.elements.knownMailboxesList.SetValues(ui.config.knownMailboxes())
 
-	// Create a function that can be used to easily show output to the user.
-	reportFn := func(event gwu.Event, action, str string, err error) {
-		var text string
-		if err != nil {
-			text = fmt.Sprintf("ERROR(S) executing action '%s':\n%s\n\n", action, err.Error())
-		}
-		text += str
-
-		ui.elements.reportLabel.SetText(text)
-		event.MarkDirty(ui.elements.reportLabel)
-	}
+	reportFn := getUIReportFn(ui.elements.reportLabel)
 
 	buttons := ui.elements.actionButtons
 	uiAddButtonHandler(buttons.save, reportFn, ui, uiHandlerSave)
@@ -68,6 +58,20 @@ func uiFunctionalise(ui *ui) error {
 	)
 
 	return nil
+}
+
+// Create a function that can be used to easily show output to the user.
+func getUIReportFn(label gwu.Label) reportFn {
+	return func(event gwu.Event, action, str string, err error) {
+		var text string
+		if err != nil {
+			text = fmt.Sprintf("ERROR(S) executing action '%s':\n%s\n\n", action, err.Error())
+		}
+		text += str
+
+		label.SetText(text)
+		event.MarkDirty(label)
+	}
 }
 
 type requestUpdateFn func(gwu.Comp)
