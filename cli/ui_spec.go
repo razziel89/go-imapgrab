@@ -28,9 +28,13 @@ const (
 	uiNummailboxes = 10
 	// Introductory text shown in the UI.
 	uiIntroduction = "This is a simple UI for go-imapgrab.\n\nEnter details for new/updated " +
-		"mailboxes in the text boxes at the top. Separate folder specs by commas. Select which " +
-		"mailboxes to act upon in the list in the middle. Trigger actions on all selected " +
-		"mailboxes with the buttons on the right. View logs at the very bottom. " +
+		"mailboxes in the text boxes at the top (ports must be integers, if in doubt, use 993 " +
+		"for \"port\" and a unique number in [30100,30200] for \"serverport\"). " +
+		"Separate folder specs by commas (use \"_ALL_, -_Gmail_\" for the \"folders\" box if in " +
+		"doubt, leave out the quotes). " +
+		"You need to save changes to mailbox configs using the \"save\" button to take effect. " +
+		"Select which mailboxes to act upon in the list in the middle. Trigger actions " +
+		"on all selected mailboxes with the buttons on the right. View logs at the very bottom. " +
 		"If you download something, it may take quite a while until you see any changes. " +
 		"The UI only refreshes once all actions have finished. " +
 		"Initial downloads are particularly slow and may even result in a timeout. Any action " +

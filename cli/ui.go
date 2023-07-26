@@ -30,14 +30,24 @@ import (
 )
 
 const (
-	shortUIHelp = "Interact with go-imapgrab via a browser-based UI."
-	uiPort      = 8081
+	shortUIHelp       = "Interact with go-imapgrab via a browser-based UI."
+	uiPort            = 8081
+	typicalUIFlowHelp = "" +
+		"A typical UI-based run of go-imapgrab consists of 4 separate steps. First, you define\n" +
+		"your mailboxes via the text fields at the top, saving each one via a click on the\n" +
+		"\"save\" button after filling in _all_ boxes. Then, you select the mailboxes you want\n" +
+		"to interact with in the list in the middle. Then, you list all folders in your\n" +
+		"mailboxes using the \"list\" button. Next, you can download all emails for the\n" +
+		"selected mailboxes by clicking the \"download\" button. For future runs, simply open\n" +
+		"the UI again, select your mailboxes, and click the \"download\" button in order to\n" +
+		"download only new emails. Last but not least, you open a local IMAP server using the\n" +
+		"\"serve\" button and use your preferred email client to view your backed-up emails.\n"
 )
 
 func getUICmd(keyring keyringOps, newServer newServerFn) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ui",
-		Long:  shortUIHelp + "\n\n" + typicalFlowHelp,
+		Long:  shortUIHelp + "\n\n" + typicalUIFlowHelp,
 		Short: shortUIHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfgFile := findUIConfigFile()
