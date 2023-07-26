@@ -10,6 +10,11 @@ setup:
 .PHONY: build
 build: go-imapgrab
 
+.PHONY: build-cross-platform
+build-cross-platform:
+	cd ./cli && \
+	CLIVERSION=local goreleaser build --clean --snapshot
+
 go-imapgrab: */*.go
 	$(MAKE) -C cli build
 
