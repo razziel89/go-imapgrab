@@ -45,20 +45,22 @@ func uiFunctionalise(ui *ui) error {
 	buttons := ui.elements.actionButtons
 	uiAddButtonHandler(buttons.save, reportFn, ui, uiHandlerSave)
 	uiAddButtonHandler(buttons.clear, reportFn, ui, uiHandlerClear)
-	uiAddButtonHandler(buttons.login, reportFn, ui, getGenericUIButtonHandler("login", uiTimeout))
-	uiAddButtonHandler(buttons.list, reportFn, ui, getGenericUIButtonHandler("list", uiTimeout))
-	uiAddButtonHandler(
-		buttons.download, reportFn, ui, getGenericUIButtonHandler("download", uiTimeout),
-	)
+	uiAddButtonHandler(buttons.login, reportFn, ui, uiHandlerLogin)
+	uiAddButtonHandler(buttons.list, reportFn, ui, uiHandlerList)
+	uiAddButtonHandler(buttons.download, reportFn, ui, uiHandlerDownload)
 	uiAddButtonHandler(buttons.edit, reportFn, ui, uiHandlerEdit)
 	uiAddButtonHandler(buttons.delete, reportFn, ui, uiHandlerDelete)
-	uiAddButtonHandler(
-		buttons.serve, reportFn, ui,
-		getUIHandlerServe(ui, "Serve Selected", "Stop Serving All", gwu.ClrBlack, gwu.ClrRed),
-	)
+	uiAddButtonHandler(buttons.serve, reportFn, ui, uiHandlerServe)
 
 	return nil
 }
+
+var (
+	uiHandlerLogin    = getGenericUIButtonHandler("login", uiTimeout, runExeAsync)
+	uiHandlerList     = getGenericUIButtonHandler("list", uiTimeout, runExeAsync)
+	uiHandlerDownload = getGenericUIButtonHandler("download", uiTimeout, runExeAsync)
+	uiHandlerServe    = getUIHandlerServe(runExeAsync)
+)
 
 // Create a function that can be used to easily show output to the user.
 func getUIReportFn(label gwu.Label) reportFn {
@@ -220,7 +222,9 @@ func uiHandlerEdit(ui *ui, update requestUpdateFn) (string, error) {
 	return "Mailbox data loaded successfully!", nil
 }
 
-func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButtonHandlerFn {
+func getGenericUIButtonHandler(
+	actionName string, timeout time.Duration, runExeAsync runExeAsyncFn,
+) uiButtonHandlerFn {
 	return func(ui *ui, _ requestUpdateFn) (string, error) {
 		selectedBoxes := ui.elements.knownMailboxesList.SelectedValues()
 
@@ -276,11 +280,9 @@ func getGenericUIButtonHandler(actionName string, timeout time.Duration) uiButto
 	}
 }
 
-func getUIHandlerServe(
-	outerUI *ui, serveText, unserveText, serveColour, unserveColour string,
-) uiButtonHandlerFn {
-	outerUI.elements.actionButtons.serve.SetText(serveText)
-	outerUI.elements.actionButtons.serve.Style().SetColor(serveColour)
+// getUIHandlerServe(ui, "Serve Selected", "Stop Serving All", gwu.ClrBlack, gwu.ClrRed),
+
+func getUIHandlerServe(runExeAsync runExeAsyncFn) uiButtonHandlerFn {
 	// The below function closes over these variables, which lets us avoid globals.
 	var outputFns []func() (string, error)
 	var ctx context.Context
@@ -296,8 +298,8 @@ func getUIHandlerServe(
 				// Always ignore returns here as it will only show that the binary was killed.
 				_, _ = fn()
 			}
-			ui.elements.actionButtons.serve.SetText(serveText)
-			ui.elements.actionButtons.serve.Style().SetColor(serveColour)
+			ui.elements.actionButtons.serve.SetText("Serve Selected")
+			ui.elements.actionButtons.serve.Style().SetColor(gwu.ClrBlack)
 			doServe = true
 			return "Stopped serving.", nil
 		}
@@ -327,8 +329,8 @@ func getUIHandlerServe(
 			outputFns = append(outputFns, runExeAsync(ctx, args))
 			what = append(what, fmt.Sprintf("port %d: %s", serve.serverPort, box))
 		}
-		ui.elements.actionButtons.serve.SetText(unserveText)
-		ui.elements.actionButtons.serve.Style().SetColor(unserveColour)
+		ui.elements.actionButtons.serve.SetText("Stop Serving")
+		ui.elements.actionButtons.serve.Style().SetColor(gwu.ClrRed)
 		doServe = false
 
 		return fmt.Sprintf(

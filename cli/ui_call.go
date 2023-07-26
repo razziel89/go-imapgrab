@@ -118,6 +118,8 @@ func newRunSelfConf(
 	}, nil
 }
 
+type runExeAsyncFn func(ctx context.Context, cfg runExeConf) func() (string, error)
+
 // Call a specific command of the go-imapgrab executable based on a config.
 func runExeAsync(ctx context.Context, cfg runExeConf) func() (string, error) {
 	content := []string{}
