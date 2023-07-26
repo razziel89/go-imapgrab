@@ -89,12 +89,6 @@ func TestFindUIConfigFile(t *testing.T) {
 func TestGetUICommand(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	// mockKeyring := mockKeyring{}
-	// mockKeyring.On("Get", mock.AnythingOfType("string"), mock.AnythingOfType("string")).
-	//     Return("password", nil)
-	//
-	// defer mockKeyring.AssertExpectations(t)
-
 	mockServer := mockUIServer{}
 	mockServer.On("SetText", "go-imapgrab").Return()
 	mockServer.On("AddWin", mock.Anything).Return(nil)

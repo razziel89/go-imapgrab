@@ -25,7 +25,7 @@ import (
 
 const (
 	uiCellPadding  = 3
-	uiNummailboxes = 10
+	uiNumMailboxes = 10
 	// Introductory text shown in the UI.
 	uiIntroduction = "This is a simple UI for go-imapgrab.\n\nEnter details for new/updated " +
 		"mailboxes in the text boxes at the top (ports must be integers, if in doubt, use 993 " +
@@ -82,7 +82,10 @@ func uiBuild() uiElements {
 	newMailboxTextboxes, saveNewMailbox, clearBoxes, newMailboxPanel := uiBuildAddMailboxSection()
 	knownMailboxesList, knownMailboxesPanel := uiBuildKnownMailboxesList()
 	actionButtons, verboseCheckbox, actionButtonsPanel := uiBuildMailboxActionButtons()
+	spacer := gwu.NewPanel()
+	spacer.Style().SetMarginBottom("500px")
 	reportLabel := uiBuildReportLabel()
+	spacer.Add(reportLabel)
 
 	// Make the action buttons part of the panel listing the mailboxes.
 	knownMailboxesPanel.Add(actionButtonsPanel)
@@ -94,7 +97,7 @@ func uiBuild() uiElements {
 	// Add everything to the main window in the correct order.
 	window.Add(newMailboxPanel)
 	window.Add(knownMailboxesPanel)
-	window.Add(reportLabel)
+	window.Add(spacer)
 
 	return uiElements{
 		window:                     window,
@@ -175,7 +178,7 @@ func uiBuildKnownMailboxesList() (gwu.ListBox, gwu.Panel) {
 	panel.Add(gwu.NewLabel("Mailboxes:"))
 
 	listBox := gwu.NewListBox(nil)
-	listBox.SetRows(uiNummailboxes)
+	listBox.SetRows(uiNumMailboxes)
 	listBox.SetMulti(true)
 
 	panel.Add(listBox)
