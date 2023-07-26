@@ -62,6 +62,8 @@ var (
 	uiHandlerServe    = getUIHandlerServe(runExeAsync)
 )
 
+type reportFn func(gwu.Event, string, string, error)
+
 // Create a function that can be used to easily show output to the user.
 func getUIReportFn(label gwu.Label) reportFn {
 	return func(event gwu.Event, action, str string, err error) {
@@ -78,24 +80,21 @@ func getUIReportFn(label gwu.Label) reportFn {
 
 type requestUpdateFn func(gwu.Comp)
 
-type reportFn func(gwu.Event, string, string, error)
-
 type uiButtonHandlerFn func(*ui, requestUpdateFn) (string, error)
 
 func uiAddButtonHandler(
 	button gwu.Button, report reportFn, ui *ui, handler uiButtonHandlerFn,
-) {
-	button.AddEHandlerFunc(
-		func(event gwu.Event) {
-			// Make sure that no two handlers will ever be called at the same time.
-			ui.mutex.Lock()
-			defer ui.mutex.Unlock()
+) func(gwu.Event) {
+	handlerFn := func(event gwu.Event) {
+		// Make sure that no two handlers will ever be called at the same time.
+		ui.mutex.Lock()
+		defer ui.mutex.Unlock()
 
-			str, err := handler(ui, func(comp gwu.Comp) { event.MarkDirty(comp) })
-			report(event, button.Text(), str, err)
-		},
-		gwu.ETypeClick,
-	)
+		str, err := handler(ui, func(comp gwu.Comp) { event.MarkDirty(comp) })
+		report(event, button.Text(), str, err)
+	}
+	button.AddEHandlerFunc(handlerFn, gwu.ETypeClick)
+	return handlerFn
 }
 
 // Handler functions follow.
@@ -279,8 +278,6 @@ func getGenericUIButtonHandler(
 		return strings.Join(outputs, "\n"), errors.Join(err, errors.Join(errs...))
 	}
 }
-
-// getUIHandlerServe(ui, "Serve Selected", "Stop Serving All", gwu.ClrBlack, gwu.ClrRed),
 
 func getUIHandlerServe(runExeAsync runExeAsyncFn) uiButtonHandlerFn {
 	// The below function closes over these variables, which lets us avoid globals.
