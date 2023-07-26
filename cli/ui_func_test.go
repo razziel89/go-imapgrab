@@ -237,18 +237,45 @@ func TestUIHandlerDelete(t *testing.T) {
 func TestUIHandlerEdit(t *testing.T) {
 	ui := &ui{
 		elements: uiBuild(),
-		config:   uiConfigFile{Mailboxes: []*uiConfFileMailbox{{Name: "box"}}},
+		config:   uiConfigFile{Mailboxes: []*uiConfFileMailbox{{Name: "box"}, {Name: "other"}}},
 		keyring:  nil,
 		selfExe:  "cat",
 	}
-	ui.elements.knownMailboxesList.SetValues([]string{"box"})
-	ui.elements.knownMailboxesList.SetSelectedIndices([]int{0})
+	ui.elements.knownMailboxesList.SetValues([]string{"box", "other", "unknown"})
 
 	updated := false
 	update := func(_ gwu.Comp) { updated = true }
 
-	// Test.
+	// Test. Unknown selected.
+	ui.elements.knownMailboxesList.SetSelectedIndices([]int{2})
 	_, err := uiHandlerEdit(ui, update)
+
+	// Assertions.
+	assert.ErrorContains(t, err, "selected mailbox is unknown")
+	assert.False(t, updated)
+	assert.Empty(t, ui.elements.newMailboxDetailsTextboxes.name.Text())
+
+	// Test. Too few selected.
+	ui.elements.knownMailboxesList.SetSelectedIndices([]int{})
+	_, err = uiHandlerEdit(ui, update)
+
+	// Assertions.
+	assert.ErrorContains(t, err, "too few")
+	assert.False(t, updated)
+	assert.Empty(t, ui.elements.newMailboxDetailsTextboxes.name.Text())
+
+	// Test. Too many selected.
+	ui.elements.knownMailboxesList.SetSelectedIndices([]int{0, 1})
+	_, err = uiHandlerEdit(ui, update)
+
+	// Assertions.
+	assert.ErrorContains(t, err, "too many")
+	assert.False(t, updated)
+	assert.Empty(t, ui.elements.newMailboxDetailsTextboxes.name.Text())
+
+	// Test. Success.
+	ui.elements.knownMailboxesList.SetSelectedIndices([]int{0})
+	_, err = uiHandlerEdit(ui, update)
 
 	// Assertions.
 	assert.NoError(t, err)
