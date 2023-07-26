@@ -280,7 +280,7 @@ func getGenericUIButtonHandler(
 
 		var err error
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			err = fmt.Errorf("command not completed, timeout of %s reached", uiTimeout)
+			err = fmt.Errorf("command not completed, timeout of %s reached", timeout)
 		}
 
 		return strings.Join(outputs, "\n"), errors.Join(err, errors.Join(errs...))

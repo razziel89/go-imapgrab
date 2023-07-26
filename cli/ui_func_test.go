@@ -18,10 +18,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/icza/gowut/gwu"
 	"github.com/stretchr/testify/assert"
@@ -252,4 +254,76 @@ func TestUIHandlerEdit(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, updated)
 	assert.Equal(t, "box", ui.elements.newMailboxDetailsTextboxes.name.Text())
+}
+
+func TestGenericUIHandlerUnknownCommandOrMailbox(t *testing.T) {
+	ui := &ui{
+		elements: uiBuild(),
+		config:   uiConfigFile{Mailboxes: []*uiConfFileMailbox{{Name: "box"}}},
+		selfExe:  "cat",
+	}
+	ui.elements.knownMailboxesList.SetValues([]string{"box"})
+	ui.elements.knownMailboxesList.SetSelectedIndices([]int{0})
+
+	// Test.
+	handler := getGenericUIButtonHandler("UNKNOWN", time.Second, nil)
+	_, err := handler(ui, nil)
+
+	// Assertions.
+	assert.ErrorContains(t, err, "unknown command UNKNOWN")
+
+	// More setup. Unknown mailboxes will be skipped.
+	ui.elements.knownMailboxesList.SetValues([]string{"unknown"})
+	ui.elements.knownMailboxesList.SetSelectedIndices([]int{0})
+
+	// Test.
+	_, err = handler(ui, nil)
+
+	// Assertions.
+	assert.NoError(t, err)
+}
+
+func TestGenericUIHandlerSuccessAndTimeout(t *testing.T) {
+	ui := &ui{
+		elements: uiBuild(),
+		config:   uiConfigFile{Mailboxes: []*uiConfFileMailbox{{Name: "box"}}},
+		selfExe:  "cat",
+	}
+	ui.elements.knownMailboxesList.SetValues([]string{"box"})
+	ui.elements.knownMailboxesList.SetSelectedIndices([]int{0})
+
+	calledOuter := false
+	calledInner := false
+	cancelled := false
+	callExe := func(ctx context.Context, _ runExeConf) func() (string, error) {
+		calledOuter = true
+		return func() (string, error) {
+			select {
+			case <-ctx.Done():
+				cancelled = true
+			default:
+			}
+
+			calledInner = true
+			return "", nil
+		}
+	}
+
+	// Test.
+	handler := getGenericUIButtonHandler("list", time.Second, callExe)
+	_, err := handler(ui, nil)
+
+	// Assertions.
+	assert.NoError(t, err)
+	assert.True(t, calledOuter)
+	assert.True(t, calledInner)
+	assert.False(t, cancelled)
+
+	// Test.
+	handler = getGenericUIButtonHandler("list", time.Duration(0), callExe)
+	_, err = handler(ui, nil)
+
+	// Assertions.
+	assert.ErrorContains(t, err, "timeout")
+	assert.True(t, cancelled)
 }
