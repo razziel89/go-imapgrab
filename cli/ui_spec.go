@@ -18,6 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"time"
+
 	"github.com/icza/gowut/gwu"
 )
 
@@ -26,12 +28,15 @@ const (
 	uiNummailboxes = 10
 	// Introductory text shown in the UI.
 	uiIntroduction = "This is a simple UI for go-imapgrab.\n\nEnter details for new/updated " +
-		"mailboxes in the text boxes at the top. Separate folders by commas. Select which " +
+		"mailboxes in the text boxes at the top. Separate folder specs by commas. Select which " +
 		"mailboxes to act upon in the list in the middle. Trigger actions on all selected " +
 		"mailboxes with the buttons on the right. View logs at the very bottom. " +
 		"If you download something, it may take quite a while until you see any changes. " +
 		"The UI only refreshes once all actions have finished. " +
-		"Initial downloads are particularly slow and may even result in a timeout.\n"
+		"Initial downloads are particularly slow and may even result in a timeout. Any action " +
+		"that does not finish within 1min will be cancelled automatically. The simplest fix is " +
+		"to run the command that timed out in a terminal, the exact command is shown in the logs.\n"
+	uiTimeout = time.Minute
 )
 
 // Contains all the components of the UI that are needed to provide functionality later on.

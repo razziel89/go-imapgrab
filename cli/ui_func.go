@@ -32,7 +32,6 @@ import (
 const (
 	contentSep = "============================="
 	filePerms  = 0644
-	uiTimeout  = 1 * time.Minute
 )
 
 func uiFunctionalise(ui *ui) error {
