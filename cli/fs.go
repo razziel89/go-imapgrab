@@ -22,18 +22,8 @@ import (
 	"os"
 )
 
-const (
-	modeExecutable = 0111
-)
-
 // Check whether a path exists.
 func exists(path string) bool {
 	_, err := os.Stat(path)
 	return !errors.Is(err, os.ErrNotExist)
-}
-
-// Check whether a path points to an executable.
-func isExecutable(path string) bool {
-	stat, err := os.Stat(path)
-	return err == nil && stat.Mode()&modeExecutable != 0
 }

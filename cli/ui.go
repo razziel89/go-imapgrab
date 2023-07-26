@@ -141,10 +141,6 @@ func newUI(cfgFilePath string, keyring keyringOps) (*ui, error) {
 	uiConf.filePath = cfgFilePath
 
 	selfExe := os.Args[0]
-	err = fmt.Errorf("path to self '%s' is not executable", selfExe)
-	if isExecutable(selfExe) {
-		err = nil
-	}
 
 	return &ui{
 		elements: uiBuild(),
