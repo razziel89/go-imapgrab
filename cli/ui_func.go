@@ -99,7 +99,7 @@ func uiAddButtonHandler(
 
 // Handler functions follow.
 
-func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
+func uiHandlerSave(ui *ui, update requestUpdateFn) (msg string, err error) {
 	boxes := ui.elements.newMailboxDetailsTextboxes
 	list := ui.elements.knownMailboxesList
 
@@ -131,25 +131,32 @@ func uiHandlerSave(ui *ui, update requestUpdateFn) (string, error) {
 		mb.password == "" ||
 		len(mb.Folders) == 0 {
 
-		return "", fmt.Errorf("error in input values, at least one value is empty or zero")
-	}
-	ui.config.upsertMailbox(mb)
-	if err := ui.config.saveToFileAndKeyring(ui.keyring); err != nil {
-		return "", err
+		err = fmt.Errorf(
+			"error in input values, at least one value is empty or zero or should be numeric " +
+				"but is non-numeric",
+		)
 	}
 
-	// Request refreshes for all components that were affeced by this handler.
-	for _, box := range []gwu.TextBox{
-		boxes.name, boxes.password, boxes.port, boxes.server,
-		boxes.serverport, boxes.user, boxes.folders,
-	} {
-		box.SetText("")
-		update(box)
+	if err == nil {
+		ui.config.upsertMailbox(mb)
+		err = ui.config.saveToFileAndKeyring(ui.keyring)
 	}
-	list.SetValues(ui.config.knownMailboxes())
-	update(list)
 
-	return "Mailbox successfully saved!", nil
+	if err == nil {
+		msg = "Mailbox successfully saved!"
+		// Request refreshes for all components that were affeced by this handler.
+		for _, box := range []gwu.TextBox{
+			boxes.name, boxes.password, boxes.port, boxes.server,
+			boxes.serverport, boxes.user, boxes.folders,
+		} {
+			box.SetText("")
+			update(box)
+		}
+		list.SetValues(ui.config.knownMailboxes())
+		update(list)
+	}
+
+	return msg, err
 }
 
 func uiHandlerClear(ui *ui, update requestUpdateFn) (string, error) {

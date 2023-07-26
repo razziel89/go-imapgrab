@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -110,4 +111,66 @@ func TestUIAddButtonhandler(t *testing.T) {
 	// Assertions.
 	assert.True(t, reported)
 	assert.True(t, handled)
+}
+
+func TestUIHandlerSave(t *testing.T) {
+	// Setup.
+	keyring := mockKeyring{}
+	keyring.On("Set", mock.Anything, mock.Anything, mock.Anything).
+		Return(fmt.Errorf("keyring error")).
+		Once()
+	keyring.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	tmp := t.TempDir()
+
+	ui := &ui{
+		elements: uiBuild(),
+		config: uiConfigFile{
+			filePath: filepath.Join(tmp, "config.yaml"),
+			Path:     filepath.Join(tmp, "download"),
+		},
+		keyring: &keyring,
+		selfExe: "cat",
+	}
+
+	updated := false
+	update := func(_ gwu.Comp) { updated = true }
+
+	// Test.
+	_, err := uiHandlerSave(ui, update)
+
+	// Assertions.
+	assert.ErrorContains(t, err, "error in input values")
+	assert.False(t, updated)
+	keyring.AssertNotCalled(t, "Set", mock.Anything, mock.Anything, mock.Anything)
+	assert.False(t, exists(ui.config.filePath))
+
+	// More setup.
+	boxes := ui.elements.newMailboxDetailsTextboxes
+	boxes.folders.SetText("_ALL_")
+	boxes.name.SetText("name")
+	boxes.password.SetText("password")
+	boxes.port.SetText("1234")
+	boxes.server.SetText("server")
+	boxes.serverport.SetText("12345")
+	boxes.user.SetText("user")
+
+	// Test.
+	_, err = uiHandlerSave(ui, update)
+
+	// Assertions.
+	assert.ErrorContains(t, err, "keyring error")
+	assert.False(t, updated)
+	keyring.AssertNumberOfCalls(t, "Set", 1)
+	assert.True(t, exists(ui.config.filePath))
+
+	// Test. Only the first attempt to save to the keyring causes an error. The second one succeeds.
+	msg, err := uiHandlerSave(ui, update)
+
+	// Assertions.
+	assert.NoError(t, err)
+	assert.True(t, updated)
+	keyring.AssertNumberOfCalls(t, "Set", 2)
+	assert.True(t, exists(ui.config.filePath))
+	assert.NotEmpty(t, msg)
 }
