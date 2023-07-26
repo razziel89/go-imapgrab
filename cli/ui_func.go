@@ -30,10 +30,9 @@ import (
 )
 
 const (
-	contentSep  = "============================="
-	filePerms   = 0644
-	uiTimeout   = 1 * time.Minute
-	actionServe = "serve"
+	contentSep = "============================="
+	filePerms  = 0644
+	uiTimeout  = 1 * time.Minute
 )
 
 func uiFunctionalise(ui *ui) error {
@@ -324,12 +323,9 @@ func getUIHandlerServe(runExeAsync runExeAsyncFn) uiButtonHandlerFn {
 				log.Printf("skipping serve for unknown mailbox %s", box)
 				continue
 			}
-			args, err := newRunSelfConf(ui.selfExe, actionServe, *root, *download, *serve)
-			if err != nil {
-				cancel()
-				err = fmt.Errorf("internal error while preparing to call self: %s", err.Error())
-				return "", err
-			}
+			// Ignore the error here because the command is hard-coded and the error return can
+			// never be set.
+			args, _ := newRunSelfConf(ui.selfExe, "serve", *root, *download, *serve)
 
 			outputFns = append(outputFns, runExeAsync(ctx, args))
 			what = append(what, fmt.Sprintf("port %d: %s", serve.serverPort, box))
