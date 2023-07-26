@@ -76,7 +76,7 @@ func init() {
 	rootCmd.AddCommand(uiCmd)
 }
 
-// Functionality apart form command specification above.
+// Functionality apart from command specification above.
 
 // Find the config file by searching some paths. By default, the file in
 // XDG_CONFIG_HOME/go-imapgrab/config.yaml is being used. If that file cannot be found, try to use a

@@ -71,7 +71,7 @@ type runExeConf struct {
 // Create a structure that can be used to call a specific command of go-imapgrab. We have to provide
 // the path to go-imapgrab since we don't know it and don't want to hardcode it here. This function
 // contains very specific knowledge of which commands support which arguments. If the returned error
-// is non-nil, then the specified command is now known.
+// is non-nil, then the specified command is not known.
 func newRunSelfConf(
 	selfPath, cmd string,
 	rootConf rootConfigT,
