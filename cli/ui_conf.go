@@ -133,6 +133,9 @@ func (ui *uiConfigFile) saveToFileAndKeyring(keyring keyringOps) error {
 	// losing access to any provided information.
 	fileContent, err := yaml.Marshal(ui)
 	if err == nil {
+		err = os.MkdirAll(filepath.Dir(ui.filePath), dirPerms)
+	}
+	if err == nil {
 		err = os.WriteFile(ui.filePath, fileContent, filePerms)
 	}
 	if err == nil {

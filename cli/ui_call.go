@@ -80,8 +80,6 @@ func newRunSelfConf(
 ) (runExeConf, error) {
 	args := []string{
 		cmd,
-		// Always ignore keyring, we are using env vars instead to pass the password.
-		"--no-keyring",
 		"--server", rootConf.server,
 		"--user", rootConf.username,
 		"--port", fmt.Sprint(rootConf.port),

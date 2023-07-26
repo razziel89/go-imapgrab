@@ -108,10 +108,10 @@ func TestNewRunSelfConf(t *testing.T) {
 	}
 
 	testCases := []test{
-		{"list", 8, ""},
-		{"serve", 12, ""},
-		{"download", 14, ""},
-		{"login", 9, "password"},
+		{"list", 7, ""},
+		{"serve", 11, ""},
+		{"download", 13, ""},
+		{"login", 8, "password"},
 	}
 
 	for _, tc := range testCases {
