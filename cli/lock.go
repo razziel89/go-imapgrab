@@ -50,7 +50,7 @@ func doLock(lockfilePath string) lockedT {
 // Acquire a lock on a lockfile within a specific timeout. Note that this leaks a goroutine if the
 // timeout is reached before the lock can be obtained, but there seems to be no way around that.
 func lock(lockfilePath string, timeout time.Duration) (func(), error) {
-	// Automatically create all elements of the path to the lockflie, if they do not exist.
+	// Automatically create all elements of the path to the lockfile, if they do not exist.
 	err := os.MkdirAll(filepath.Dir(lockfilePath), dirPerms)
 	if err != nil {
 		return nil, err
@@ -63,6 +63,14 @@ func lock(lockfilePath string, timeout time.Duration) (func(), error) {
 	}()
 	select {
 	case <-time.After(timeout):
+		// Make sure to always call cancel once the lock has been processed. Note that the goroutine
+		// created below might never finish if the lock can never be processed.
+		go func() {
+			result := <-resultChan
+			if result.unlock != nil {
+				result.unlock()
+			}
+		}()
 		return nil, fmt.Errorf("could not acquire lock on %s within %s", lockfilePath, timeout)
 	case result := <-resultChan:
 		return result.unlock, result.err

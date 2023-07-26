@@ -20,7 +20,6 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -65,42 +64,12 @@ func TestLockCannotCreateParentDir(t *testing.T) {
 func TestLockCannotBeAcquiredMultipleTimes(t *testing.T) {
 	tmpdir := t.TempDir()
 	lockfile := filepath.Join(tmpdir, "test.lock")
-	wg := sync.WaitGroup{}
 
-	var firstLockErr, secondLockErr error
+	unlock1, err := lock(lockfile, time.Millisecond)
+	assert.NoError(t, err)
+	defer unlock1()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		unlock, err := lock(lockfile, time.Millisecond)
-		firstLockErr = err
-		// Due to sleeping, the other goroutine in this test should have enough time to catch up and
-		// try to get the lock.
-		time.Sleep(50 * time.Millisecond)
-		if unlock != nil {
-			unlock()
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		unlock, err := lock(lockfile, time.Millisecond)
-		secondLockErr = err
-		// Due to sleeping, the other goroutine in this test should have enough time to catch up and
-		// try to get the lock.
-		time.Sleep(50 * time.Millisecond)
-		if unlock != nil {
-			unlock()
-		}
-	}()
-
-	wg.Wait()
-	// Only one of the two goroutines could get the lock. If it's not the first, we simply swap
-	// errors to simplify the assertions.
-	if firstLockErr != nil && secondLockErr == nil {
-		firstLockErr, secondLockErr = secondLockErr, firstLockErr
-	}
-	assert.NoError(t, firstLockErr)
-	assert.ErrorContains(t, secondLockErr, "could not acquire lock")
+	unlock2, err := lock(lockfile, time.Millisecond)
+	assert.ErrorContains(t, err, "could not acquire lock")
+	assert.Nil(t, unlock2)
 }
