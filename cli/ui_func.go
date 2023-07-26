@@ -174,21 +174,22 @@ func uiHandlerClear(ui *ui, update requestUpdateFn) (string, error) {
 	return "Textboxes successfully cleared!", nil
 }
 
-func uiHandlerDelete(ui *ui, update requestUpdateFn) (string, error) {
+func uiHandlerDelete(ui *ui, update requestUpdateFn) (msg string, err error) {
 	list := ui.elements.knownMailboxesList
 
 	for _, box := range list.SelectedValues() {
 		ui.config.removeMailbox(box)
 	}
-	if err := ui.config.saveToFileAndKeyring(ui.keyring); err != nil {
-		return "", err
+	err = ui.config.saveToFileAndKeyring(ui.keyring)
+
+	if err == nil {
+		msg = "Mailbox successfully removed!"
+		// Request refreshes for all components that were affeced by this handler.
+		list.SetValues(ui.config.knownMailboxes())
+		update(list)
 	}
 
-	// Request refreshes for all components that were affeced by this handler.
-	list.SetValues(ui.config.knownMailboxes())
-	update(list)
-
-	return "Mailbox successfully removed!", nil
+	return msg, err
 }
 
 func uiHandlerEdit(ui *ui, update requestUpdateFn) (string, error) {

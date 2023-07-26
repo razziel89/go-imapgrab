@@ -174,3 +174,82 @@ func TestUIHandlerSave(t *testing.T) {
 	assert.True(t, exists(ui.config.filePath))
 	assert.NotEmpty(t, msg)
 }
+
+func TestUIHandlerClear(t *testing.T) {
+	ui := &ui{
+		elements: uiBuild(),
+		config:   uiConfigFile{},
+		keyring:  nil,
+		selfExe:  "cat",
+	}
+	ui.elements.newMailboxDetailsTextboxes.user.SetText("some text")
+
+	updated := false
+	update := func(_ gwu.Comp) { updated = true }
+
+	// Test.
+	_, err := uiHandlerClear(ui, update)
+
+	// Assertions.
+	assert.NoError(t, err)
+	assert.True(t, updated)
+	assert.Empty(t, ui.elements.newMailboxDetailsTextboxes.user.Text())
+}
+
+func TestUIHandlerDelete(t *testing.T) {
+	// Setup.
+	keyring := mockKeyring{}
+	keyring.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	defer keyring.AssertExpectations(t)
+
+	tmp := t.TempDir()
+
+	ui := &ui{
+		elements: uiBuild(),
+		config: uiConfigFile{
+			filePath: filepath.Join(tmp, "config.yaml"),
+			Path:     filepath.Join(tmp, "download"),
+			Mailboxes: []*uiConfFileMailbox{
+				{Name: "box", password: "pass"},
+				{Name: "other box", password: "pass"},
+			},
+		},
+		keyring: &keyring,
+		selfExe: "cat",
+	}
+	ui.elements.knownMailboxesList.SetValues([]string{"box"})
+	ui.elements.knownMailboxesList.SetSelectedIndices([]int{0})
+
+	updated := false
+	update := func(_ gwu.Comp) { updated = true }
+
+	// Test.
+	_, err := uiHandlerDelete(ui, update)
+
+	// Assertions.
+	assert.NoError(t, err)
+	assert.True(t, updated)
+	assert.True(t, exists(ui.config.filePath))
+}
+
+func TestUIHandlerEdit(t *testing.T) {
+	ui := &ui{
+		elements: uiBuild(),
+		config:   uiConfigFile{Mailboxes: []*uiConfFileMailbox{{Name: "box"}}},
+		keyring:  nil,
+		selfExe:  "cat",
+	}
+	ui.elements.knownMailboxesList.SetValues([]string{"box"})
+	ui.elements.knownMailboxesList.SetSelectedIndices([]int{0})
+
+	updated := false
+	update := func(_ gwu.Comp) { updated = true }
+
+	// Test.
+	_, err := uiHandlerEdit(ui, update)
+
+	// Assertions.
+	assert.NoError(t, err)
+	assert.True(t, updated)
+	assert.Equal(t, "box", ui.elements.newMailboxDetailsTextboxes.name.Text())
+}
