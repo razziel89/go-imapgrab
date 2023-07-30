@@ -49,6 +49,7 @@ type uiElements struct {
 	actionButtons              uiActionButtons
 	knownMailboxesList         gwu.ListBox
 	verboseCheckbox            gwu.CheckBox
+	allowDeleteCheckbox        gwu.CheckBox
 	reportLabel                gwu.Label
 	window                     gwu.Window
 }
@@ -81,14 +82,14 @@ func uiBuild() uiElements {
 	window := uiBuildMainWindow()
 	newMailboxTextboxes, saveNewMailbox, clearBoxes, newMailboxPanel := uiBuildAddMailboxSection()
 	knownMailboxesList, knownMailboxesPanel := uiBuildKnownMailboxesList()
-	actionButtons, verboseCheckbox, actionButtonsPanel := uiBuildMailboxActionButtons()
+	actionButtons, verboseToggle, deleteToggle, buttonsPanel := uiBuildMailboxActionButtons()
 	spacer := gwu.NewPanel()
 	spacer.Style().SetMarginBottom("500px")
 	reportLabel := uiBuildReportLabel()
 	spacer.Add(reportLabel)
 
 	// Make the action buttons part of the panel listing the mailboxes.
-	knownMailboxesPanel.Add(actionButtonsPanel)
+	knownMailboxesPanel.Add(buttonsPanel)
 
 	// Add the save button separately.
 	actionButtons.save = saveNewMailbox
@@ -105,7 +106,8 @@ func uiBuild() uiElements {
 		newMailboxDetailsTextboxes: newMailboxTextboxes,
 		actionButtons:              actionButtons,
 		knownMailboxesList:         knownMailboxesList,
-		verboseCheckbox:            verboseCheckbox,
+		verboseCheckbox:            verboseToggle,
+		allowDeleteCheckbox:        deleteToggle,
 	}
 }
 
@@ -187,7 +189,7 @@ func uiBuildKnownMailboxesList() (gwu.ListBox, gwu.Panel) {
 
 // Add buttons to act on selected mailboxes.
 func uiBuildMailboxActionButtons() (
-	buttons uiActionButtons, verbose gwu.CheckBox, panel gwu.Panel,
+	buttons uiActionButtons, verbose gwu.CheckBox, deleteToggle gwu.CheckBox, panel gwu.Panel,
 ) {
 	panel = gwu.NewVerticalPanel()
 	panel.SetCellPadding(uiCellPadding)
@@ -214,7 +216,10 @@ func uiBuildMailboxActionButtons() (
 		clear: nil,
 	}
 
-	return buttons, verbose, panel
+	deleteToggle = gwu.NewCheckBox("Allow Deletion")
+	panel.Add(deleteToggle)
+
+	return buttons, verbose, deleteToggle, panel
 }
 
 func uiBuildReportLabel() gwu.Label {

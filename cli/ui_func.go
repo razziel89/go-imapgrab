@@ -175,16 +175,20 @@ func uiHandlerClear(ui *ui, update requestUpdateFn) (string, error) {
 func uiHandlerDelete(ui *ui, update requestUpdateFn) (msg string, err error) {
 	list := ui.elements.knownMailboxesList
 
-	for _, box := range list.SelectedValues() {
-		ui.config.removeMailbox(box)
-	}
-	err = ui.config.saveToFileAndKeyring(ui.keyring)
+	msg = "Selected mailboxes not deleted, use checkbox to enable feature."
 
-	if err == nil {
-		msg = "Mailbox successfully removed!"
-		// Request refreshes for all components that were affeced by this handler.
-		list.SetValues(ui.config.knownMailboxes())
-		update(list)
+	if ui.elements.allowDeleteCheckbox.State() {
+		for _, box := range list.SelectedValues() {
+			ui.config.removeMailbox(box)
+		}
+		err = ui.config.saveToFileAndKeyring(ui.keyring)
+
+		if err == nil {
+			msg = "Mailbox successfully removed!"
+			// Request refreshes for all components that were affeced by this handler.
+			list.SetValues(ui.config.knownMailboxes())
+			update(list)
+		}
 	}
 
 	return msg, err

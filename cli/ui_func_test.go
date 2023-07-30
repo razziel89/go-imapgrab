@@ -221,12 +221,24 @@ func TestUIHandlerDelete(t *testing.T) {
 	}
 	ui.elements.knownMailboxesList.SetValues([]string{"box"})
 	ui.elements.knownMailboxesList.SetSelectedIndices([]int{0})
+	ui.elements.allowDeleteCheckbox.SetState(false)
 
 	updated := false
 	update := func(_ gwu.Comp) { updated = true }
 
 	// Test.
 	_, err := uiHandlerDelete(ui, update)
+
+	// Assertions. Deletion happens only when the checkbox is set.
+	assert.NoError(t, err)
+	assert.False(t, updated)
+	assert.False(t, exists(ui.config.filePath))
+
+	// Setup.
+	ui.elements.allowDeleteCheckbox.SetState(true)
+
+	// Test.
+	_, err = uiHandlerDelete(ui, update)
 
 	// Assertions.
 	assert.NoError(t, err)
