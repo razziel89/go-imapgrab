@@ -10,7 +10,7 @@ setup:
 	go mod tidy
 
 .PHONY: update-deps
-update-deps: 
+update-deps:
 	go get -t -u
 	$(MAKE) setup
 

@@ -8,7 +8,7 @@ setup:
 	$(MAKE) -C ./cli setup
 
 .PHONY: update-deps
-update-deps: 
+update-deps:
 	$(MAKE) -C ./core update-deps && \
 	$(MAKE) -C ./cli update-deps
 
