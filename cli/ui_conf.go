@@ -18,12 +18,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
+
+const yamlIndentSpaces = 2
 
 type uiConfigFile struct {
 	Path      string
@@ -128,10 +131,14 @@ func (ui *uiConfigFile) boxByName(name string) *uiConfFileMailbox {
 func (ui *uiConfigFile) saveToFileAndKeyring(keyring keyringOps) error {
 	// TODO: consider using a lock file when manipulating the config file.
 
+	buffer := bytes.Buffer{}
+	encoder := yaml.NewEncoder(&buffer)
+	encoder.SetIndent(yamlIndentSpaces)
 	// The file will always be saved, even if the password cannot be stored in the keyring. That
 	// gives the user the chance to try again later / after fixing keyring-related problems without
 	// losing access to any provided information.
-	fileContent, err := yaml.Marshal(ui)
+	err := encoder.Encode(ui)
+	fileContent := buffer.Bytes()
 	if err == nil {
 		err = os.MkdirAll(filepath.Dir(ui.filePath), dirPerms)
 	}
