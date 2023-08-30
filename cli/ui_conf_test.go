@@ -60,21 +60,21 @@ func exampleConfigForTest(path string) string {
 	return "" +
 		"path: " + path + string(os.PathSeparator) + "download\n" +
 		"mailboxes:\n" +
-		"- name: mail\n" +
-		"  server: some.server.com\n" +
-		"  user: some@user.com\n" +
-		"  port: 993\n" +
-		"  serverport: 30123\n" +
-		"  folders:\n" +
-		"  - _ALL_\n" +
-		"  - -_Gmail_\n" +
-		"- name: box\n" +
-		"  server: other.server.com\n" +
-		"  user: other@user.com\n" +
-		"  port: 993\n" +
-		"  serverport: 30124\n" +
-		"  folders:\n" +
-		"  - _ALL_\n"
+		"  - name: mail\n" +
+		"    server: some.server.com\n" +
+		"    user: some@user.com\n" +
+		"    port: 993\n" +
+		"    serverport: 30123\n" +
+		"    folders:\n" +
+		"      - _ALL_\n" +
+		"      - -_Gmail_\n" +
+		"  - name: box\n" +
+		"    server: other.server.com\n" +
+		"    user: other@user.com\n" +
+		"    port: 993\n" +
+		"    serverport: 30124\n" +
+		"    folders:\n" +
+		"      - _ALL_\n"
 }
 
 func TestBoxByName(t *testing.T) {
