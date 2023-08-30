@@ -4,8 +4,13 @@ default: lint
 
 .PHONY: setup
 setup:
-	$(MAKE) -C ./cli setup && \
-	$(MAKE) -C ./core setup
+	$(MAKE) -C ./core setup && \
+	$(MAKE) -C ./cli setup
+
+.PHONY: update-deps
+update-deps: 
+	$(MAKE) -C ./core update-deps && \
+	$(MAKE) -C ./cli update-deps
 
 .PHONY: build
 build: go-imapgrab
@@ -20,12 +25,12 @@ go-imapgrab: */*.go
 
 .PHONY: lint
 lint:
-	$(MAKE) -C ./cli lint && \
-	$(MAKE) -C ./core lint
+	$(MAKE) -C ./core lint && \
+	$(MAKE) -C ./cli lint
 
 test: .test.log
 
 .test.log: */go.* */*.go
-	$(MAKE) -C ./cli test && \
-	$(MAKE) -C ./core test
+	$(MAKE) -C ./core test && \
+	$(MAKE) -C ./cli test
 

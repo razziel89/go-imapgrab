@@ -9,6 +9,11 @@ setup:
 	go mod download
 	go mod tidy
 
+.PHONY: update-deps
+update-deps: 
+	go get -t -u
+	$(MAKE) setup
+
 .PHONY: build
 build: go-imapgrab
 
