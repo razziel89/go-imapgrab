@@ -1,6 +1,6 @@
 module github.com/razziel89/go-imapgrab/core
 
-go 1.17
+go 1.20
 
 require (
 	github.com/emersion/go-imap v1.2.1

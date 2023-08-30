@@ -1,6 +1,6 @@
 module github.com/razziel89/go-imapgrab/cli
 
-go 1.17
+go 1.20
 
 replace github.com/razziel89/go-imapgrab/core => ../core
 
@@ -13,7 +13,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/zalando/go-keyring v0.2.3
 	golang.org/x/term v0.11.0
-	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -30,5 +30,4 @@ require (
 	github.com/stretchr/objx v0.5.1 // indirect
 	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
