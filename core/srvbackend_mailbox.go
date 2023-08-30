@@ -20,7 +20,7 @@ package core
 import (
 	"fmt"
 	"io/fs"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -186,15 +186,20 @@ func (mb *serverMailbox) addMessages() error {
 	base := mb.maildir.folderPath()
 	files := []pathAndInfo{}
 	for _, dir := range []string{"new", "cur"} {
-		moreFiles, err := ioutil.ReadDir(filepath.Join(base, dir))
+		moreFiles, err := os.ReadDir(filepath.Join(base, dir))
 		if err != nil {
 			return err
 		}
 		for idx := range moreFiles {
-			files = append(files, pathAndInfo{
-				path: filepath.Join(base, dir, moreFiles[idx].Name()),
-				info: moreFiles[idx],
-			})
+			// According to the docs of Info(), the only possible error is an ErrNotExists, which we
+			// ignore here. We do not want to add a message that no longer exists on disk.
+			info, err := moreFiles[idx].Info()
+			if err == nil {
+				files = append(files, pathAndInfo{
+					path: filepath.Join(base, dir, moreFiles[idx].Name()),
+					info: info,
+				})
+			}
 		}
 	}
 	// Sort files by modification time to get some semblance of order.
