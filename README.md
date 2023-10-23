@@ -12,7 +12,8 @@
     * [List folders](#list-folders)
     * [Download](#download)
     * [Serve - View your backed-up emails](#serve---view-your-backed-up-emails)
-        * [Using the mutt command line client](#using-the-mutt-command-line-client)
+        * [Using the mutt command line
+          client](#using-the-mutt-command-line-client)
         * [Using any email client](#using-any-email-client)
         * [A note on ports](#a-note-on-ports)
     * [UI](#ui)
@@ -119,7 +120,8 @@ All of the above is can be managed via the [graphical user interface](#ui).
 
 ❗ If you are on Windows, replace any invocation of `go-imapgrab` by
 `go-imapgrab.exe`.
-This document will omit the `.exe` extension throughout. ❗
+This document will omit the `.exe` extension throughout.
+❗
 
 ## Store password in keyring
 
@@ -263,8 +265,8 @@ running the `download` command.
 
 Unfortunately, only very few email clients support viewing locally stored
 emails.
-To work around that limitation, `go-imapgrab` can run as a fully-local
-read-only IMAP server that any IMAP-compatible email client can connect to.
+To work around that limitation, `go-imapgrab` can run as a fully-local read-only
+IMAP server that any IMAP-compatible email client can connect to.
 Here, fully local means that only programs on the same machine as the one
 running `go-imapgrab` can connect to it.
 
@@ -278,7 +280,7 @@ go-imapgrab serve -u "${USERNAME}" -s "${SERVER}" -p "${PORT}" \
 ```
 
 Make sure to specify the exact same values for `${USERNAME}`, `${SERVER}`,
-`${PORT}`, and  `${LOCALPATH}` as you did for the `download` command for the
+`${PORT}`, and `${LOCALPATH}` as you did for the `download` command for the
 mailbox you wish to view.
 By default, the IMAP server will listen for incoming connections on port 30912
 on your local machine.
@@ -382,15 +384,18 @@ From now on, you can simply type `go-imapgrab` in your terminal to use it!
 If you want to set up tab completion for your shell, add the following to your
 shell's configuration file:
 
-- `bash`: add to `~/.bashrc`:
+- `bash`:
+  add to `~/.bashrc`:
   ```bash
   [[ -x $(command -v go-imapgrab) ]] && eval "$(go-imapgrab completion bash)"
   ```
-- `zsh`: add to `~/.zshrc`:
+- `zsh`:
+  add to `~/.zshrc`:
   ```zsh
   [[ -x $(command -v go-imapgrab) ]] && eval "$(go-imapgrab completion zsh)"
   ```
-- `fish`: add to `~/.config/fish/config.fish`:
+- `fish`:
+  add to `~/.config/fish/config.fish`:
   ```fish
   if type -q go-imapgrab
     eval (go-imapgrab completion fish)
