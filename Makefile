@@ -27,6 +27,7 @@ go-imapgrab: */*.go
 lint:
 	$(MAKE) -C ./core lint && \
 	$(MAKE) -C ./cli lint
+	mdslw --mode=check .
 
 test: .test.log
 
