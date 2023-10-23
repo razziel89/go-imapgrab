@@ -7,12 +7,12 @@ replace github.com/razziel89/go-imapgrab/core => ../core
 require (
 	github.com/emersion/go-imap v1.2.1
 	github.com/icza/gowut v1.4.0
-	github.com/razziel89/go-imapgrab/core v0.0.0-20230730182851-17b02c1378c0
+	github.com/razziel89/go-imapgrab/core v0.0.0-20230830213127-ffaba10cf5f2
 	github.com/rogpeppe/go-internal v1.11.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/zalando/go-keyring v0.2.3
-	golang.org/x/term v0.11.0
+	golang.org/x/term v0.13.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -28,6 +28,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.1 // indirect
-	golang.org/x/sys v0.11.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 )
