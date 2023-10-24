@@ -203,8 +203,8 @@ go-imapgrab download -u "${USERNAME}" -s "${SERVER}" -p "${PORT}" \
 
 For the first run for a mailbox, specify for `${LOCALPATH}` a non-existing or
 empty directory.
-This is where you will download all folders for this mailbox to. The directory
-will be created first if it doesn't exist, including all parents.
+This is where you will download all folders for this mailbox to.
+The directory will be created first if it doesn't exist, including all parents.
 
 The above command will result in one directory per folder in `${LOCALPATH}` in
 addition to one meta data file per folder that must not be modified or updates
@@ -266,9 +266,9 @@ running the `download` command.
 Unfortunately, only very few email clients support viewing locally stored
 emails.
 To work around that limitation, `go-imapgrab` can run as a fully-local read-only
-IMAP server that any IMAP-compatible email client can connect to. Here, fully
-local means that only programs on the same machine as the one running
-`go-imapgrab` can connect to it.
+IMAP server that any IMAP-compatible email client can connect to.
+Here, fully local means that only programs on the same machine as the one
+running `go-imapgrab` can connect to it.
 
 The following example assumes you are using the Thunderbird email client.
 The first step is to launch `go-imapgrab` as a local IMAP server.
