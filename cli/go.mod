@@ -7,7 +7,7 @@ replace github.com/razziel89/go-imapgrab/core => ../core
 require (
 	github.com/emersion/go-imap v1.2.1
 	github.com/icza/gowut v1.4.0
-	github.com/razziel89/go-imapgrab/core v0.0.0-20230830213127-ffaba10cf5f2
+	github.com/razziel89/go-imapgrab/core v0.0.0-20231024065322-b0de38010c29
 	github.com/rogpeppe/go-internal v1.11.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
