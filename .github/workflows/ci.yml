@@ -93,19 +93,19 @@ jobs:
       run: |
        make test
        make coverage_badge_report.out
-    
+
     - name: Generate CLI module coverage badge
       uses: tj-actions/coverage-badge-go@v1
       with:
         filename: ./cli/coverage_badge_report.out
         text: CLI_Coverage
-    
+
     - name: Generate core module coverage badge
       uses: tj-actions/coverage-badge-go@v1
       with:
         filename: ./core/coverage_badge_report.out
         text: Core_Coverage
-    
+
     - name: Update readme in repo
       run: |
         git config --local user.email 'github-actions[bot]@users.noreply.github.com'
@@ -113,5 +113,5 @@ jobs:
         # If any of the following commands fail, it means the readme did not
         # change. Ignore such errors.
         git add README.md &&
-        git commit -m "Auto-update coverage badges [skip ci] [ci skip]" && 
+        git commit -m "Auto-update coverage badges [skip ci] [ci skip]" &&
         git push origin main || :
