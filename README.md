@@ -3,23 +3,22 @@
 <!-- vim-markdown-toc GFM -->
 
 * [General](#general)
-    * [Notable features](#notable-features)
-    * [Currently absent features](#currently-absent-features)
-* [Why a re-implementation](#why-a-re-implementation)
-* [How to use](#how-to-use)
-    * [Note for Windows users](#note-for-windows-users)
-    * [Store password in keyring](#store-password-in-keyring)
-    * [List folders](#list-folders)
+    * [Notable features](#notable-features)
+    * [Currently absent features](#currently-absent-features)
+* [Why a re-implementation](#why-a-re-implementation)
+* [How to use](#how-to-use)
+    * [Note for Windows users](#note-for-windows-users)
+    * [Store password in keyring](#store-password-in-keyring)
+    * [List folders](#list-folders)
     * [Download](#download)
-    * [Serve - View your backed-up emails](#serve---view-your-backed-up-emails)
-        * [Using the mutt command line
-          client](#using-the-mutt-command-line-client)
-        * [Using any email client](#using-any-email-client)
-        * [A note on ports](#a-note-on-ports)
+    * [Serve - View your backed-up emails](#serve---view-your-backed-up-emails)
+        * [Using the mutt command line client](#using-the-mutt-command-line-client)
+        * [Using any email client](#using-any-email-client)
+        * [A note on ports](#a-note-on-ports)
     * [UI](#ui)
 * [Installation](#installation)
-    * [Tab completion](#tab-completion)
-* [How to contribute](#how-to-contribute)
+    * [Tab completion](#tab-completion)
+* [How to contribute](#how-to-contribute)
 * [Licence](#licence)
 
 <!-- vim-markdown-toc -->
@@ -46,7 +45,7 @@ needed, especially in the case of known vulnerabilities.
 - download IMAP mailboxes to a local directory following the
   [`maildir`][maildir] format
 - browse local backups with your favourite email client
-- a [graphical user interface](#ui) backed by a config file
+- a [graphical user interface](#ui) backed by a config file
 - download folders in parallel
 - static binary without any additional dependencies
 - support for system keyring to store credentials securely
@@ -114,7 +113,7 @@ A typical workflow consists of the following four steps:
 - download the ones you wish to back up
 - view locally stored emails using your favourite email client
 
-All of the above is can be managed via the [graphical user interface](#ui).
+All of the above is can be managed via the [graphical user interface](#ui).
 
 ## Note for Windows users
 
@@ -143,7 +142,7 @@ Refer to the documentation of your email provider for the username, server, and
 port.
 For Gmail, you can:
 
-- use an [application-specific password][gmail-app-password] as password
+- use an [application-specific password][gmail-app-password] as password
 - provide your email address as `${USERNAME}`
 - use `imap.gmail.com` as `${SERVER}`
 - leave out the port since Gmail uses the default one
@@ -372,7 +371,7 @@ go-imapgrab download --help
 
 # Installation
 
-Go to the project's [release page][release-page], select the correct
+Go to the project's [release page][release-page], select the correct
 distribution for your system, and download it.
 Extract the downloaded archive and move the extracted binary to a location that
 is in your `$PATH` such as `/usr/local/bin`.
