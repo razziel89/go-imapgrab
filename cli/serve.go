@@ -47,7 +47,7 @@ func getServeCmd(
 		Use:   "serve",
 		Long:  shortServeHelp + "\n\n" + typicalFlowHelp,
 		Short: shortServeHelp,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			core.SetVerboseLogs(rootConf.verbose)
 			// Allow insecure auth for local server for testing.
 			insecure := rootConf.server == localhost
@@ -70,7 +70,7 @@ func getServeCmd(
 			defer unlock()
 			return ops.serveMaildir(cfg, serveConf.serverPort, serveConf.path)
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			core.SetVerboseLogs(rootConf.verbose)
 			err := initCredentials(rootConf, keyring, rootConf.verbose)
 			if credentialsNotFound(err) {

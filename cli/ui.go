@@ -49,7 +49,7 @@ func getUICmd(keyring keyringOps, newServer newServerFn) *cobra.Command {
 		Use:   "ui",
 		Long:  shortUIHelp + "\n\n" + typicalUIFlowHelp,
 		Short: shortUIHelp,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			cfgFile := findUIConfigFile()
 
 			ui, err := newUI(cfgFile, keyring)

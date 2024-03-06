@@ -67,7 +67,7 @@ func getRootCmd() *cobra.Command {
 		Use:   "go-imapgrab",
 		Long:  shortRootHelp + "\n\n" + typicalFlowHelp,
 		Short: shortRootHelp,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}

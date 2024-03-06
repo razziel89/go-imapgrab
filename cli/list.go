@@ -34,7 +34,7 @@ func getListCmd(rootConf *rootConfigT, keyring keyringOps, ops coreOps) *cobra.C
 		Use:   "list",
 		Long:  shortListHelp + "\n\n" + typicalFlowHelp,
 		Short: shortListHelp,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			core.SetVerboseLogs(rootConf.verbose)
 			// Allow insecure auth for local server for testing.
 			insecure := rootConf.server == localhost
@@ -52,7 +52,7 @@ func getListCmd(rootConf *rootConfigT, keyring keyringOps, ops coreOps) *cobra.C
 
 			return err
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			core.SetVerboseLogs(rootConf.verbose)
 			err := initCredentials(rootConf, keyring, rootConf.verbose)
 			if credentialsNotFound(err) {

@@ -96,7 +96,7 @@ func setUpMockClient(
 		messages:  messages,
 	}
 	orgClientGetter := newImapClient
-	newImapClient = func(addr string, _ bool) (imapOps, error) {
+	newImapClient = func(_ string, _ bool) (imapOps, error) {
 		return mock, err
 	}
 	t.Cleanup(func() { newImapClient = orgClientGetter })
@@ -290,7 +290,7 @@ func TestStreamingRetrievalInterrupt(t *testing.T) {
 	// The reason is that the call to streamingRetrieval will use 2 goroutines and we cannot
 	// guarantee that UidFetch will have been called.
 	orgClientGetter := newImapClient
-	newImapClient = func(addr string, _ bool) (imapOps, error) {
+	newImapClient = func(_ string, _ bool) (imapOps, error) {
 		return m, nil
 	}
 	t.Cleanup(func() { newImapClient = orgClientGetter })

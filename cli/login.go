@@ -79,7 +79,7 @@ func getLoginCmd(
 		Use:   "login",
 		Long:  shortLoginHelp + "\n\n" + typicalFlowHelp,
 		Short: shortLoginHelp,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			core.SetVerboseLogs(rootConf.verbose)
 			// Allow insecure auth for local server for testing.
 			insecure := rootConf.server == localhost

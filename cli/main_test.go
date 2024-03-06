@@ -30,7 +30,7 @@ func TestMain(t *testing.T) {
 	orgRootCmd := rootCmd
 	t.Cleanup(func() { rootCmd = orgRootCmd })
 	rootCmd = &cobra.Command{
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			calledRootCmd = true
 			return fmt.Errorf("some error")
 		},
