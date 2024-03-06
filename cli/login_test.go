@@ -137,7 +137,7 @@ func TestReadFromStdin(t *testing.T) {
 
 	// Fake the function that reads from the terminal interactively. It returns "input".
 	readInteractively := false
-	readFromTerminal = func(fd int) ([]byte, error) {
+	readFromTerminal = func(_ int) ([]byte, error) {
 		readInteractively = true
 		return []byte("input"), nil
 	}
