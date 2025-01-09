@@ -95,13 +95,13 @@ jobs:
        make coverage_badge_report.out
 
     - name: Generate CLI module coverage badge
-      uses: tj-actions/coverage-badge-go@v1
+      uses: tj-actions/coverage-badge-go@v2
       with:
         filename: ./cli/coverage_badge_report.out
         text: CLI_Coverage
 
     - name: Generate core module coverage badge
-      uses: tj-actions/coverage-badge-go@v1
+      uses: tj-actions/coverage-badge-go@v2
       with:
         filename: ./core/coverage_badge_report.out
         text: Core_Coverage
