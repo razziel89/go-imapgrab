@@ -27,11 +27,10 @@ go-imapgrab: */*.go
 lint:
 	$(MAKE) -C ./core lint && \
 	$(MAKE) -C ./cli lint
-	mdslw --mode=check .
+	mdslw --mode=check --report=changed .
 
 test: .test.log
 
 .test.log: */go.* */*.go
 	$(MAKE) -C ./core test && \
 	$(MAKE) -C ./cli test
-
