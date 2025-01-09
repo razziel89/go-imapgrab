@@ -416,14 +416,20 @@ The feature you would like to introduce might already be in development.
 
 # Licence
 
-[GPLv3](./LICENCE)
+[GPLv3]
 
 If you want to use this piece of software under a different, more permissive
 open-source licence, please contact me.
 I am very open to discussing this point.
 
+<!-- link-category: built upon -->
+
+[getmail]: https://pyropus.ca./software/getmail/ "getmail website"
 [imapgrab]: https://sourceforge.net/p/imapgrab/wiki/Home/ "imapgrab website"
 [maildir]: https://cr.yp.to/proto/maildir.html "maildir format"
-[getmail]: https://pyropus.ca./software/getmail/ "getmail website"
+
+<!-- link-category: installation -->
+
 [gmail-app-password]: https://support.google.com/accounts/answer/185833?hl=en "application-specific passwords"
+[GPLv3]: ./LICENCE
 [release-page]: https://github.com/razziel89/go-imapgrab/releases/latest "latest release"
