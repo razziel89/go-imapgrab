@@ -224,12 +224,12 @@ func getAllMessageUUIDs(
 	mbox *imap.MailboxStatus, imapClient imapOps,
 ) (uids []uidExt, err error) {
 	logInfo("retrieving information about emails stored on server")
-	uids = make([]uidExt, 0, mbox.Messages)
-
-	// Return empty array instead of performing invalid FETCH for zero message UUIDS (empty folder)
+	// Handle the special case of empty folders by returning early.
 	if mbox.Messages == 0 {
-		return uids, nil
+		return nil, nil
 	}
+
+	uids = make([]uidExt, 0, mbox.Messages)
 
 	// Retrieve information about all emails.
 	seqset := new(imap.SeqSet)
