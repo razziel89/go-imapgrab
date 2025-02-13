@@ -134,7 +134,7 @@ func downloadMissingEmailsToFolder(
 		)
 		logInfo(msg)
 		if *fetchErrCount > 0 || *deliverErrCount > 0 || *oldmailErrCount > 0 {
-			err = fmt.Errorf(msg)
+			err = fmt.Errorf("%s", msg)
 		}
 	}
 	return err

@@ -78,9 +78,9 @@ func (mb *serverMailbox) Status(items []imap.StatusItem) (*imap.MailboxStatus, e
 	for _, name := range items {
 		switch name {
 		case imap.StatusMessages:
-			status.Messages = uint32(len(mb.messages))
+			status.Messages = uint32(intToUint32(len(mb.messages)))
 		case imap.StatusUidNext:
-			status.UidNext = uint32(len(mb.messages)) + 1
+			status.UidNext = uint32(intToUint32(len(mb.messages)) + 1)
 		case imap.StatusUidValidity:
 			status.UidValidity = 1
 		case imap.StatusRecent:
@@ -114,7 +114,7 @@ func (mb *serverMailbox) ListMessages(
 	logInfo("backend mailbox list messages")
 	defer close(msgChan)
 	for count, msg := range mb.messages {
-		uidAndIdx := uint32(count + 1)
+		uidAndIdx := intToUint32(count + 1)
 		if seqset.Contains(uidAndIdx) {
 			fetched, err := msg.Fetch(uidAndIdx, items)
 			if err == nil {
@@ -132,7 +132,7 @@ func (mb *serverMailbox) SearchMessages(_ bool, criteria *imap.SearchCriteria) (
 	logInfo("backend mailbox search messages")
 	var foundIDs []uint32
 	for count, msg := range mb.messages {
-		uidAndIdx := uint32(count + 1)
+		uidAndIdx := intToUint32(count + 1)
 		ok, err := msg.Match(uidAndIdx, criteria)
 		if err == nil {
 			if ok {
@@ -157,7 +157,7 @@ func (mb *serverMailbox) UpdateMessagesFlags(
 	_ bool, seqset *imap.SeqSet, operation imap.FlagsOp, flags []string,
 ) error {
 	for count, msg := range mb.messages {
-		uidAndIdx := uint32(count + 1)
+		uidAndIdx := intToUint32(count + 1)
 		if seqset.Contains(uidAndIdx) {
 			msg.msg.Flags = backendutil.UpdateFlags(msg.msg.Flags, operation, flags)
 		}
@@ -216,7 +216,7 @@ func (mb *serverMailbox) addMessages() error {
 			msg: &memory.Message{
 				// Identify by mod time.
 				Date: file.info.ModTime(),
-				Uid:  uint32(count + 1),
+				Uid:  intToUint32(count + 1),
 				// Assume all have been seen already.
 				Flags: []string{"\\Seen"},
 				// Size and Body will be filled in later and only on demand.

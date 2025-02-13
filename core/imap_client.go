@@ -155,7 +155,7 @@ func streamingRetrieval(
 	// Emails will be retrieved via a SeqSet, which can contain a set of messages.
 	seqset := new(imap.SeqSet)
 	for _, uid := range uids {
-		seqset.AddNum(uint32(uid))
+		seqset.AddNum(intToUint32(int(uid)))
 	}
 
 	wg.Add(1)

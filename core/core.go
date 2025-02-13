@@ -21,6 +21,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -256,4 +257,11 @@ func ServeMaildir(cfg IMAPConfig, serverPort int, maildirBase string) (err error
 
 	err = errors.Join(serverErr, closeErr)
 	return err
+}
+
+func intToUint32(i int) uint32 {
+	if i >= 0 && i <= math.MaxInt32 {
+		return uint32(i)
+	}
+	panic("fatal error: integer overflow or underflow detected")
 }

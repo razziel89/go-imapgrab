@@ -60,7 +60,7 @@ func newUniqueName(hostname string) (filename string, err error) {
 	// Determine data with functions that cannot fail.
 	now := time.Now()
 	timeInSecs := now.Unix()
-	//nolint:gomnd
+	//nolint:mnd
 	microSecsOfTime := now.Nanosecond() / 1000 // Convert nano seconds to micro seconds.
 	pid := os.Getpid()
 

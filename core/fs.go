@@ -64,5 +64,5 @@ func errorIfExists(path, message string) error {
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
-	return fmt.Errorf(message)
+	return fmt.Errorf("%s", message)
 }

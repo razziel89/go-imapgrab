@@ -46,7 +46,7 @@ var backendMem = backendMessageMemory{
 	knownBytes: 0,
 	// This means we will clear memory as soon as reading in a new message exceeds a storage of
 	// about 100MB.
-	maxBytes: intFromEnvWithDefault(maxMemMegabytesEnv, 100) * 1_000_000, //nolint:gomnd
+	maxBytes: intFromEnvWithDefault(maxMemMegabytesEnv, 100) * 1_000_000, //nolint:mnd
 	messages: map[*serverMessage]bool{},
 	lock:     &sync.Mutex{},
 }
@@ -110,7 +110,7 @@ func (m *serverMessage) fill() error {
 	// Fill only once if not yet filled.
 	body, err := os.ReadFile(m.path)
 	if err == nil {
-		m.msg.Size = uint32(len(body))
+		m.msg.Size = intToUint32(len(body))
 		m.msg.Body = body
 		m.filled = true
 	}

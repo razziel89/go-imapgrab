@@ -25,7 +25,7 @@ linters:
     - goconst
     - goheader
     - goimports
-    - gomnd
+    - mnd
     - gosec
     - importas
     - lll
