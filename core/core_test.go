@@ -332,3 +332,14 @@ func TestServerMaildir(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestIntegerConversionSuccess(t *testing.T) {
+	i := 42
+	ui := intToUint32(i)
+
+	assert.Equal(t, ui, uint32(42))
+}
+
+func TestIntegerConversionFailure(t *testing.T) {
+	assert.Panics(t, func() { _ = intToUint32(-42) })
+}
