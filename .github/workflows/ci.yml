@@ -26,14 +26,14 @@ jobs:
     - name: Install Golang
       uses: actions/setup-go@v4
       with:
-        go-version: '1.22'
+        go-version: '1.23'
 
     - name: Install dependencies
       run: |
         # System.
         sudo apt-get install make wget curl
         # Go.
-        curl -sSfL "${RAW_URL}/${LINT}" | sudo sh -s -- -b "${TARGET}" v1.55.0
+        curl -sSfL "${RAW_URL}/${LINT}" | sudo sh -s -- -b "${TARGET}" v1.64.4
         # Custom.
         sudo wget -O "${TARGET}/mdslw" "${MDSLW_URL}/${MDSLW_BIN}"
         sudo chmod +x "${TARGET}/mdslw"
