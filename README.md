@@ -24,7 +24,7 @@
 <!-- vim-markdown-toc -->
 
 # General
-![Core_Coverage](https://img.shields.io/badge/Core_Coverage-99.9%25-brightgreen)
+![Core_Coverage](https://img.shields.io/badge/Core_Coverage-100.0%25-brightgreen)
 ![CLI_Coverage](https://img.shields.io/badge/CLI_Coverage-100.0%25-brightgreen)
 
 This is `go-imapgrab`, a re-implementation of the amazing [`imapgrab`][imapgrab]
