@@ -17,7 +17,7 @@ update-deps:
 .PHONY: build
 build: go-imapgrab
 
-go-imapgrab: *.go go.*
+go-imapgrab: *.go go.* ../core/*.go ../core/go.*
 	CGO_ENABLED=$(CGO_ENABLED) go build -o go-imapgrab ./...
 
 .PHONY: lint

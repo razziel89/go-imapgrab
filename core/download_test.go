@@ -296,7 +296,7 @@ func TestDownloaderSelectFolder(t *testing.T) {
 
 func TestDownloaderGetAllMessageUUIDs(t *testing.T) {
 	mbox := &imap.MailboxStatus{
-		Messages: 0,
+		Messages: 1,
 	}
 	m := &mockClient{}
 	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
@@ -308,6 +308,24 @@ func TestDownloaderGetAllMessageUUIDs(t *testing.T) {
 	_, err := dl.getAllMessageUUIDs(mbox)
 
 	assert.Error(t, err)
+}
+
+func TestDownloaderGetAllMessageUUIDsNotFetchingEmptyFolder(t *testing.T) {
+	mbox := &imap.MailboxStatus{
+		Messages: 0,
+	}
+	m := &mockClient{}
+	// We error out here.
+	m.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
+	dl := &downloader{
+		imapOps:    m,
+		deliverOps: nil,
+	}
+
+	_, err := dl.getAllMessageUUIDs(mbox)
+
+	// But the mock is not being called because the folder is empty.
+	assert.NoError(t, err)
 }
 
 func TestDownloaderStreamingOldmailWriteout(t *testing.T) {

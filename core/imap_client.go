@@ -224,6 +224,11 @@ func getAllMessageUUIDs(
 	mbox *imap.MailboxStatus, imapClient imapOps,
 ) (uids []uidExt, err error) {
 	logInfo("retrieving information about emails stored on server")
+	// Handle the special case of empty folders by returning early.
+	if mbox.Messages == 0 {
+		return nil, nil
+	}
+
 	uids = make([]uidExt, 0, mbox.Messages)
 
 	// Retrieve information about all emails.
