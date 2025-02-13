@@ -1,0 +1,36 @@
+services:
+  go-imapgrab:
+    build:
+      context: https://github.com/jspiers/go-imapgrab.git#docker
+    volumes:
+      - "${IGRAB_LOCAL_PATH:?}:/maildir" # Directory to store Maildir emails
+    environment:
+      IGRAB_PASSWORD: "${IGRAB_PASSWORD:?}"
+    command:
+      - download
+      - --no-keyring
+      - --server
+      - "${IGRAB_SERVER:?}"
+      - --user
+      - "${IGRAB_USER:?}"
+      - --folder
+      - "${IGRAB_FOLDER:-_ALL_}"
+      - --path
+      - /maildir
+      - --verbose
+    user: "${IGRAB_UID:-1000}:${IGRAB_GID:-1000}"
+    restart: no
+    #restart: unless-stopped
+    #healthcheck:
+    #  test: netstat -nlt | grep ':25 '
+    #  interval: 1s
+    #  timeout: 1s
+    #  retries: 10
+    #labels:
+    #  traefik.enable: false
+    #  traefik.http.routers.imapgrab.rule: Host(`imapgrab.${TOP_LEVEL_DOMAIN:?}`)
+    #  traefik.http.routers.imapgrab.tls: true
+#volumes:
+#  imapgrab-config: {}
+#  imapgrab-data: {}
+#  imapgrab-db: {}
