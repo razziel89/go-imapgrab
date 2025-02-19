@@ -1,23 +1,22 @@
-FROM golang:1.22 AS builder
-
-WORKDIR /build
-COPY . .
-ENV CGO_ENABLED=0
+FROM golang:1.23-bookworm AS builder
+RUN \
+  apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y make ca-certificates
+WORKDIR /app
+COPY cli/go.* ./cli/
+COPY core/go.* ./core/
+RUN cd /app/cli && go mod download && cd /app/core && go mod download
+COPY Makefile ./
+COPY cli/*.go cli/Makefile ./cli/
+COPY core/*.go core/Makefile ./core/
 RUN make build
 
-# Copy the built binary and ca-certificates from the builder stage
 FROM scratch
-COPY --from=builder /build/cli/go-imapgrab /go-imapgrab
+LABEL org.opencontainers.image.source=https://github.com/razziel89/go-imapgrab
+LABEL org.opencontainers.image.description="A re-implementation of the amazing imapgrab in plain Golang. "
+LABEL org.opencontainers.image.licenses=GPLv3
+COPY --from=builder /app/cli/go-imapgrab /go-imapgrab
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-
-# Set up volume for mail storage
 VOLUME ["/maildir"]
-
-# Set default UID and GID
 USER 1000:1000
-
-# Use the built go binary as entrypoint
 ENTRYPOINT ["/go-imapgrab"]
-
-# Set the default command to display help
-CMD ["--help"]
