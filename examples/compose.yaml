@@ -1,0 +1,25 @@
+---
+services:
+  go-imapgrab:
+    image: ghcr.io/razziel89/go-imapgrab:latest
+    volumes:
+      - "./maildir:/maildir"
+    environment:
+      IGRAB_PASSWORD: "/run/secrets/IGRAB_PASSWORD"
+    command:
+      - download
+      - --no-keyring
+      - --server
+      - "imap.example.com"
+      - --user
+      - "john@example.com"
+      - --folder
+      - "_ALL_"
+      - --path
+      - /maildir
+      - --verbose
+    user: "1000:1000"
+    restart: no
+secrets:
+  IGRAB_PASSWORD:
+    file: igrab_password.txt

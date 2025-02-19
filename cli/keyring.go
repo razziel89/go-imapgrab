@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"strings"
 
 	"github.com/zalando/go-keyring"
 )
@@ -93,7 +94,19 @@ func initCredentials(rootConf *rootConfigT, keyring keyringOps, verbose bool) er
 			log.Println(s)
 		}
 	}
-	if password, found := os.LookupEnv(passwdEnvVar); found {
+	if passwordInput, found := os.LookupEnv(passwdEnvVar); found {
+		// Try to interpret the password as pointing to a file that exists. If so, we read the value
+		// from the file. If not, we use the value from the environment directly. This enables the
+		// use of docker-compose secrets.
+		var password string
+		maybePassword, readErr := os.ReadFile(passwordInput)
+		if readErr == nil {
+			// It does point to a file.
+			password = strings.TrimSpace(string(maybePassword))
+		} else {
+			password = passwordInput
+		}
+
 		logDebug(fmt.Sprintf("password taken from env var %s", passwdEnvVar))
 		rootConf.password = password
 		if rootConf.noKeyring {
