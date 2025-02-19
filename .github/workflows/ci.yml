@@ -17,101 +17,101 @@ jobs:
     timeout-minutes: 60
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        # Needed to update coverage badge and to run goreleaser.
-        fetch-depth: 0
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          # Needed to update coverage badge and to run goreleaser.
+          fetch-depth: 0
 
-    - name: Install Golang
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.23'
+      - name: Install Golang
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
 
-    - name: Install dependencies
-      run: |
-        # System.
-        sudo apt-get install make wget curl
-        # Go.
-        curl -sSfL "${RAW_URL}/${LINT}" | sudo sh -s -- -b "${TARGET}" v1.64.4
-        # Custom.
-        sudo wget -O "${TARGET}/mdslw" "${MDSLW_URL}/${MDSLW_BIN}"
-        sudo chmod +x "${TARGET}/mdslw"
-      env:
-        RAW_URL: https://raw.githubusercontent.com
-        LINT: golangci/golangci-lint/master/install.sh
-        MDSLW_URL: https://github.com/razziel89/mdslw/releases/latest/download/
-        MDSLW_BIN: mdslw_x86_64-unknown-linux-musl
-        TARGET: /usr/local/bin
+      - name: Install dependencies
+        run: |
+          # System.
+          sudo apt-get install make wget curl
+          # Go.
+          curl -sSfL "${RAW_URL}/${LINT}" | sudo sh -s -- -b "${TARGET}" v1.64.4
+          # Custom.
+          sudo wget -O "${TARGET}/mdslw" "${MDSLW_URL}/${MDSLW_BIN}"
+          sudo chmod +x "${TARGET}/mdslw"
+        env:
+          RAW_URL: https://raw.githubusercontent.com
+          LINT: golangci/golangci-lint/master/install.sh
+          MDSLW_URL: https://github.com/razziel89/mdslw/releases/latest/download/
+          MDSLW_BIN: mdslw_x86_64-unknown-linux-musl
+          TARGET: /usr/local/bin
 
-    - name: Set up project
-      run: make setup
+      - name: Set up project
+        run: make setup
 
-    - name: Build binary
-      run: make build
+      - name: Build binary
+        run: make build
 
-    - name: Lint project
-      run: make lint
+      - name: Lint project
+        run: make lint
 
-    - name: Build all release binaries on main
-      uses: goreleaser/goreleaser-action@v4
-      if: ${{ github.ref == 'refs/heads/main' }}
-      with:
-        # The snapshot flag is needed since we do not want to require a tag just
-        # for building this.
-        args: build --clean --snapshot
-        workdir: ./cli
-      env:
-        # When running in this mode, goreleaser requires the cli version to be
-        # provided via an env var.
-        CLIVERSION: ci-cd
+      - name: Build all release binaries on main
+        uses: goreleaser/goreleaser-action@v4
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          # The snapshot flag is needed since we do not want to require a tag just
+          # for building this.
+          args: build --clean --snapshot
+          workdir: ./cli
+        env:
+          # When running in this mode, goreleaser requires the cli version to be
+          # provided via an env var.
+          CLIVERSION: ci-cd
 
-    - name: Set CLIVERSION env var on tag
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        echo >> $GITHUB_ENV "CLIVERSION=$(
-          git describe --exact-match --tags | sed 's/^v//'
-        )"
+      - name: Set CLIVERSION env var on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo >> $GITHUB_ENV "CLIVERSION=$(
+            git describe --exact-match --tags | sed 's/^v//'
+          )"
 
-    - name: Release binaries on tag
-      uses: goreleaser/goreleaser-action@v4
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        args: release --clean
-        workdir: ./cli
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release binaries on tag
+        uses: goreleaser/goreleaser-action@v4
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          args: release --clean
+          workdir: ./cli
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Test core module and generate test coverage
-      working-directory: ./core/
-      run: |
-       make test
-       make coverage_badge_report.out
+      - name: Test core module and generate test coverage
+        working-directory: ./core/
+        run: |
+          make test
+          make coverage_badge_report.out
 
-    - name: Test CLI module and generate test coverage
-      working-directory: ./cli/
-      run: |
-       make test
-       make coverage_badge_report.out
+      - name: Test CLI module and generate test coverage
+        working-directory: ./cli/
+        run: |
+          make test
+          make coverage_badge_report.out
 
-    - name: Generate CLI module coverage badge
-      uses: tj-actions/coverage-badge-go@v2
-      with:
-        filename: ./cli/coverage_badge_report.out
-        text: CLI_Coverage
+      - name: Generate CLI module coverage badge
+        uses: tj-actions/coverage-badge-go@v2
+        with:
+          filename: ./cli/coverage_badge_report.out
+          text: CLI_Coverage
 
-    - name: Generate core module coverage badge
-      uses: tj-actions/coverage-badge-go@v2
-      with:
-        filename: ./core/coverage_badge_report.out
-        text: Core_Coverage
+      - name: Generate core module coverage badge
+        uses: tj-actions/coverage-badge-go@v2
+        with:
+          filename: ./core/coverage_badge_report.out
+          text: Core_Coverage
 
-    - name: Update readme in repo
-      run: |
-        git config --local user.email 'github-actions[bot]@users.noreply.github.com'
-        git config --local user.name 'github-actions[bot]'
-        # If any of the following commands fail, it means the readme did not
-        # change. Ignore such errors.
-        git add README.md &&
-        git commit -m "Auto-update coverage badges [skip ci] [ci skip]" &&
-        git push origin main || :
+      - name: Update readme in repo
+        run: |
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          git config --local user.name 'github-actions[bot]'
+          # If any of the following commands fail, it means the readme did not
+          # change. Ignore such errors.
+          git add README.md &&
+          git commit -m "Auto-update coverage badges [skip ci] [ci skip]" &&
+          git push origin main || :
