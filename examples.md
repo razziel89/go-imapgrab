@@ -50,6 +50,8 @@ services:
       - "./maildir:/maildir"
     environment:
       IGRAB_PASSWORD: /run/secrets/IGRAB_PASSWORD
+    secrets:
+      - IGRAB_PASSWORD
     command:
       - download
       - --no-keyring
