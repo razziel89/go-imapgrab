@@ -19,12 +19,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/user"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockKeyring struct {
@@ -238,6 +240,39 @@ func TestInitCredentialsNoPasswordFromKeyring(t *testing.T) {
 	mk := &mockKeyring{}
 	mk.On("Get", "go-imapgrab/user@server:42", user.Username).
 		Return("some password", nil)
+
+	err = initCredentials(&cfg, mk, false)
+
+	assert.NoError(t, err)
+	assert.Equal(t, cfg.password, "some password")
+	mk.AssertExpectations(t)
+}
+
+func TestInitCredentialsFromFile(t *testing.T) {
+	tmp := t.TempDir()
+	tmpFile, err := os.CreateTemp(tmp, "password_file_*")
+	require.NoError(t, err)
+	_, err = io.WriteString(tmpFile, "some password")
+	require.NoError(t, err)
+	err = tmpFile.Close()
+	require.NoError(t, err)
+	t.Setenv("IGRAB_PASSWORD", tmpFile.Name())
+
+	cfg := rootConfigT{
+		server:    "server",
+		port:      42,
+		username:  "user",
+		password:  "i will be added",
+		noKeyring: false,
+	}
+
+	user, err := user.Current()
+	assert.NoError(t, err)
+
+	mk := &mockKeyring{}
+	// We expect the password to be auto-stored in the keyring in this case.
+	mk.On("Set", "go-imapgrab/user@server:42", user.Username, "some password").
+		Return(nil)
 
 	err = initCredentials(&cfg, mk, false)
 
