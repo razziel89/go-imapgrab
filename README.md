@@ -25,7 +25,7 @@
 
 # General
 ![Core_Coverage](https://img.shields.io/badge/Core_Coverage-100.0%25-brightgreen)
-![CLI_Coverage](https://img.shields.io/badge/CLI_Coverage-99.8%25-brightgreen)
+![CLI_Coverage](https://img.shields.io/badge/CLI_Coverage-100.0%25-brightgreen)
 
 This is `go-imapgrab`, a re-implementation of the amazing [`imapgrab`][imapgrab]
 in plain Golang.
