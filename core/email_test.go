@@ -79,8 +79,11 @@ func TestEmailSetRFCTooOften(t *testing.T) {
 
 func TestEmailSetNoRFCHeader(t *testing.T) {
 	e := email{}
+	// In v2, strings before RFC822 marker are treated as field name markers and ignored
 	err := e.set("the first string needs the rfc header")
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	// But validation should fail because we don't have all required fields
+	assert.False(t, e.validate())
 }
 
 func TestRFCFromEmail(t *testing.T) {

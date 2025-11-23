@@ -224,6 +224,7 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	oldmailPath := filepath.Join(tmpdir, oldmailFileName)
 
 	mbox := &v1MailboxStatus{
+		UidValidity: 42,
 	}
 	uids := []uidExt{
 		{folder: 42, msg: 1}, {folder: 42, msg: 2}, {folder: 42, msg: 3},

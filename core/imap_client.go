@@ -237,13 +237,16 @@ type v1Message struct {
 
 func (m *v1Message) Format() []interface{} {
 	var fields []interface{}
+	// Add UID header and value (to match v1 format)
+	fields = append(fields, "UID")
 	fields = append(fields, m.Uid)
+	// Add INTERNALDATE header and value
+	fields = append(fields, "INTERNALDATE")
 	fields = append(fields, m.InternalDate)
 	
 	// Add RFC822 body if present
 	if body, ok := m.Body["RFC822"]; ok {
 		fields = append(fields, "RFC822")
-		fields = append(fields, nil) // header placeholder
 		fields = append(fields, string(body))
 	}
 	
