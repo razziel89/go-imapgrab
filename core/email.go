@@ -65,7 +65,7 @@ func (e *email) set(value interface{}) error {
 		e.setTimestamp = true
 	case string:
 		// Check if this string contains RFC822 - if so, it's the RFC822 header marker
-		if strings.Contains(strings.ToLower(concrete), "rfc822") {
+		if strings.Contains(strings.ToUpper(concrete), "RFC822") {
 			e.seenHeader = true
 			return nil
 		}

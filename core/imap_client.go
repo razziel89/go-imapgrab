@@ -248,6 +248,8 @@ func (m *v1Message) Format() []interface{} {
 	if body, ok := m.Body["RFC822"]; ok {
 		fields = append(fields, "RFC822")
 		fields = append(fields, string(body))
+		// Format returns 6 fields total: "UID", uid_value, "INTERNALDATE", date_value, "RFC822", body_content
+		// This matches the rfc822ExpectedNumFields constant.
 	}
 	
 	return fields
