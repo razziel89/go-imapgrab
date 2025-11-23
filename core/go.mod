@@ -4,6 +4,7 @@ go 1.22.1
 
 require (
 	github.com/emersion/go-imap v1.2.1
+	github.com/emersion/go-imap/v2 v2.0.0-beta.7
 	github.com/stretchr/testify v1.10.0
 )
 

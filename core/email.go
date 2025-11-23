@@ -70,8 +70,12 @@ func (e *email) set(value interface{}) error {
 			e.seenHeader = true
 			return nil
 		}
-		// Otherwise fall through to default case
-		fallthrough
+		// Otherwise treat as RFC822 body
+		if e.setRFC822 {
+			return fmt.Errorf("rfc822 already set")
+		}
+		e.rfc822 = concrete
+		e.setRFC822 = true
 	default:
 		// Ignore the first entry in this category. It will be the header specification for this
 		// RFC. Only throw an error if the string representation of that does not contain rfc822.

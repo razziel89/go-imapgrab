@@ -54,7 +54,7 @@ var newImapClient = func(addr string, insecure bool) (imapOps, error) {
 		)
 	} else {
 		logWarning("using insecure connection to locahost")
-		client, err = imapclient.Dial(addr, nil)
+		client, err = imapclient.DialInsecure(addr, nil)
 	}
 	
 	if err != nil {
