@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/emersion/go-imap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -42,7 +41,7 @@ func TestEmailSetValidateStringSuccess(t *testing.T) {
 	for _, val := range []interface{}{
 		uint32(1),
 		time.Now(),
-		imap.RawString("some header"),
+		string("some header"),
 		"rfc822 header",
 		"actual content",
 	} {
@@ -93,9 +92,9 @@ func TestRFCFromEmail(t *testing.T) {
 	// way to find out which header/content pair comes at what position in the slice.
 	msg.On("Format").Return(
 		[]interface{}{
-			imap.RawString("uid header"),
+			string("uid header"),
 			uint32(1),
-			imap.RawString("time header"),
+			string("time header"),
 			someTime,
 			"rfc822 header",
 			"actual content",
@@ -113,9 +112,9 @@ func TestRFCFromEmailTooFewFields(t *testing.T) {
 	msg := mockEmail{}
 	msg.On("Format").Return(
 		[]interface{}{
-			imap.RawString("uid header"),
+			string("uid header"),
 			uint32(1),
-			imap.RawString("time header"),
+			string("time header"),
 			time.Now(),
 			// No content.
 		},
@@ -149,12 +148,12 @@ func TestRFCFromEmailEnoughFieldsButNotAllWeNeed(t *testing.T) {
 	msg.On("Format").Return(
 		[]interface{}{
 			// We expect 6 entries, but we ignore all headers.
-			imap.RawString("header"),
-			imap.RawString("header"),
-			imap.RawString("header"),
-			imap.RawString("header"),
-			imap.RawString("header"),
-			imap.RawString("header"),
+			string("header"),
+			string("header"),
+			string("header"),
+			string("header"),
+			string("header"),
+			string("header"),
 		},
 	)
 

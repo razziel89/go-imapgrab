@@ -29,7 +29,7 @@ func TestBackendNew(t *testing.T) {
 	bcknd, err := newBackend(tmp, "username", "password")
 	assert.NoError(t, err)
 
-	assert.Empty(t, bcknd.(*serverBackend).user.mailboxes)
+	assert.Empty(t, bcknd.user.mailboxes)
 }
 
 func TestBackendLogin(t *testing.T) {
@@ -37,13 +37,16 @@ func TestBackendLogin(t *testing.T) {
 	bcknd, err := newBackend(tmp, "username", "password")
 	require.NoError(t, err)
 
-	_, err = bcknd.Login(nil, "bad user", "password")
+	// Create a session to test login
+	sess, _, err := bcknd.NewSession(nil)
+	require.NoError(t, err)
+
+	err = sess.Login("bad user", "password")
 	assert.Error(t, err)
 
-	_, err = bcknd.Login(nil, "username", "bad password")
+	err = sess.Login("username", "bad password")
 	assert.Error(t, err)
 
-	user, err := bcknd.Login(nil, "username", "password")
+	err = sess.Login("username", "password")
 	assert.NoError(t, err)
-	assert.Equal(t, "username", user.Username())
 }

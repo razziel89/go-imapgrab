@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/emersion/go-imap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -31,8 +30,8 @@ import (
 type mockClient struct {
 	mock.Mock
 
-	mailboxes []*imap.MailboxInfo
-	messages  []*imap.Message
+	mailboxes []*v1MailboxInfo
+	messages  []*v1Message
 }
 
 func (mc *mockClient) Login(username string, password string) error {
@@ -40,7 +39,7 @@ func (mc *mockClient) Login(username string, password string) error {
 	return args.Error(0)
 }
 
-func (mc *mockClient) List(ref string, name string, ch chan *imap.MailboxInfo) error {
+func (mc *mockClient) List(ref string, name string, ch chan *v1MailboxInfo) error {
 	defer close(ch)
 	args := mc.Called(ref, name, ch)
 	for _, box := range mc.mailboxes {
@@ -49,13 +48,13 @@ func (mc *mockClient) List(ref string, name string, ch chan *imap.MailboxInfo) e
 	return args.Error(0)
 }
 
-func (mc *mockClient) Select(name string, readOnly bool) (*imap.MailboxStatus, error) {
+func (mc *mockClient) Select(name string, readOnly bool) (*v1MailboxStatus, error) {
 	args := mc.Called(name, readOnly)
-	return args.Get(0).(*imap.MailboxStatus), args.Error(1)
+	return args.Get(0).(*v1MailboxStatus), args.Error(1)
 }
 
 func (mc *mockClient) Fetch(
-	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
+	seqset *v1SeqSet, items []v1FetchItem, ch chan *v1Message,
 ) error {
 	defer close(ch)
 	args := mc.Called(seqset, items, ch)
@@ -68,7 +67,7 @@ func (mc *mockClient) Fetch(
 // UidFetch has to have that name because it implements an interface htat follows an external
 // dependency. Thus, disable linter warnings about the name.
 func (mc *mockClient) UidFetch( //nolint:revive,stylecheck
-	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
+	seqset *v1SeqSet, items []v1FetchItem, ch chan *v1Message,
 ) error {
 	defer close(ch)
 	args := mc.Called(seqset, items, ch)
@@ -89,7 +88,7 @@ func (mc *mockClient) Terminate() error {
 }
 
 func setUpMockClient(
-	t *testing.T, boxes []*imap.MailboxInfo, messages []*imap.Message, err error,
+	t *testing.T, boxes []*v1MailboxInfo, messages []*v1Message, err error,
 ) *mockClient {
 	mock := &mockClient{
 		mailboxes: boxes,
@@ -174,7 +173,7 @@ func TestAuthenticateClientWrongCredentials(t *testing.T) {
 }
 
 func TestGetFolderListSuccess(t *testing.T) {
-	boxes := []*imap.MailboxInfo{
+	boxes := []*v1MailboxInfo{
 		{Name: "b1"},
 		{Name: "b2"},
 		{Name: "b3"},
@@ -190,7 +189,7 @@ func TestGetFolderListSuccess(t *testing.T) {
 
 func TestGetFolderListError(t *testing.T) {
 	listErr := fmt.Errorf("list error")
-	boxes := []*imap.MailboxInfo{
+	boxes := []*v1MailboxInfo{
 		{Name: "b1"},
 	}
 	m := setUpMockClient(t, boxes, nil, nil)
@@ -203,7 +202,7 @@ func TestGetFolderListError(t *testing.T) {
 }
 
 func TestSelectFolderSuccess(t *testing.T) {
-	expectedStatus := &imap.MailboxStatus{Messages: 42}
+	expectedStatus := &v1MailboxStatus{Messages: 42}
 	m := setUpMockClient(t, nil, nil, nil)
 	m.On("Select", "some folder", true).Return(expectedStatus, nil)
 
@@ -215,16 +214,18 @@ func TestSelectFolderSuccess(t *testing.T) {
 
 func TestStreamingRetrievalSuccess(t *testing.T) {
 	uids := []uid{10, 12, 16}
-	messages := []*imap.Message{
+	messages := []*v1Message{
 		{Uid: 10},
 		{Uid: 12},
 		{Uid: 16},
 	}
 
-	expectedSeqSet := &imap.SeqSet{}
-	expectedSeqSet.AddNum(10, 12, 16)
-	expectedFetchRequest := []imap.FetchItem{
-		imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822,
+	expectedSeqSet := &v1SeqSet{}
+	expectedSeqSet.AddNum(10)
+	expectedSeqSet.AddNum(12)
+	expectedSeqSet.AddNum(16)
+	expectedFetchRequest := []v1FetchItem{
+		v1FetchUid, v1FetchInternalDate, v1FetchRFC822,
 	}
 
 	m := setUpMockClient(t, nil, messages, nil)
@@ -252,10 +253,10 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 
 	// Actually trigger operations and read from output channel.
 	stwg.Done()
-	emails := []*imap.Message{}
+	emails := []*v1Message{}
 	for em := range emailChan {
 		// Convert type back for easier comparison.
-		msg := em.(*imap.Message)
+		msg := em.(*v1Message)
 		emails = append(emails, msg)
 	}
 	wg.Wait()
@@ -281,7 +282,7 @@ func TestStreamingRetrievalError(t *testing.T) {
 
 func TestStreamingRetrievalInterrupt(t *testing.T) {
 	uids := []uid{10}
-	messages := []*imap.Message{}
+	messages := []*v1Message{}
 
 	m := &mockClient{messages: messages}
 	m.On("UidFetch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -323,11 +324,11 @@ func TestUIDToStrng(t *testing.T) {
 }
 
 func TestGetAllMessageUUIDsSuccess(t *testing.T) {
-	status := &imap.MailboxStatus{
+	status := &v1MailboxStatus{
 		Messages:    3,
 		UidValidity: 42,
 	}
-	messages := []*imap.Message{
+	messages := []*v1Message{
 		{Uid: 10},
 		// There are no guarantees the server does not return nil. Thus, we make sure to ignore such
 		// values.
@@ -337,14 +338,14 @@ func TestGetAllMessageUUIDsSuccess(t *testing.T) {
 		{Uid: 16},
 	}
 
-	expectedSeqSet := &imap.SeqSet{}
+	expectedSeqSet := &v1SeqSet{}
 	expectedSeqSet.AddRange(1, 3)
 	expectedUUIDs := []uidExt{
 		{folder: 42, msg: 10},
 		{folder: 42, msg: 12},
 		{folder: 42, msg: 16},
 	}
-	expectedFetchRequest := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
+	expectedFetchRequest := []v1FetchItem{v1FetchUid, v1FetchInternalDate}
 
 	m := setUpMockClient(t, nil, messages, nil)
 	m.On("Fetch", expectedSeqSet, expectedFetchRequest, mock.Anything).Return(nil)
