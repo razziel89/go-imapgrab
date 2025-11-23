@@ -22,6 +22,10 @@ import (
 	"os"
 )
 
+const (
+	filePerms = 0644
+)
+
 // Check whether a path exists.
 func exists(path string) bool {
 	_, err := os.Stat(path)

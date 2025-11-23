@@ -8,14 +8,12 @@ replace github.com/razziel89/go-imapgrab/core => ../core
 
 require (
 	github.com/emersion/go-imap v1.2.1
-	github.com/icza/gowut v1.4.0
 	github.com/razziel89/go-imapgrab/core v0.0.0-20250506185458-d3cd1a19519d
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
 	github.com/zalando/go-keyring v0.2.6
 	golang.org/x/term v0.37.0
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -31,4 +29,5 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
