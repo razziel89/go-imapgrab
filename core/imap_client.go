@@ -19,11 +19,13 @@ package core
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/client"
+	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
 )
 
 const (
@@ -31,30 +33,237 @@ const (
 	messageRetrievalBuffer = 20
 )
 
+// v2ClientAdapter wraps the v2 Client to implement the imapOps interface
+type v2ClientAdapter struct {
+	client *imapclient.Client
+}
+
 // Make this a function pointer to simplify testing. Also takes a boolean to decide whether to use
 // secure auth nor not (i.e. TLS). This errors out if insecure auth is chossen but anything other
 // than "127.0.0.1" is passed as "addr".
-var newImapClient = func(addr string, insecure bool) (imap imapOps, err error) {
+var newImapClient = func(addr string, insecure bool) (imapOps, error) {
+	var client *imapclient.Client
+	var err error
+	
 	if !insecure {
 		// Use automatic configuration of TLS options.
-		imap, err = client.DialTLS(addr, nil)
+		client, err = imapclient.DialTLS(addr, nil)
 	} else if !strings.HasPrefix(addr, "127.0.0.1:") {
 		err = fmt.Errorf(
 			"not allowing insecure auth for non-localhost address %s, use 127.0.0.1", addr,
 		)
 	} else {
 		logWarning("using insecure connection to locahost")
-		imap, err = client.Dial(addr)
+		client, err = imapclient.Dial(addr, nil)
 	}
-	return
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	return &v2ClientAdapter{client: client}, nil
 }
+
+func (a *v2ClientAdapter) Login(username, password string) error {
+	return a.client.Login(username, password).Wait()
+}
+
+func (a *v2ClientAdapter) List(ref, name string, ch chan *v1MailboxInfo) error {
+	defer close(ch)
+	
+	listCmd := a.client.List(ref, name, nil)
+	for {
+		mbox := listCmd.Next()
+		if mbox == nil {
+			break
+		}
+		ch <- &v1MailboxInfo{Name: mbox.Mailbox}
+	}
+	
+	return listCmd.Close()
+}
+
+func (a *v2ClientAdapter) Select(name string, readOnly bool) (*v1MailboxStatus, error) {
+	opts := &imap.SelectOptions{ReadOnly: readOnly}
+	data, err := a.client.Select(name, opts).Wait()
+	if err != nil {
+		return nil, err
+	}
+	
+	return &v1MailboxStatus{
+		Flags:       data.Flags,
+		Messages:    data.NumMessages,
+		UidValidity: uint32(data.UIDValidity),
+	}, nil
+}
+
+func (a *v2ClientAdapter) Fetch(seqset *v1SeqSet, items []v1FetchItem, ch chan *v1Message) error {
+	return a.doFetch(false, seqset, items, ch)
+}
+
+func (a *v2ClientAdapter) UidFetch(seqset *v1SeqSet, items []v1FetchItem, ch chan *v1Message) error {
+	return a.doFetch(true, seqset, items, ch)
+}
+
+func (a *v2ClientAdapter) doFetch(useUID bool, seqset *v1SeqSet, items []v1FetchItem, ch chan *v1Message) error {
+	defer close(ch)
+	
+	// Convert v1 sequence set to v2 NumSet
+	var numSet imap.NumSet
+	if useUID {
+		uidSet := imap.UIDSet{}
+		for _, num := range seqset.nums {
+			uidSet.AddNum(imap.UID(num))
+		}
+		numSet = uidSet
+	} else {
+		seqSetV2 := imap.SeqSet{}
+		for _, num := range seqset.nums {
+			seqSetV2.AddNum(num)
+		}
+		numSet = seqSetV2
+	}
+	
+	// Convert v1 fetch items to v2 options
+	opts := &imap.FetchOptions{}
+	var needRFC822 bool
+	for _, item := range items {
+		switch item {
+		case v1FetchUid:
+			opts.UID = true
+		case v1FetchInternalDate:
+			opts.InternalDate = true
+		case v1FetchRFC822:
+			needRFC822 = true
+			// RFC822 requires fetching the entire body
+			opts.BodySection = []*imap.FetchItemBodySection{
+				{Specifier: imap.PartSpecifierNone},
+			}
+		}
+	}
+	
+	fetchCmd := a.client.Fetch(numSet, opts)
+	defer fetchCmd.Close()
+	
+	for {
+		msg := fetchCmd.Next()
+		if msg == nil {
+			break
+		}
+		
+		v1Msg := &v1Message{
+			Body: make(map[string][]byte),
+		}
+		
+		for {
+			item := msg.Next()
+			if item == nil {
+				break
+			}
+			
+			switch item := item.(type) {
+			case imapclient.FetchItemDataUID:
+				v1Msg.Uid = uint32(item.UID)
+			case imapclient.FetchItemDataInternalDate:
+				v1Msg.InternalDate = item.Time
+			case imapclient.FetchItemDataBodySection:
+				if needRFC822 && item.Section.Specifier == imap.PartSpecifierNone {
+					// Read the body
+					if item.Literal != nil {
+						body, err := io.ReadAll(item.Literal)
+						if err != nil {
+							logError(fmt.Sprintf("error reading body: %v", err))
+							continue
+						}
+						v1Msg.Body["RFC822"] = body
+					}
+				}
+			}
+		}
+		
+		ch <- v1Msg
+	}
+	
+	return fetchCmd.Close()
+}
+
+func (a *v2ClientAdapter) Logout() error {
+	err := a.client.Logout().Wait()
+	a.client.Close()
+	return err
+}
+
+func (a *v2ClientAdapter) Terminate() error {
+	return a.client.Close()
+}
+
+// v1MailboxInfo is a compatibility type for v1's MailboxInfo
+type v1MailboxInfo struct {
+	Name string
+}
+
+// v1MailboxStatus is a compatibility type for v1's MailboxStatus
+type v1MailboxStatus struct {
+	Flags        []imap.Flag
+	Messages     uint32
+	UidValidity  uint32
+}
+
+// v1SeqSet is a compatibility type for v1's SeqSet
+type v1SeqSet struct {
+	nums []uint32
+}
+
+func newV1SeqSet() *v1SeqSet {
+	return &v1SeqSet{nums: make([]uint32, 0)}
+}
+
+func (s *v1SeqSet) AddNum(num uint32) {
+	s.nums = append(s.nums, num)
+}
+
+func (s *v1SeqSet) AddRange(start, stop uint32) {
+	for i := start; i <= stop; i++ {
+		s.nums = append(s.nums, i)
+	}
+}
+
+// v1Message is a compatibility type for v1's Message
+type v1Message struct {
+	Uid          uint32
+	InternalDate time.Time
+	Body         map[string][]byte
+}
+
+func (m *v1Message) Format() []interface{} {
+	var fields []interface{}
+	fields = append(fields, m.Uid)
+	fields = append(fields, m.InternalDate)
+	
+	// Add RFC822 body if present
+	if body, ok := m.Body["RFC822"]; ok {
+		fields = append(fields, "RFC822")
+		fields = append(fields, nil) // header placeholder
+		fields = append(fields, string(body))
+	}
+	
+	return fields
+}
+
+type v1FetchItem string
+
+const (
+	v1FetchUid          v1FetchItem = "UID"
+	v1FetchInternalDate v1FetchItem = "INTERNALDATE"
+	v1FetchRFC822       v1FetchItem = "RFC822"
+)
 
 type imapOps interface {
 	Login(username string, password string) error
-	List(ref string, name string, ch chan *imap.MailboxInfo) error
-	Select(name string, readOnly bool) (*imap.MailboxStatus, error)
-	Fetch(seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message) error
-	UidFetch(seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message) error
+	List(ref string, name string, ch chan *v1MailboxInfo) error
+	Select(name string, readOnly bool) (*v1MailboxStatus, error)
+	Fetch(seqset *v1SeqSet, items []v1FetchItem, ch chan *v1Message) error
+	UidFetch(seqset *v1SeqSet, items []v1FetchItem, ch chan *v1Message) error
 	Logout() error
 	Terminate() error
 }
@@ -86,7 +295,7 @@ func authenticateClient(config IMAPConfig) (imapClient imapOps, err error) {
 
 func getFolderList(imapClient imapOps) (folders []string, err error) {
 	logInfo("retrieving folders")
-	mailboxes := make(chan *imap.MailboxInfo, folderListBuffer)
+	mailboxes := make(chan *v1MailboxInfo, folderListBuffer)
 	go func() {
 		err = imapClient.List("", "*", mailboxes)
 	}()
@@ -98,7 +307,7 @@ func getFolderList(imapClient imapOps) (folders []string, err error) {
 	return folders, err
 }
 
-func selectFolder(imapClient imapOps, folder string) (*imap.MailboxStatus, error) {
+func selectFolder(imapClient imapOps, folder string) (*v1MailboxStatus, error) {
 	logInfo(fmt.Sprint("selecting folder:", folder))
 	// Access the folder in read-only mode.
 	mbox, err := imapClient.Select(folder, true)
@@ -153,7 +362,7 @@ func streamingRetrieval(
 	}
 
 	// Emails will be retrieved via a SeqSet, which can contain a set of messages.
-	seqset := new(imap.SeqSet)
+	seqset := newV1SeqSet()
 	for _, uid := range uids {
 		seqset.AddNum(intToUint32(int(uid)))
 	}
@@ -163,13 +372,13 @@ func streamingRetrieval(
 	already := newOnce(func() { wg.Done() })
 	var errCount int
 	translatedMessageChan := make(chan emailOps, messageRetrievalBuffer)
-	orgMessageChan := make(chan *imap.Message)
+	orgMessageChan := make(chan *v1Message)
 	go func() {
 		// Do not start before the entire pipeline has been set up.
 		startWg.Wait()
 		err := imapClient.UidFetch(
 			seqset,
-			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822},
+			[]v1FetchItem{v1FetchUid, v1FetchInternalDate, v1FetchRFC822},
 			orgMessageChan,
 		)
 		if err != nil {
@@ -221,7 +430,7 @@ func (u uidExt) String() string {
 }
 
 func getAllMessageUUIDs(
-	mbox *imap.MailboxStatus, imapClient imapOps,
+	mbox *v1MailboxStatus, imapClient imapOps,
 ) (uids []uidExt, err error) {
 	logInfo("retrieving information about emails stored on server")
 	// Handle the special case of empty folders by returning early.
@@ -232,14 +441,14 @@ func getAllMessageUUIDs(
 	uids = make([]uidExt, 0, mbox.Messages)
 
 	// Retrieve information about all emails.
-	seqset := new(imap.SeqSet)
+	seqset := newV1SeqSet()
 	seqset.AddRange(1, mbox.Messages)
 
-	messageChannel := make(chan *imap.Message, messageRetrievalBuffer)
+	messageChannel := make(chan *v1Message, messageRetrievalBuffer)
 	go func() {
 		err = imapClient.Fetch(
 			seqset,
-			[]imap.FetchItem{imap.FetchUid, imap.FetchInternalDate},
+			[]v1FetchItem{v1FetchUid, v1FetchInternalDate},
 			messageChannel,
 		)
 	}()
