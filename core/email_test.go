@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/emersion/go-imap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -41,7 +42,7 @@ func TestEmailSetValidateStringSuccess(t *testing.T) {
 	for _, val := range []interface{}{
 		uint32(1),
 		time.Now(),
-		string("some header"),
+		imap.RawString("some header"),
 		"rfc822 header",
 		"actual content",
 	} {
@@ -79,11 +80,8 @@ func TestEmailSetRFCTooOften(t *testing.T) {
 
 func TestEmailSetNoRFCHeader(t *testing.T) {
 	e := email{}
-	// In v2, strings before RFC822 marker are treated as field name markers and ignored
 	err := e.set("the first string needs the rfc header")
-	assert.NoError(t, err)
-	// But validation should fail because we don't have all required fields
-	assert.False(t, e.validate())
+	assert.Error(t, err)
 }
 
 func TestRFCFromEmail(t *testing.T) {
@@ -95,9 +93,9 @@ func TestRFCFromEmail(t *testing.T) {
 	// way to find out which header/content pair comes at what position in the slice.
 	msg.On("Format").Return(
 		[]interface{}{
-			string("uid header"),
+			imap.RawString("uid header"),
 			uint32(1),
-			string("time header"),
+			imap.RawString("time header"),
 			someTime,
 			"rfc822 header",
 			"actual content",
@@ -115,9 +113,9 @@ func TestRFCFromEmailTooFewFields(t *testing.T) {
 	msg := mockEmail{}
 	msg.On("Format").Return(
 		[]interface{}{
-			string("uid header"),
+			imap.RawString("uid header"),
 			uint32(1),
-			string("time header"),
+			imap.RawString("time header"),
 			time.Now(),
 			// No content.
 		},
@@ -151,12 +149,12 @@ func TestRFCFromEmailEnoughFieldsButNotAllWeNeed(t *testing.T) {
 	msg.On("Format").Return(
 		[]interface{}{
 			// We expect 6 entries, but we ignore all headers.
-			string("header"),
-			string("header"),
-			string("header"),
-			string("header"),
-			string("header"),
-			string("header"),
+			imap.RawString("header"),
+			imap.RawString("header"),
+			imap.RawString("header"),
+			imap.RawString("header"),
+			imap.RawString("header"),
+			imap.RawString("header"),
 		},
 	)
 

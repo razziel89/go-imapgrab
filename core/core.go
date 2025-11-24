@@ -79,10 +79,14 @@ func (ig *Imapgrabber) logout(doTerminate bool) error {
 	defer ig.interruptOps.deregister()
 	if doTerminate {
 		logInfo("terminating connection")
-		return ig.imapOps.Terminate()
+		return ig.imapOps.Close()
 	}
 	logInfo("logging out")
-	return ig.imapOps.Logout()
+	err := ig.imapOps.Logout().Wait()
+	if err == nil {
+		err = ig.imapOps.Close()
+	}
+	return err
 }
 
 // getFolderList provides all folders in the configured mailbox

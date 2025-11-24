@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/emersion/go-imap"
 )
 
 const (
@@ -63,23 +65,8 @@ func (e *email) set(value interface{}) error {
 		}
 		e.timestamp = concrete
 		e.setTimestamp = true
-	case string:
-		// Check if this string contains RFC822 - if so, it's the RFC822 header marker
-		if strings.Contains(strings.ToUpper(concrete), "RFC822") {
-			e.seenHeader = true
-			return nil
-		}
-		// If we've seen the RFC822 header marker, this string is the RFC822 body
-		if e.seenHeader {
-			if e.setRFC822 {
-				return fmt.Errorf("rfc822 already set")
-			}
-			e.rfc822 = concrete
-			e.setRFC822 = true
-			return nil
-		}
-		// Otherwise, strings before RFC822 header are field name markers - ignore them
-		return nil
+	case imap.RawString:
+		// Ignore this case. This is a header specification.
 	default:
 		// Ignore the first entry in this category. It will be the header specification for this
 		// RFC. Only throw an error if the string representation of that does not contain rfc822.

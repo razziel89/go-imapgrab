@@ -24,11 +24,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/emersion/go-imap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func buildFakeImapMessage(t *testing.T, id uint32, content string) *v1Message {
+func buildFakeImapMessage(t *testing.T, id uint32, content string) *imap.Message {
 	sectionName, err := imap.ParseBodySectionName(imap.FetchItem("RFC822"))
 	assert.NoError(t, err)
 
@@ -65,9 +66,9 @@ func TestIntegrationDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 
 	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
 
-	boxes := []*v1MailboxInfo{{Name: "some-folder"}}
+	boxes := []*imap.MailboxInfo{{Name: "some-folder"}}
 	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 3}
-	messages := []*v1Message{
+	messages := []*imap.Message{
 		buildFakeImapMessage(t, 1, "some text"),
 		buildFakeImapMessage(t, 2, "some more text"),
 		buildFakeImapMessage(t, 3, "even more text"),
@@ -117,10 +118,10 @@ func TestIntegrationDownloadMissingEmailsToFolderPreparationError(t *testing.T) 
 
 	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
 
-	boxes := []*v1MailboxInfo{{Name: "some-folder"}}
+	boxes := []*imap.MailboxInfo{{Name: "some-folder"}}
 	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 0}
 	// No emails, thus nothing to be downloaded.
-	messages := []*v1Message{}
+	messages := []*imap.Message{}
 
 	mockClient := setUpMockClient(t, boxes, messages, nil)
 	mockClient.On("Select", "some-folder", true).Return(status, fmt.Errorf("some error"))
@@ -147,9 +148,9 @@ func TestIntegrationDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 
 	mockPath := setUpEmptyMaildir(t, "some-folder", "some-oldmail")
 
-	boxes := []*v1MailboxInfo{{Name: "some-folder"}}
+	boxes := []*imap.MailboxInfo{{Name: "some-folder"}}
 	status := &imap.MailboxStatus{Name: "some-folder", UidValidity: 42, Messages: 3}
-	messages := []*v1Message{
+	messages := []*imap.Message{
 		buildFakeImapMessage(t, 1, "some text"),
 		buildFakeImapMessage(t, 2, "some more text"),
 		// One of the messages does not contain the information we need, which will cause an error

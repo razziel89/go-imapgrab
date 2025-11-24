@@ -23,6 +23,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/emersion/go-imap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -36,12 +37,12 @@ type mockDownloader struct {
 	mock.Mock
 }
 
-func (m *mockDownloader) selectFolder(folder string) (*v1MailboxStatus, error) {
+func (m *mockDownloader) selectFolder(folder string) (*imap.MailboxStatus, error) {
 	args := m.Called(folder)
-	return args.Get(0).(*v1MailboxStatus), args.Error(1)
+	return args.Get(0).(*imap.MailboxStatus), args.Error(1)
 }
 
-func (m *mockDownloader) getAllMessageUUIDs(mbox *v1MailboxStatus) ([]uidExt, error) {
+func (m *mockDownloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uidExt, error) {
 	args := m.Called(mbox)
 	return args.Get(0).([]uidExt), args.Error(1)
 }
@@ -109,7 +110,8 @@ func TestDownloadMissingEmailsToFolderSuccess(t *testing.T) {
 	oldmailFileName := "some-oldmail-file"
 	oldmailPath := filepath.Join(tmpdir, oldmailFileName)
 
-	mbox := &v1MailboxStatus{
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
 		UidValidity: 42,
 		Messages:    3,
 	}
@@ -169,7 +171,8 @@ func TestDownloadMissingEmailsToFolderPreparationError(t *testing.T) {
 	maildirPath := maildirPathT{base: tmpdir, folder: "some-folder"}
 	oldmailFileName := "some-file"
 
-	mbox := &v1MailboxStatus{
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
 		UidValidity: 42,
 		Messages:    3,
 	}
@@ -193,7 +196,8 @@ func TestDownloadMissingEmailsToFolderPreparationNoNewEmails(t *testing.T) {
 	maildirPath := maildirPathT{base: tmpdir, folder: "some-folder"}
 	oldmailFileName := "some-file"
 
-	mbox := &v1MailboxStatus{
+	mbox := &imap.MailboxStatus{
+		Name:        "some-folder",
 		UidValidity: 42,
 		Messages:    3,
 	}
@@ -223,8 +227,8 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 	oldmailFileName := "some-oldmail-file"
 	oldmailPath := filepath.Join(tmpdir, oldmailFileName)
 
-	mbox := &v1MailboxStatus{
-		UidValidity: 42,
+	mbox := &imap.MailboxStatus{
+		Name: "some-folder", UidValidity: 42, Messages: 3,
 	}
 	uids := []uidExt{
 		{folder: 42, msg: 1}, {folder: 42, msg: 2}, {folder: 42, msg: 3},
@@ -277,7 +281,7 @@ func TestDownloadMissingEmailsToFolderDownloadError(t *testing.T) {
 }
 
 func TestDownloaderSelectFolder(t *testing.T) {
-	var mbox *v1MailboxStatus
+	var mbox *imap.MailboxStatus
 	m := &mockClient{}
 	m.On("Select", mock.Anything, mock.Anything).Return(mbox, fmt.Errorf("some error"))
 	dl := &downloader{
@@ -291,7 +295,7 @@ func TestDownloaderSelectFolder(t *testing.T) {
 }
 
 func TestDownloaderGetAllMessageUUIDs(t *testing.T) {
-	mbox := &v1MailboxStatus{
+	mbox := &imap.MailboxStatus{
 		Messages: 1,
 	}
 	m := &mockClient{}
@@ -307,7 +311,7 @@ func TestDownloaderGetAllMessageUUIDs(t *testing.T) {
 }
 
 func TestDownloaderGetAllMessageUUIDsNotFetchingEmptyFolder(t *testing.T) {
-	mbox := &v1MailboxStatus{
+	mbox := &imap.MailboxStatus{
 		Messages: 0,
 	}
 	m := &mockClient{}
