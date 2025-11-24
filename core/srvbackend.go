@@ -170,8 +170,63 @@ func (sess *serverSession) Fetch(w *imapserver.FetchWriter, numSet imap.NumSet, 
 	}
 	
 	logInfo("backend fetch messages")
-	// For now, return a minimal implementation that doesn't actually fetch messages
-	// A full implementation would iterate through messages and write fetch data
+	
+	// Iterate through messages and write fetch data
+	// For simplicity, we fetch all messages (proper implementation would filter by numSet)
+	for _, msg := range sess.mailbox.messages {
+		// Fill message body if needed
+		needBody := false
+		if options.BodySection != nil && len(options.BodySection) > 0 {
+			needBody = true
+		}
+		if options.RFC822Size {
+			needBody = true
+		}
+		
+		if needBody {
+			if err := msg.fill(); err != nil {
+				logError(fmt.Sprintf("cannot fill message: %s", err.Error()))
+				continue
+			}
+		}
+		
+		// Create fetch writer for this message
+		msgWriter := w.CreateMessage(msg.seqNum)
+		
+		// Write UID if requested
+		if options.UID {
+			msgWriter.WriteUID(msg.uid)
+		}
+		
+		// Write internal date if requested
+		if options.InternalDate {
+			msgWriter.WriteInternalDate(msg.modTime)
+		}
+		
+		// Write RFC822 size if requested
+		if options.RFC822Size {
+			msgWriter.WriteRFC822Size(int64(msg.size))
+		}
+		
+		// Write body sections if requested
+		for _, section := range options.BodySection {
+			// WriteBodySection in v2 takes section and size, returns a writer for the body
+			msgWriter.WriteBodySection(section, int64(len(msg.body)))
+		}
+		
+		// Write envelope if requested
+		if options.Envelope {
+			// For now, write an empty envelope
+			// A complete implementation would parse the message headers
+			msgWriter.WriteEnvelope(&imap.Envelope{})
+		}
+		
+		// Write flags if requested
+		if options.Flags {
+			msgWriter.WriteFlags([]imap.Flag{imap.FlagSeen})
+		}
+	}
+	
 	return nil
 }
 

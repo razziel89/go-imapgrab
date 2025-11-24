@@ -18,9 +18,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package core
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"sync"
+	"time"
+
+	"github.com/emersion/go-imap/v2"
 )
 
 const (
@@ -73,12 +77,50 @@ func clearBackendMessageMemoryIfNeeded(msg *serverMessage, newSize int) {
 	}
 }
 
-// Simplified serverMessage for v2 - server backend uses v1 for now
+// serverMessage represents a message in the server backend for v2
 type serverMessage struct {
-	path string
-	lock *sync.Mutex
+	path       string
+	uid        imap.UID
+	seqNum     uint32
+	body       []byte
+	size       uint32
+	modTime    time.Time
+	filled     bool
+	lock       *sync.Mutex
+}
+
+func (m *serverMessage) fill() error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	
+	if m.filled {
+		return nil
+	}
+	
+	body, err := os.ReadFile(m.path)
+	if err != nil {
+		return err
+	}
+	
+	m.body = body
+	m.size = uint32(len(body))
+	m.filled = true
+	
+	clearBackendMessageMemoryIfNeeded(m, len(body))
+	logInfo(fmt.Sprintf("read %d bytes from %s", len(body), m.path))
+	return nil
 }
 
 func (m *serverMessage) clear() {
-	// Simplified for v2 migration
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	
+	if !m.filled {
+		return
+	}
+	
+	size := len(m.body)
+	m.body = nil
+	m.filled = false
+	logInfo(fmt.Sprintf("cleared %d bytes from %s", size, m.path))
 }

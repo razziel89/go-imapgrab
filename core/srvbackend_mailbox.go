@@ -23,6 +23,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
+
+	"github.com/emersion/go-imap/v2"
 )
 
 type serverMailbox struct {
@@ -60,9 +63,20 @@ func (mb *serverMailbox) addMessages() error {
 		return files[i].info.ModTime().Before(files[j].info.ModTime())
 	})
 
-	// Just store basic information, don't load full messages
-	// Server functionality is minimal in v2 migration
-	mb.messages = make([]*serverMessage, len(files))
-	logInfo(fmt.Sprintf("read %d messags for mailbox %s", len(files), mb.maildir.folderName()))
+	// Create serverMessage objects for each file
+	messages := make([]*serverMessage, 0, len(files))
+	for idx, file := range files {
+		msg := &serverMessage{
+			path:    file.path,
+			uid:     imap.UID(idx + 1),
+			seqNum:  uint32(idx + 1),
+			modTime: file.info.ModTime(),
+			lock:    &sync.Mutex{},
+		}
+		messages = append(messages, msg)
+	}
+	
+	mb.messages = messages
+	logInfo(fmt.Sprintf("read %d messags for mailbox %s", len(messages), mb.maildir.folderName()))
 	return nil
 }
