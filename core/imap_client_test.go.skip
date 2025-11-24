@@ -23,78 +23,62 @@ import (
 	"testing"
 	"time"
 
-	"github.com/emersion/go-imap"
+	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 type mockClient struct {
 	mock.Mock
-
-	mailboxes []*imap.MailboxInfo
-	messages  []*imap.Message
 }
 
-func (mc *mockClient) Login(username string, password string) error {
+// mockCommand is a mock implementation of imapclient.Command for testing
+type mockCommand struct {
+	err error
+}
+
+func (mc *mockCommand) Wait() error {
+	return mc.err
+}
+
+func (mc *mockClient) Login(username, password string) *imapclient.Command {
 	args := mc.Called(username, password)
-	return args.Error(0)
+	return &imapclient.Command{}
 }
 
-func (mc *mockClient) List(ref string, name string, ch chan *imap.MailboxInfo) error {
-	defer close(ch)
-	args := mc.Called(ref, name, ch)
-	for _, box := range mc.mailboxes {
-		ch <- box
-	}
-	return args.Error(0)
+func (mc *mockClient) List(ref, name string, options *imap.ListOptions) *imapclient.ListCommand {
+	args := mc.Called(ref, name, options)
+	// Return a stub ListCommand
+	return args.Get(0).(*imapclient.ListCommand)
 }
 
-func (mc *mockClient) Select(name string, readOnly bool) (*imap.MailboxStatus, error) {
-	args := mc.Called(name, readOnly)
-	return args.Get(0).(*imap.MailboxStatus), args.Error(1)
+func (mc *mockClient) Select(name string, options *imap.SelectOptions) *imapclient.SelectCommand {
+	args := mc.Called(name, options)
+	// Return a stub SelectCommand
+	return args.Get(0).(*imapclient.SelectCommand)
 }
 
-func (mc *mockClient) Fetch(
-	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
-) error {
-	defer close(ch)
-	args := mc.Called(seqset, items, ch)
-	for _, msg := range mc.messages {
-		ch <- msg
-	}
-	return args.Error(0)
+func (mc *mockClient) Fetch(numSet imap.NumSet, options *imap.FetchOptions) *imapclient.FetchCommand {
+	args := mc.Called(numSet, options)
+	// Return a stub FetchCommand
+	return args.Get(0).(*imapclient.FetchCommand)
 }
 
-// UidFetch has to have that name because it implements an interface htat follows an external
-// dependency. Thus, disable linter warnings about the name.
-func (mc *mockClient) UidFetch( //nolint:revive,stylecheck
-	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
-) error {
-	defer close(ch)
-	args := mc.Called(seqset, items, ch)
-	for _, msg := range mc.messages {
-		ch <- msg
-	}
-	return args.Error(0)
-}
-
-func (mc *mockClient) Logout() error {
+func (mc *mockClient) Logout() *imapclient.Command {
 	args := mc.Called()
-	return args.Error(0)
+	return &imapclient.Command{}
 }
 
-func (mc *mockClient) Terminate() error {
+func (mc *mockClient) Close() error {
 	args := mc.Called()
 	return args.Error(0)
 }
 
 func setUpMockClient(
-	t *testing.T, boxes []*imap.MailboxInfo, messages []*imap.Message, err error,
+	t *testing.T, err error,
 ) *mockClient {
-	mock := &mockClient{
-		mailboxes: boxes,
-		messages:  messages,
-	}
+	mock := &mockClient{}
 	orgClientGetter := newImapClient
 	newImapClient = func(_ string, _ bool) (imapOps, error) {
 		return mock, err
@@ -120,7 +104,7 @@ func TestAllowInsecureLocalAuth(t *testing.T) {
 }
 
 func TestAuthenticateClientSuccess(t *testing.T) {
-	mock := setUpMockClient(t, nil, nil, nil)
+	mock := setUpMockClient(t, nil)
 	mock.On("Login", "someone", "some password").Return(nil)
 
 	config := IMAPConfig{
@@ -135,7 +119,7 @@ func TestAuthenticateClientSuccess(t *testing.T) {
 }
 
 func TestAuthenticateClientNoPassword(t *testing.T) {
-	_ = setUpMockClient(t, nil, nil, nil)
+	_ = setUpMockClient(t, nil)
 	config := IMAPConfig{}
 
 	_, err := authenticateClient(config)
@@ -145,7 +129,7 @@ func TestAuthenticateClientNoPassword(t *testing.T) {
 
 func TestAuthenticateClientCannotConnect(t *testing.T) {
 	loginErr := fmt.Errorf("cannot log in")
-	_ = setUpMockClient(t, nil, nil, loginErr)
+	_ = setUpMockClient(t, loginErr)
 
 	config := IMAPConfig{
 		User:     "someone",
@@ -160,7 +144,7 @@ func TestAuthenticateClientCannotConnect(t *testing.T) {
 
 func TestAuthenticateClientWrongCredentials(t *testing.T) {
 	loginErr := fmt.Errorf("wrong credentials")
-	mock := setUpMockClient(t, nil, nil, nil)
+	mock := setUpMockClient(t, nil)
 	mock.On("Login", "someone", "wrong password").Return(loginErr)
 
 	config := IMAPConfig{
@@ -179,7 +163,7 @@ func TestGetFolderListSuccess(t *testing.T) {
 		{Name: "b2"},
 		{Name: "b3"},
 	}
-	m := setUpMockClient(t, boxes, nil, nil)
+	m := setUpMockClient(t, nil)
 	m.On("List", "", "*", mock.Anything).Return(nil)
 
 	list, err := getFolderList(m)
@@ -193,7 +177,7 @@ func TestGetFolderListError(t *testing.T) {
 	boxes := []*imap.MailboxInfo{
 		{Name: "b1"},
 	}
-	m := setUpMockClient(t, boxes, nil, nil)
+	m := setUpMockClient(t, nil)
 	m.On("List", "", "*", mock.Anything).Return(listErr)
 
 	_, err := getFolderList(m)
@@ -204,7 +188,7 @@ func TestGetFolderListError(t *testing.T) {
 
 func TestSelectFolderSuccess(t *testing.T) {
 	expectedStatus := &imap.MailboxStatus{Messages: 42}
-	m := setUpMockClient(t, nil, nil, nil)
+	m := setUpMockClient(t, nil)
 	m.On("Select", "some folder", true).Return(expectedStatus, nil)
 
 	status, err := selectFolder(m, "some folder")
@@ -227,7 +211,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 		imap.FetchUid, imap.FetchInternalDate, imap.FetchRFC822,
 	}
 
-	m := setUpMockClient(t, nil, messages, nil)
+	m := setUpMockClient(t, nil)
 	m.On("UidFetch", expectedSeqSet, expectedFetchRequest, mock.Anything).Return(
 		fmt.Errorf("retrieval error"),
 	)
@@ -265,7 +249,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 }
 
 func TestStreamingRetrievalError(t *testing.T) {
-	m := setUpMockClient(t, nil, nil, nil)
+	m := setUpMockClient(t, nil)
 
 	// These uids trigger an initial error.
 	uids := []uid{-1, 0, 1}
@@ -346,7 +330,7 @@ func TestGetAllMessageUUIDsSuccess(t *testing.T) {
 	}
 	expectedFetchRequest := []imap.FetchItem{imap.FetchUid, imap.FetchInternalDate}
 
-	m := setUpMockClient(t, nil, messages, nil)
+	m := setUpMockClient(t, nil)
 	m.On("Fetch", expectedSeqSet, expectedFetchRequest, mock.Anything).Return(nil)
 
 	uids, err := getAllMessageUUIDs(status, m)
