@@ -22,9 +22,9 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/backend/memory"
+	"github.com/emersion/go-imap/v2"
 )
 
 const (
@@ -77,54 +77,50 @@ func clearBackendMessageMemoryIfNeeded(msg *serverMessage, newSize int) {
 	}
 }
 
+// serverMessage represents a message in the server backend for v2
 type serverMessage struct {
-	path   string
-	filled bool
-	lock   *sync.Mutex
-
-	msg *memory.Message
-}
-
-func (m *serverMessage) Fetch(seqNum uint32, items []imap.FetchItem) (*imap.Message, error) {
-	err := m.fill()
-	if err != nil {
-		return nil, err
-	}
-	return m.msg.Fetch(seqNum, items)
-}
-
-func (m *serverMessage) Match(seqNum uint32, c *imap.SearchCriteria) (bool, error) {
-	err := m.fill()
-	if err != nil {
-		return false, err
-	}
-	return m.msg.Match(seqNum, c)
+	path       string
+	uid        imap.UID
+	seqNum     uint32
+	body       []byte
+	size       uint32
+	modTime    time.Time
+	filled     bool
+	lock       *sync.Mutex
 }
 
 func (m *serverMessage) fill() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
+	
 	if m.filled {
 		return nil
 	}
-	// Fill only once if not yet filled.
+	
 	body, err := os.ReadFile(m.path)
-	if err == nil {
-		m.msg.Size = intToUint32(len(body))
-		m.msg.Body = body
-		m.filled = true
+	if err != nil {
+		return err
 	}
+	
+	m.body = body
+	m.size = uint32(len(body))
+	m.filled = true
+	
 	clearBackendMessageMemoryIfNeeded(m, len(body))
 	logInfo(fmt.Sprintf("read %d bytes from %s", len(body), m.path))
-	return err
+	return nil
 }
 
 func (m *serverMessage) clear() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	size := m.msg.Size
-	m.msg.Size = 0
-	m.msg.Body = nil
+	
+	if !m.filled {
+		return
+	}
+	
+	size := len(m.body)
+	m.body = nil
 	m.filled = false
 	logInfo(fmt.Sprintf("cleared %d bytes from %s", size, m.path))
 }

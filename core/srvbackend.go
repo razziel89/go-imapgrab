@@ -21,12 +21,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/backend"
+	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapserver"
 )
 
 var errReadOnlyServer = errors.New("cannot execute action, this is a read-only IMAP server")
 
+// serverBackend is the v2 IMAP server backend
 type serverBackend struct {
 	path     string
 	username string
@@ -34,18 +35,207 @@ type serverBackend struct {
 	user     *serverUser
 }
 
-func (b *serverBackend) Login(_ *imap.ConnInfo, username, password string) (backend.User, error) {
-	logInfo(fmt.Sprintf("attempting to log in as %s", username))
-	if username != b.username {
-		logInfo(fmt.Sprintf("login as %s failed, bad user", username))
-		return nil, fmt.Errorf("bad username or password")
+// NewSession creates a new IMAP session for v2 server
+func (b *serverBackend) NewSession(conn *imapserver.Conn) (imapserver.Session, *imapserver.GreetingData, error) {
+	sess := &serverSession{
+		backend: b,
 	}
-	if password != b.password {
+	return sess, &imapserver.GreetingData{}, nil
+}
+
+// serverSession implements imapserver.Session for v2
+type serverSession struct {
+	backend  *serverBackend
+	user     *serverUser
+	mailbox  *serverMailbox
+}
+
+func (sess *serverSession) Close() error {
+	return nil
+}
+
+func (sess *serverSession) Login(username, password string) error {
+	logInfo(fmt.Sprintf("attempting to log in as %s", username))
+	if username != sess.backend.username {
+		logInfo(fmt.Sprintf("login as %s failed, bad user", username))
+		return imapserver.ErrAuthFailed
+	}
+	if password != sess.backend.password {
 		logInfo(fmt.Sprintf("login as %s failed, bad password", username))
-		return nil, fmt.Errorf("bad username or password")
+		return imapserver.ErrAuthFailed
 	}
 	logInfo(fmt.Sprintf("login as %s succeeded", username))
-	return b.user, nil
+	sess.user = sess.backend.user
+	return nil
+}
+
+// Authenticated state methods
+func (sess *serverSession) Select(mailbox string, options *imap.SelectOptions) (*imap.SelectData, error) {
+	logInfo(fmt.Sprintf("backend select mailbox %s", mailbox))
+	// Find the mailbox
+	for _, mbox := range sess.user.mailboxes {
+		if mbox.maildir.folderName() == mailbox {
+			sess.mailbox = mbox
+			return &imap.SelectData{
+				Flags:       []imap.Flag{imap.FlagSeen},
+				NumMessages: uint32(len(mbox.messages)),
+				UIDValidity: 1,
+				UIDNext:     imap.UID(len(mbox.messages) + 1),
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("mailbox not found")
+}
+
+func (sess *serverSession) Create(_ string, _ *imap.CreateOptions) error {
+	return errReadOnlyServer
+}
+
+func (sess *serverSession) Delete(_ string) error {
+	return errReadOnlyServer
+}
+
+func (sess *serverSession) Rename(_, _ string, _ *imap.RenameOptions) error {
+	return errReadOnlyServer
+}
+
+func (sess *serverSession) Subscribe(_ string) error {
+	return nil // no-op for read-only server
+}
+
+func (sess *serverSession) Unsubscribe(_ string) error {
+	return nil // no-op for read-only server
+}
+
+func (sess *serverSession) List(w *imapserver.ListWriter, ref string, patterns []string, options *imap.ListOptions) error {
+	logInfo("backend list mailboxes")
+	for _, mbox := range sess.user.mailboxes {
+		data := &imap.ListData{
+			Mailbox: mbox.maildir.folderName(),
+		}
+		if err := w.WriteList(data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (sess *serverSession) Status(mailbox string, options *imap.StatusOptions) (*imap.StatusData, error) {
+	logInfo(fmt.Sprintf("backend status mailbox %s", mailbox))
+	for _, mbox := range sess.user.mailboxes {
+		if mbox.maildir.folderName() == mailbox {
+			data := &imap.StatusData{
+				Mailbox:     mailbox,
+				UIDNext:     imap.UID(len(mbox.messages) + 1),
+				UIDValidity: 1,
+			}
+			numMessages := uint32(len(mbox.messages))
+			data.NumMessages = &numMessages
+			return data, nil
+		}
+	}
+	return nil, fmt.Errorf("mailbox not found")
+}
+
+func (sess *serverSession) Append(_ string, _ imap.LiteralReader, _ *imap.AppendOptions) (*imap.AppendData, error) {
+	return nil, errReadOnlyServer
+}
+
+func (sess *serverSession) Poll(_ *imapserver.UpdateWriter, _ bool) error {
+	return nil // no-op for read-only server
+}
+
+func (sess *serverSession) Idle(_ *imapserver.UpdateWriter, _ <-chan struct{}) error {
+	return nil // no-op for read-only server
+}
+
+// Selected state methods
+func (sess *serverSession) Unselect() error {
+	sess.mailbox = nil
+	return nil
+}
+
+func (sess *serverSession) Expunge(_ *imapserver.ExpungeWriter, _ *imap.UIDSet) error {
+	return errReadOnlyServer
+}
+
+func (sess *serverSession) Search(_ imapserver.NumKind, _ *imap.SearchCriteria, _ *imap.SearchOptions) (*imap.SearchData, error) {
+	// Minimal search implementation - return empty results
+	return &imap.SearchData{}, nil
+}
+
+func (sess *serverSession) Fetch(w *imapserver.FetchWriter, numSet imap.NumSet, options *imap.FetchOptions) error {
+	if sess.mailbox == nil {
+		return fmt.Errorf("no mailbox selected")
+	}
+	
+	logInfo("backend fetch messages")
+	
+	// Iterate through messages and write fetch data
+	// For simplicity, we fetch all messages (proper implementation would filter by numSet)
+	for _, msg := range sess.mailbox.messages {
+		// Fill message body if needed
+		needBody := false
+		if options.BodySection != nil && len(options.BodySection) > 0 {
+			needBody = true
+		}
+		if options.RFC822Size {
+			needBody = true
+		}
+		
+		if needBody {
+			if err := msg.fill(); err != nil {
+				logError(fmt.Sprintf("cannot fill message: %s", err.Error()))
+				continue
+			}
+		}
+		
+		// Create fetch writer for this message
+		msgWriter := w.CreateMessage(msg.seqNum)
+		
+		// Write UID if requested
+		if options.UID {
+			msgWriter.WriteUID(msg.uid)
+		}
+		
+		// Write internal date if requested
+		if options.InternalDate {
+			msgWriter.WriteInternalDate(msg.modTime)
+		}
+		
+		// Write RFC822 size if requested
+		if options.RFC822Size {
+			msgWriter.WriteRFC822Size(int64(msg.size))
+		}
+		
+		// Write body sections if requested
+		for _, section := range options.BodySection {
+			// WriteBodySection in v2 takes section and size, returns a writer for the body
+			msgWriter.WriteBodySection(section, int64(len(msg.body)))
+		}
+		
+		// Write envelope if requested
+		if options.Envelope {
+			// For now, write an empty envelope
+			// A complete implementation would parse the message headers
+			msgWriter.WriteEnvelope(&imap.Envelope{})
+		}
+		
+		// Write flags if requested
+		if options.Flags {
+			msgWriter.WriteFlags([]imap.Flag{imap.FlagSeen})
+		}
+	}
+	
+	return nil
+}
+
+func (sess *serverSession) Store(_ *imapserver.FetchWriter, _ imap.NumSet, _ *imap.StoreFlags, _ *imap.StoreOptions) error {
+	return errReadOnlyServer
+}
+
+func (sess *serverSession) Copy(_ imap.NumSet, _ string) (*imap.CopyData, error) {
+	return nil, errReadOnlyServer
 }
 
 func (b *serverBackend) addUser() error {
@@ -55,12 +245,12 @@ func (b *serverBackend) addUser() error {
 	return err
 }
 
-func newBackend(path, username, password string) (backend.Backend, error) {
-	bcknd := serverBackend{
+func newBackend(path, username, password string) (*serverBackend, error) {
+	bcknd := &serverBackend{
 		path:     path,
 		username: username,
 		password: password,
 	}
 	err := bcknd.addUser()
-	return &bcknd, err
+	return bcknd, err
 }

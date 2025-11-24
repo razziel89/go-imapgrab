@@ -78,7 +78,7 @@ func TestImapgrabberGetFolderList(t *testing.T) {
 	ig, ok := NewImapgrabOps().(*Imapgrabber)
 	assert.True(t, ok)
 
-	m := setUpMockClient(t, nil, nil, nil)
+	m := setUpMockClient(t, nil)
 	m.On("List", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
 	ig.imapOps = m
 
@@ -91,7 +91,7 @@ func TestImapgrabberDownloadMissingEmails(t *testing.T) {
 	ig, ok := NewImapgrabOps().(*Imapgrabber)
 	assert.True(t, ok)
 
-	m := setUpMockClient(t, nil, nil, nil)
+	m := setUpMockClient(t, nil)
 	ig.imapOps = m
 
 	mi := &mockInterrupter{}
@@ -122,7 +122,7 @@ func TestImapgrabberLogout(t *testing.T) {
 	ig, ok := NewImapgrabOps().(*Imapgrabber)
 	assert.True(t, ok)
 
-	m := setUpMockClient(t, nil, nil, nil)
+	m := setUpMockClient(t, nil)
 	m.On("Logout").Return(fmt.Errorf("some error"))
 	ig.imapOps = m
 
@@ -140,7 +140,7 @@ func TestImapgrabberTerminate(t *testing.T) {
 	ig, ok := NewImapgrabOps().(*Imapgrabber)
 	assert.True(t, ok)
 
-	m := setUpMockClient(t, nil, nil, nil)
+	m := setUpMockClient(t, nil)
 	m.On("Terminate").Return(fmt.Errorf("some error"))
 	ig.imapOps = m
 

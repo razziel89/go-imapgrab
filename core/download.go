@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/emersion/go-imap"
+	"github.com/emersion/go-imap/v2"
 )
 
 const (
@@ -30,8 +30,8 @@ const (
 )
 
 type downloadOps interface {
-	selectFolder(folder string) (*imap.MailboxStatus, error)
-	getAllMessageUUIDs(*imap.MailboxStatus) ([]uidExt, error)
+	selectFolder(folder string) (*imap.SelectData, error)
+	getAllMessageUUIDs(*imap.SelectData) ([]uidExt, error)
 	streamingOldmailWriteout(<-chan oldmail, string, *sync.WaitGroup, *sync.WaitGroup) (*int, error)
 	streamingRetrieval(
 		[]uid, *sync.WaitGroup, *sync.WaitGroup, func() bool,
@@ -46,11 +46,11 @@ type downloader struct {
 	deliverOps deliverOps
 }
 
-func (d downloader) selectFolder(folder string) (*imap.MailboxStatus, error) {
+func (d downloader) selectFolder(folder string) (*imap.SelectData, error) {
 	return selectFolder(d.imapOps, folder)
 }
 
-func (d downloader) getAllMessageUUIDs(mbox *imap.MailboxStatus) ([]uidExt, error) {
+func (d downloader) getAllMessageUUIDs(mbox *imap.SelectData) ([]uidExt, error) {
 	return getAllMessageUUIDs(mbox, d.imapOps)
 }
 
@@ -81,7 +81,7 @@ func downloadMissingEmailsToFolder(
 	ops downloadOps, maildirPath maildirPathT, oldmailName string, sig interruptOps,
 ) (err error) {
 	oldmails, oldmailPath, err := initMaildir(oldmailName, maildirPath)
-	var mbox *imap.MailboxStatus
+	var mbox *imap.SelectData
 	if err == nil {
 		mbox, err = ops.selectFolder(maildirPath.folderName())
 	}
@@ -93,7 +93,7 @@ func downloadMissingEmailsToFolder(
 		err = fmt.Errorf("aborting due to user interrupt")
 	}
 	if err == nil {
-		uidFold = uidFolder(mbox.UidValidity)
+		uidFold = uidFolder(mbox.UIDValidity)
 		uids, err = ops.getAllMessageUUIDs(mbox)
 	}
 	var missingUIDs []uid

@@ -20,65 +20,11 @@ package core
 import (
 	"fmt"
 	"os"
-
-	"github.com/emersion/go-imap/backend"
 )
 
 type serverUser struct {
 	name      string
 	mailboxes []*serverMailbox
-}
-
-// Username provides the user's name.
-func (u *serverUser) Username() string {
-	logInfo("backend username")
-	return u.name
-}
-
-// ListMailboxes lists a mailbox.
-func (u *serverUser) ListMailboxes(_ bool) ([]backend.Mailbox, error) {
-	logInfo("backend list mailboxes")
-	boxes := []backend.Mailbox{}
-	for idx := range u.mailboxes {
-		boxes = append(boxes, u.mailboxes[idx])
-	}
-	logInfo(fmt.Sprintf("listed %d mailboxes", len(boxes)))
-	return boxes, nil
-}
-
-// GetMailbox retrieves a mailbox.
-func (u *serverUser) GetMailbox(name string) (backend.Mailbox, error) {
-	logInfo(fmt.Sprintf("backend get mailbox %s", name))
-	for _, mailbox := range u.mailboxes {
-		if mailbox.maildir.folderName() == name {
-			return mailbox, nil
-		}
-	}
-	return nil, fmt.Errorf("unknown mailbox %s", name)
-}
-
-// CreateMailbox creates a mailbox.
-func (u *serverUser) CreateMailbox(_ string) error {
-	logInfo("backend create mailbox")
-	return errReadOnlyServer
-}
-
-// DeleteMailbox deletes a mailbox.
-func (u *serverUser) DeleteMailbox(_ string) error {
-	logInfo("backend delete mailbox")
-	return errReadOnlyServer
-}
-
-// RenameMailbox renames a mailbox.
-func (u *serverUser) RenameMailbox(_, _ string) error {
-	logInfo("backend rename mailbox")
-	return errReadOnlyServer
-}
-
-// Logout logs out the user. This is a no-op.
-func (u *serverUser) Logout() error {
-	logInfo("backend logout")
-	return nil
 }
 
 func (u *serverUser) addMailboxes(path string) error {

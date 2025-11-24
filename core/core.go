@@ -26,7 +26,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/emersion/go-imap/server"
+	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapserver"
 )
 
 var signalsToWaitFor = []os.Signal{os.Interrupt}
@@ -78,10 +79,14 @@ func (ig *Imapgrabber) logout(doTerminate bool) error {
 	defer ig.interruptOps.deregister()
 	if doTerminate {
 		logInfo("terminating connection")
-		return ig.imapOps.Terminate()
+		return ig.imapOps.Close()
 	}
 	logInfo("logging out")
-	return ig.imapOps.Logout()
+	err := ig.imapOps.Logout().Wait()
+	if err == nil {
+		err = ig.imapOps.Close()
+	}
+	return err
 }
 
 // getFolderList provides all folders in the configured mailbox
@@ -226,13 +231,21 @@ func ServeMaildir(cfg IMAPConfig, serverPort int, maildirBase string) (err error
 		return err
 	}
 
-	server := server.New(backend)
-	// Allow unauthenticated connections as this is a local server only.
-	server.AllowInsecureAuth = true
-	// Listen on a high local port and only on locahost. This is a local server, which means we
-	// should not listen on all interfaces.
-	server.Addr = fmt.Sprintf("127.0.0.1:%d", serverPort)
-	logInfo("local IMAP server listening on " + server.Addr)
+	// Create v2 server with options
+	caps := make(imap.CapSet)
+	caps[imap.CapIMAP4rev1] = struct{}{}
+	
+	opts := &imapserver.Options{
+		NewSession: func(conn *imapserver.Conn) (imapserver.Session, *imapserver.GreetingData, error) {
+			return backend.NewSession(conn)
+		},
+		InsecureAuth: true,
+		Caps:         caps,
+	}
+	
+	server := imapserver.New(opts)
+	addr := fmt.Sprintf("127.0.0.1:%d", serverPort)
+	logInfo("local IMAP server listening on " + addr)
 
 	// Have server listen in separate goroutine to be able to handle requests asyncronously. The
 	// channel is used to ensure the server stops listening before the main goroutine finishes
@@ -240,7 +253,7 @@ func ServeMaildir(cfg IMAPConfig, serverPort int, maildirBase string) (err error
 	syncChan := make(chan bool, 1)
 	var serverErr error
 	go func() {
-		serverErr = server.ListenAndServe()
+		serverErr = server.ListenAndServe(addr)
 		syncChan <- true
 	}()
 
@@ -251,7 +264,7 @@ func ServeMaildir(cfg IMAPConfig, serverPort int, maildirBase string) (err error
 	<-syncChan
 
 	// Do not report this expected error.
-	if strings.Contains(serverErr.Error(), errClosedNetwork) {
+	if serverErr != nil && strings.Contains(serverErr.Error(), errClosedNetwork) {
 		serverErr = nil
 	}
 
