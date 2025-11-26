@@ -15,7 +15,6 @@
         * [Using the mutt command line client](#using-the-mutt-command-line-client)
         * [Using any email client](#using-any-email-client)
         * [A note on ports](#a-note-on-ports)
-    * [UI](#ui)
 * [Installation](#installation)
     * [Tab completion](#tab-completion)
 * [How to contribute](#how-to-contribute)
@@ -45,7 +44,6 @@ needed, especially in the case of known vulnerabilities.
 - download IMAP mailboxes to a local directory following the
   [`maildir`][maildir] format
 - browse local backups with your favourite email client
-- a [graphical user interface](#ui) backed by a config file
 - download folders in parallel
 - static binary without any additional dependencies
 - support for system keyring to store credentials securely
@@ -112,8 +110,6 @@ A typical workflow consists of the following four steps:
 - list the folders in your mailbox
 - download the ones you wish to back up
 - view locally stored emails using your favourite email client
-
-All of the above is can be managed via the [graphical user interface](#ui).
 
 ## Note for Windows users
 
@@ -320,54 +316,6 @@ Only one service can listen on the same port.
 Thus, if you wish to view multiple mailboxes at the same time, specify a
 different port for every invocation of the `serve` command using the
 `--server-port "${SERVERPORT}"` flag.
-
-## UI
-
-You can interact with `go-imapgrab` via a graphical user interface via the `ui`
-command:
-
-```bash
-go-imapgrab ui
-```
-
-This will open a fully-local web server that is hosting the UI.
-It will also open your default web browser and connect it to the web server,
-which may take a moment.
-At the top of the UI, you will see a description of how to use it.
-
-When using the UI, passwords are always retrieved from and stored in the
-system's keyring.
-That is, it is not possible to use the UI without also using the keyring.
-The UI will keep information about mailboxes, apart from passwords, in a config
-file.
-When starting the UI, `go-imapgrab` looks for the config file in the following
-locations, given in decreasing order of preference:
-
-- at `$XDG_CONFIG_HOME/go-imapgrab/config.yaml` if the environment variable
-  `XDG_CONFIG_HOME` is set
-- at `$HOME/.config/go-imapgrab/config.yaml` if the environment variable
-  `XDG_CONFIG_HOME` is not set
-- a file called `go-imapgrab.yaml` in the current working directory if neither
-  of the above files can be found
-
-If there is no file in any of the three locations, `go-imapgrab` will create a
-new one at `$HOME/.config/go-imapgrab/config.yaml` the first time you click on
-the "save" button.
-
-When downloading, `go-imapgrab` will store your emails in one of the following
-locations, given in decreasing order of preference:
-
-- at the location pointed to by the `path` entry in the loaded config file
-- at `$XDG_STATE_HOME/go-imapgrab/download` if the environment variable
-  `XDG_STATE_HOME` is set
-- at `$HOME/.local/stat/go-imapgrab/download` if the environment variable
-  `XDG_STATE_HOME` is not set
-
-To see the full specification for the `ui` command, run:
-
-```bash
-go-imapgrab download --help
-```
 
 # Installation
 

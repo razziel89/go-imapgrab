@@ -25,6 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const filePerms = 0644
+
 func TestExists(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "some-file")
