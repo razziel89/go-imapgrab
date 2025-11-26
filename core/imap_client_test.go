@@ -67,7 +67,7 @@ func (mc *mockClient) Fetch(
 
 // UidFetch has to have that name because it implements an interface htat follows an external
 // dependency. Thus, disable linter warnings about the name.
-func (mc *mockClient) UidFetch( //nolint:revive,stylecheck
+func (mc *mockClient) UidFetch( //nolint:revive
 	seqset *imap.SeqSet, items []imap.FetchItem, ch chan *imap.Message,
 ) error {
 	defer close(ch)
@@ -246,7 +246,7 @@ func TestStreamingRetrievalSuccess(t *testing.T) {
 	case <-emailChan:
 		// Fail if something has happened yet.
 		t.Fail()
-	case <-time.After(time.Millisecond * 100): // nolint: gomnd
+	case <-time.After(time.Millisecond * 100): // nolint: mnd
 		// Continue if nothing has happened yet.
 	}
 

@@ -1,49 +1,45 @@
-linters-settings:
-  funlen:
-    lines: 60
-    statements: 40
-
-  goheader:
-    template-path: .goheader.template
-
-  lll:
-    line-length: 100
-    tab-width: 4
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
+    - dupl
     - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - typecheck
-    - unused
     - exhaustive
     - funlen
     - goconst
     - goheader
-    - goimports
-    - mnd
     - gosec
+    - govet
     - importas
+    - ineffassign
     - lll
+    - makezero
     - misspell
+    - mnd
     - nestif
     - prealloc
-    - tagliatelle
     - revive
-    - dupl
-    - makezero
-    - stylecheck
+    - staticcheck
+    - tagliatelle
     - unused
-  fast: false
-
-issues:
-  exclude-rules:
-    # Exclude some linters from running on tests files.
-    - path: _test\.go
-      linters:
-        - dupl
-        - gosec
+  settings:
+    funlen:
+      lines: 60
+      statements: 40
+    goheader:
+      template-path: .goheader.template
+    lll:
+      line-length: 100
+      tab-width: 4
+  exclusions:
+    generated: strict
+    rules:
+      - path: _test\.go
+        linters:
+          - dupl
+          - gosec
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: strict

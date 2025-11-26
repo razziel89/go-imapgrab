@@ -99,7 +99,8 @@ func initCredentials(rootConf *rootConfigT, keyring keyringOps, verbose bool) er
 		// from the file. If not, we use the value from the environment directly. This enables the
 		// use of docker-compose secrets.
 		var password string
-		maybePassword, readErr := os.ReadFile(passwordInput)
+		// File inclusion via variable is desired here.
+		maybePassword, readErr := os.ReadFile(passwordInput) // #nosec:G304
 		if readErr == nil {
 			// It does point to a file.
 			password = strings.TrimSpace(string(maybePassword))

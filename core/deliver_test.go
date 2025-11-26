@@ -107,7 +107,7 @@ func TestStreamingDeliverySuccessDespiteOneError(t *testing.T) {
 	assert.Zero(t, *errCountPtr)
 
 	// Wait a while and check that nothing has happened yet.
-	time.Sleep(time.Millisecond * 100) // nolint: gomnd
+	time.Sleep(time.Millisecond * 100) // nolint: mnd
 	m.AssertNotCalled(t, "rfc822FromEmail", mock.Anything, mock.Anything)
 	m.AssertNotCalled(t, "deliverMessage", mock.Anything, mock.Anything)
 
