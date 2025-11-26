@@ -59,7 +59,7 @@ jobs:
         run: make lint
 
       - name: Build all release binaries on main
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         if: ${{ github.ref == 'refs/heads/main' }}
         with:
           # The snapshot flag is needed since we do not want to require a tag just
@@ -79,7 +79,7 @@ jobs:
           )"
 
       - name: Release binaries on tag
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         if: startsWith(github.ref, 'refs/tags/')
         with:
           args: release --clean
