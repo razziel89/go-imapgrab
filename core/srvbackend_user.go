@@ -38,7 +38,7 @@ func (u *serverUser) Username() string {
 // ListMailboxes lists a mailbox.
 func (u *serverUser) ListMailboxes(_ bool) ([]backend.Mailbox, error) {
 	logInfo("backend list mailboxes")
-	boxes := []backend.Mailbox{}
+	boxes := make([]backend.Mailbox, 0, len(u.mailboxes))
 	for idx := range u.mailboxes {
 		boxes = append(boxes, u.mailboxes[idx])
 	}

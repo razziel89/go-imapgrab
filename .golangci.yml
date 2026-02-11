@@ -38,6 +38,7 @@ linters:
         linters:
           - dupl
           - gosec
+          - prealloc
 formatters:
   enable:
     - goimports
