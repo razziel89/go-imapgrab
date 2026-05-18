@@ -6,16 +6,15 @@ replace github.com/razziel89/go-imapgrab/core => ../core
 
 require (
 	github.com/emersion/go-imap v1.2.1
-	github.com/razziel89/go-imapgrab/core v0.0.0-20251126084149-2bb7c5611178
+	github.com/razziel89/go-imapgrab/core v0.0.0-20260211194454-845bfa6c4f34
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
-	github.com/zalando/go-keyring v0.2.6
-	golang.org/x/term v0.40.0
+	github.com/zalando/go-keyring v0.2.8
+	golang.org/x/term v0.43.0
 )
 
 require (
-	al.essio.dev/pkg/shellescape v1.6.0 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emersion/go-message v0.18.2 // indirect
@@ -25,7 +24,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
-	golang.org/x/sys v0.41.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
