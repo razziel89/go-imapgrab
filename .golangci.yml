@@ -39,6 +39,7 @@ linters:
           - dupl
           - gosec
           - prealloc
+          - goconst
 formatters:
   enable:
     - goimports
